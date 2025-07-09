@@ -1,0 +1,483 @@
+import React, { useState } from 'react';
+import { ChevronLeft, ChevronRight, Plus, Calendar as CalendarIcon, Clock, Users, X } from 'lucide-react';
+
+interface EventFormData {
+  title: string;
+  startDate: string;
+  endDate: string;
+  startTime: string;
+  endTime: string;
+  description: string;
+  client: string;
+}
+
+const CalendarPage: React.FC = () => {
+  const [currentDate, setCurrentDate] = useState(new Date());
+  const [view, setView] = useState<'month' | 'week' | 'day'>('month');
+  const [showNewEventModal, setShowNewEventModal] = useState(false);
+  const [eventFormData, setEventFormData] = useState<EventFormData>({
+    title: '',
+    startDate: '',
+    endDate: '',
+    startTime: '',
+    endTime: '',
+    description: '',
+    client: ''
+  });
+
+  const events = [
+    {
+      id: 1,
+      title: 'Client Meeting - Acme Corp',
+      date: '2025-01-15',
+      time: '10:00 AM',
+      type: 'meeting',
+      client: 'Acme Corporation',
+      description: 'Project kickoff meeting'
+    },
+    {
+      id: 2,
+      title: 'Payment Due - Tech Solutions',
+      date: '2025-01-16',
+      time: '11:30 AM',
+      type: 'payment',
+      client: 'Tech Solutions Inc',
+      description: 'Final payment for mobile app'
+    },
+    {
+      id: 3,
+      title: 'Project Deadline - Global Marketing',
+      date: '2025-01-18',
+      time: '5:00 PM',
+      type: 'deadline',
+      client: 'Global Marketing',
+      description: 'SEO optimization deliverables'
+    },
+    {
+      id: 4,
+      title: 'Follow-up Call - Digital Agency',
+      date: '2025-01-20',
+      time: '2:00 PM',
+      type: 'call',
+      client: 'Digital Agency',
+      description: 'Progress review call'
+    },
+  ];
+
+  const monthNames = [
+    'January', 'February', 'March', 'April', 'May', 'June',
+    'July', 'August', 'September', 'October', 'November', 'December'
+  ];
+
+  const daysInMonth = new Date(currentDate.getFullYear(), currentDate.getMonth() + 1, 0).getDate();
+  const firstDayOfMonth = new Date(currentDate.getFullYear(), currentDate.getMonth(), 1).getDay();
+  const today = new Date();
+
+  const navigateMonth = (direction: 'prev' | 'next') => {
+    const newDate = new Date(currentDate);
+    newDate.setMonth(currentDate.getMonth() + (direction === 'next' ? 1 : -1));
+    setCurrentDate(newDate);
+  };
+
+  const getEventTypeColor = (type: string) => {
+    switch (type) {
+      case 'meeting':
+        return 'bg-blue-100 text-blue-800 border-blue-200';
+      case 'payment':
+        return 'bg-green-100 text-green-800 border-green-200';
+      case 'deadline':
+        return 'bg-red-100 text-red-800 border-red-200';
+      case 'call':
+        return 'bg-purple-100 text-purple-800 border-purple-200';
+      default:
+        return 'bg-gray-100 text-gray-800 border-gray-200';
+    }
+  };
+
+  const getEventsForDate = (date: number) => {
+    const dateStr = `${currentDate.getFullYear()}-${String(currentDate.getMonth() + 1).padStart(2, '0')}-${String(date).padStart(2, '0')}`;
+    return events.filter(event => event.date === dateStr);
+  };
+
+  const renderCalendarDays = () => {
+    const days = [];
+    const totalCells = 42; // 6 weeks * 7 days
+
+    // Previous month's days
+    for (let i = firstDayOfMonth - 1; i >= 0; i--) {
+      const prevMonth = new Date(currentDate.getFullYear(), currentDate.getMonth() - 1, 0);
+      const day = prevMonth.getDate() - i;
+      days.push(
+        <div key={`prev-${day}`} className="min-h-24 p-2 text-slate-400 bg-slate-50">
+          <span className="text-sm">{day}</span>
+        </div>
+      );
+    }
+
+    // Current month's days
+    for (let day = 1; day <= daysInMonth; day++) {
+      const isToday = today.getDate() === day && 
+                     today.getMonth() === currentDate.getMonth() && 
+                     today.getFullYear() === currentDate.getFullYear();
+      const dayEvents = getEventsForDate(day);
+
+      days.push(
+        <div key={day} className={`min-h-24 p-2 border-b border-r border-slate-200 ${isToday ? 'bg-blue-50' : 'bg-white'}`}>
+          <div className={`text-sm font-medium mb-1 ${isToday ? 'text-blue-600' : 'text-slate-900'}`}>
+            {day}
+          </div>
+          <div className="space-y-1">
+            {dayEvents.map((event) => (
+              <div
+                key={event.id}
+                className={`text-xs p-1 rounded border ${getEventTypeColor(event.type)} truncate`}
+                title={`${event.title} - ${event.time}`}
+              >
+                {event.title}
+              </div>
+            ))}
+          </div>
+        </div>
+      );
+    }
+
+    // Next month's days
+    const remainingCells = totalCells - days.length;
+    for (let day = 1; day <= remainingCells; day++) {
+      days.push(
+        <div key={`next-${day}`} className="min-h-24 p-2 text-slate-400 bg-slate-50">
+          <span className="text-sm">{day}</span>
+        </div>
+      );
+    }
+
+    return days;
+  };
+
+  const handleNewEventClick = () => {
+    setShowNewEventModal(true);
+  };
+
+  const handleCloseModal = () => {
+    setShowNewEventModal(false);
+    setEventFormData({
+      title: '',
+      startDate: '',
+      endDate: '',
+      startTime: '',
+      endTime: '',
+      description: '',
+      client: ''
+    });
+  };
+
+  const handleFormChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
+    const { name, value } = e.target;
+    setEventFormData(prev => ({
+      ...prev,
+      [name]: value
+    }));
+  };
+
+  const handleSubmitEvent = (e: React.FormEvent) => {
+    e.preventDefault();
+    
+    // Validate that end date/time is after start date/time
+    const startDateTime = new Date(`${eventFormData.startDate}T${eventFormData.startTime}`);
+    const endDateTime = new Date(`${eventFormData.endDate}T${eventFormData.endTime}`);
+    
+    if (endDateTime <= startDateTime) {
+      alert('End date and time must be after start date and time');
+      return;
+    }
+    
+    // Here you would typically save the event to your backend
+    console.log('Creating new event:', eventFormData);
+    
+    // Close modal and reset form
+    handleCloseModal();
+    
+    // Show success message
+    alert('Event created successfully!');
+  };
+
+  return (
+    <div className="p-6 space-y-6 relative">
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-2xl font-bold text-slate-900">Calendar</h1>
+          <p className="text-slate-600">Manage appointments, deadlines, and important dates</p>
+        </div>
+        <button 
+          onClick={handleNewEventClick}
+          className="bg-blue-600 text-white px-4 py-2 rounded-lg flex items-center space-x-2 hover:bg-blue-700 transition-colors"
+        >
+          <Plus className="w-4 h-4" />
+          <span>New Event</span>
+        </button>
+      </div>
+
+      <div className="bg-white rounded-xl shadow-sm border border-slate-200">
+        {/* Calendar Header */}
+        <div className="flex items-center justify-between p-6 border-b border-slate-200">
+          <div className="flex items-center space-x-4">
+            <button
+              onClick={() => navigateMonth('prev')}
+              className="p-2 hover:bg-slate-100 rounded-lg transition-colors"
+            >
+              <ChevronLeft className="w-5 h-5 text-slate-600" />
+            </button>
+            <h2 className="text-xl font-semibold text-slate-900">
+              {monthNames[currentDate.getMonth()]} {currentDate.getFullYear()}
+            </h2>
+            <button
+              onClick={() => navigateMonth('next')}
+              className="p-2 hover:bg-slate-100 rounded-lg transition-colors"
+            >
+              <ChevronRight className="w-5 h-5 text-slate-600" />
+            </button>
+          </div>
+          <div className="flex items-center space-x-2">
+            <button
+              onClick={() => setView('month')}
+              className={`px-3 py-1 rounded-lg text-sm font-medium transition-colors ${
+                view === 'month' ? 'bg-blue-100 text-blue-700' : 'text-slate-600 hover:bg-slate-100'
+              }`}
+            >
+              Month
+            </button>
+            <button
+              onClick={() => setView('week')}
+              className={`px-3 py-1 rounded-lg text-sm font-medium transition-colors ${
+                view === 'week' ? 'bg-blue-100 text-blue-700' : 'text-slate-600 hover:bg-slate-100'
+              }`}
+            >
+              Week
+            </button>
+            <button
+              onClick={() => setView('day')}
+              className={`px-3 py-1 rounded-lg text-sm font-medium transition-colors ${
+                view === 'day' ? 'bg-blue-100 text-blue-700' : 'text-slate-600 hover:bg-slate-100'
+              }`}
+            >
+              Day
+            </button>
+          </div>
+        </div>
+
+        {/* Calendar Content */}
+        <div className="p-6">
+          {/* Days of Week Header */}
+          <div className="grid grid-cols-7 gap-0 mb-4">
+            {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map((day) => (
+              <div key={day} className="p-3 text-center text-sm font-medium text-slate-600 border-b border-slate-200">
+                {day}
+              </div>
+            ))}
+          </div>
+
+          {/* Calendar Grid */}
+          <div className="grid grid-cols-7 gap-0 border-l border-t border-slate-200">
+            {renderCalendarDays()}
+          </div>
+        </div>
+      </div>
+
+      {/* Upcoming Events */}
+      <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-6">
+        <h3 className="text-lg font-semibold text-slate-900 mb-4">Upcoming Events</h3>
+        <div className="space-y-3">
+          {events.map((event) => (
+            <div key={event.id} className="flex items-center space-x-4 p-3 bg-slate-50 rounded-lg">
+              <div className={`w-3 h-3 rounded-full ${
+                event.type === 'meeting' ? 'bg-blue-500' :
+                event.type === 'payment' ? 'bg-green-500' :
+                event.type === 'deadline' ? 'bg-red-500' :
+                'bg-purple-500'
+              }`} />
+              <div className="flex-1">
+                <h4 className="font-medium text-slate-900">{event.title}</h4>
+                <p className="text-sm text-slate-600">{event.description}</p>
+              </div>
+              <div className="text-right">
+                <div className="flex items-center text-sm text-slate-600 mb-1">
+                  <CalendarIcon className="w-4 h-4 mr-1" />
+                  {event.date}
+                </div>
+                <div className="flex items-center text-sm text-slate-600">
+                  <Clock className="w-4 h-4 mr-1" />
+                  {event.time}
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* New Event Modal */}
+      {showNewEventModal && (
+        <div className="fixed inset-0 w-full h-full bg-black bg-opacity-60 flex items-center justify-center p-4 z-50 backdrop-blur-sm">
+          <div className="bg-white rounded-xl shadow-2xl w-full max-w-2xl max-h-[90vh] overflow-y-auto">
+            <div className="flex items-center justify-between p-6 border-b border-slate-200">
+              <h2 className="text-xl font-semibold text-slate-900">Create New Event</h2>
+              <button
+                onClick={handleCloseModal}
+                className="p-2 hover:bg-slate-100 rounded-lg transition-colors"
+              >
+                <X className="w-5 h-5 text-slate-500" />
+              </button>
+            </div>
+
+            <form onSubmit={handleSubmitEvent} className="p-6 space-y-6">
+              {/* Event Title */}
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-2">
+                  Event Title *
+                </label>
+                <input
+                  type="text"
+                  name="title"
+                  value={eventFormData.title}
+                  onChange={handleFormChange}
+                  required
+                  className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none"
+                  placeholder="Enter event title"
+                />
+              </div>
+
+              {/* Client */}
+              <div>
+                <div>
+                  <label className="block text-sm font-medium text-slate-700 mb-2">
+                    Client
+                  </label>
+                  <select
+                    name="client"
+                    value={eventFormData.client}
+                    onChange={handleFormChange}
+                    className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none"
+                  >
+                    <option value="">Select Client</option>
+                    <option value="Acme Corporation">Acme Corporation</option>
+                    <option value="Tech Solutions Inc">Tech Solutions Inc</option>
+                    <option value="Global Marketing">Global Marketing</option>
+                    <option value="Digital Agency">Digital Agency</option>
+                    <option value="StartUp Ventures">StartUp Ventures</option>
+                  </select>
+                </div>
+              </div>
+
+              {/* Start Date and Time */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-slate-700 mb-2">
+                    Start Date *
+                  </label>
+                  <div className="relative">
+                    <input
+                      type="date"
+                      name="startDate"
+                      value={eventFormData.startDate}
+                      onChange={handleFormChange}
+                      required
+                      className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none"
+                    />
+                    <CalendarIcon className="absolute right-3 top-1/2 transform -translate-y-1/2 text-slate-400 w-5 h-5 pointer-events-none" />
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-slate-700 mb-2">
+                    Start Time *
+                  </label>
+                  <div className="relative">
+                    <input
+                      type="time"
+                      name="startTime"
+                      value={eventFormData.startTime}
+                      onChange={handleFormChange}
+                      required
+                      className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none"
+                    />
+                    <Clock className="absolute right-3 top-1/2 transform -translate-y-1/2 text-slate-400 w-5 h-5 pointer-events-none" />
+                  </div>
+                </div>
+              </div>
+
+              {/* End Date and Time */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-slate-700 mb-2">
+                    End Date *
+                  </label>
+                  <div className="relative">
+                    <input
+                      type="date"
+                      name="endDate"
+                      value={eventFormData.endDate}
+                      onChange={handleFormChange}
+                      required
+                      className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none"
+                    />
+                    <CalendarIcon className="absolute right-3 top-1/2 transform -translate-y-1/2 text-slate-400 w-5 h-5 pointer-events-none" />
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-slate-700 mb-2">
+                    End Time *
+                  </label>
+                  <div className="relative">
+                    <input
+                      type="time"
+                      name="endTime"
+                      value={eventFormData.endTime}
+                      onChange={handleFormChange}
+                      required
+                      className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none"
+                    />
+                    <Clock className="absolute right-3 top-1/2 transform -translate-y-1/2 text-slate-400 w-5 h-5 pointer-events-none" />
+                  </div>
+                </div>
+              </div>
+
+              {/* Description */}
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-2">
+                  Description
+                </label>
+                <textarea
+                  name="description"
+                  value={eventFormData.description}
+                  onChange={handleFormChange}
+                  rows={4}
+                  className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none resize-none"
+                  placeholder="Enter event description..."
+                />
+              </div>
+
+              {/* Submit Buttons */}
+              <div className="flex justify-end space-x-3 pt-4 border-t border-slate-200">
+                <button
+                  type="button"
+                  onClick={handleCloseModal}
+                  className="px-4 py-2 text-slate-700 bg-slate-100 rounded-lg hover:bg-slate-200 transition-colors"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium"
+                >
+                  Create Event
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+};
+
+export default CalendarPage;
