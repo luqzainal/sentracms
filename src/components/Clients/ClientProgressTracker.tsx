@@ -1,54 +1,10 @@
 import React, { useState } from 'react';
 import { ArrowLeft, Plus, Check, Edit, Trash2, Calendar, Clock, User, MessageCircle, Star, X, Upload, Link, FileText, Trash } from 'lucide-react';
+import { useAppStore } from '../../store/AppStore';
 
 interface ClientProgressTrackerProps {
   clientId: string;
   onBack: () => void;
-}
-
-interface Comment {
-  id: string;
-  text: string;
-  username: string;
-  timestamp: string;
-}
-
-interface ProgressStep {
-  id: string;
-  title: string;
-  description: string;
-  deadline: string;
-  completed: boolean;
-  completedDate?: string;
-  important: boolean;
-  comments: Comment[];
-}
-
-interface StepFormData {
-  title: string;
-  description: string;
-  deadline: string;
-  important: boolean;
-}
-
-interface AttachedFile {
-  id: string;
-  name: string;
-  size: string;
-  uploadDate: string;
-}
-
-interface ClientNote {
-  id: string;
-  text: string;
-  timestamp: string;
-}
-
-interface WebsiteLink {
-  id: string;
-  title: string;
-  url: string;
-  timestamp: string;
 }
 
 const ClientProgressTracker: React.FC<ClientProgressTrackerProps> = ({ clientId, onBack }) => {
@@ -66,28 +22,30 @@ const ClientProgressTracker: React.FC<ClientProgressTrackerProps> = ({ clientId,
   const [newLinkTitle, setNewLinkTitle] = useState('');
   const [newLinkUrl, setNewLinkUrl] = useState('');
   
-  const [newStep, setNewStep] = useState<StepFormData>({
+  const [newStep, setNewStep] = useState({
     title: '',
     description: '',
     deadline: '',
     important: false
   });
 
-  const [editStep, setEditStep] = useState<StepFormData>({
+  const [editStep, setEditStep] = useState({
     title: '',
     description: '',
     deadline: '',
     important: false
   });
 
-  // Mock client data - in real app, this would be fetched based on clientId
-  const client = {
-    id: clientId,
-    name: 'Nik Salwani Bt.Nik Ab Rahman',
-    progress: 33
-  };
+  const { 
+    getClientById, 
+    getProgressStepsByClientId,
+    addProgressStep,
+    updateProgressStep,
+    deleteProgressStep
+  } = useAppStore();
 
-  const [attachedFiles, setAttachedFiles] = useState<AttachedFile[]>([
+  const client = getClientById(parseInt(clientId));
+  const [attachedFiles, setAttachedFiles] = useState([
     {
       id: '1',
       name: 'project_requirements.pdf',
@@ -102,7 +60,7 @@ const ClientProgressTracker: React.FC<ClientProgressTrackerProps> = ({ clientId,
     }
   ]);
 
-  const [websiteLinks, setWebsiteLinks] = useState<WebsiteLink[]>([
+  const [websiteLinks, setWebsiteLinks] = useState([
     {
       id: '1',
       title: 'Client Website',
@@ -117,56 +75,20 @@ const ClientProgressTracker: React.FC<ClientProgressTrackerProps> = ({ clientId,
     }
   ]);
 
-  const [progressSteps, setProgressSteps] = useState<ProgressStep[]>([
-    {
-      id: '1',
-      title: 'Account Setup Kuasa',
-      description: 'Initial account configuration and setup',
-      deadline: '2025-07-07T10:00:00',
-      completed: true,
-      completedDate: '2025-07-07',
-      important: true,
-      comments: [
-        {
-          id: 'c1',
-          text: 'Account has been successfully created and configured',
-          username: 'Ahmad Razak',
-          timestamp: '2025-07-07T09:30:00'
-        },
-        {
-          id: 'c2',
-          text: 'All permissions have been set up correctly',
-          username: 'Nisha KB',
-          timestamp: '2025-07-07T10:15:00'
-        }
-      ]
-    },
-    {
-      id: '2',
-      title: 'Export Database Dalam WhatsApp',
-      description: 'Export and configure WhatsApp database integration',
-      deadline: '2025-07-16T10:00:00',
-      completed: false,
-      important: false,
-      comments: [
-        {
-          id: 'c3',
-          text: 'Waiting for client to provide WhatsApp access',
-          username: 'Siti Nurhaliza',
-          timestamp: '2025-07-15T14:20:00'
-        }
-      ]
-    },
-    {
-      id: '3',
-      title: 'Run Facebook',
-      description: 'Configure and launch Facebook integration',
-      deadline: '2025-07-19T10:00:00',
-      completed: false,
-      important: true,
-      comments: []
-    }
-  ]);
+  const progressSteps = getProgressStepsByClientId(parseInt(clientId));
+
+  if (!client) {
+    return (
+      <div className="p-6">
+        <div className="text-center">
+          <h2 className="text-xl font-semibold text-slate-900">Client not found</h2>
+          <button onClick={onBack} className="mt-4 text-blue-600 hover:text-blue-700">
+            Go back
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   const handleToggleComplete = (stepId: string) => {
     const step = progressSteps.find(s => s.id === stepId);
@@ -179,26 +101,14 @@ const ClientProgressTracker: React.FC<ClientProgressTrackerProps> = ({ clientId,
       setShowCompletionModal(true);
     } else {
       // Uncomplete the step
-      setProgressSteps(steps => 
-        steps.map(step => 
-          step.id === stepId 
-            ? { ...step, completed: false, completedDate: undefined }
-            : step
-        )
-      );
+      updateProgressStep(stepId, { completed: false, completedDate: undefined });
     }
   };
 
   const handleCompleteStep = () => {
     if (!completingStepId || !completionDate) return;
 
-    setProgressSteps(steps => 
-      steps.map(step => 
-        step.id === completingStepId 
-          ? { ...step, completed: true, completedDate: completionDate }
-          : step
-      )
-    );
+    updateProgressStep(completingStepId, { completed: true, completedDate: completionDate });
 
     setShowCompletionModal(false);
     setCompletingStepId(null);
@@ -208,22 +118,21 @@ const ClientProgressTracker: React.FC<ClientProgressTrackerProps> = ({ clientId,
   const handleAddStep = () => {
     if (!newStep.title.trim() || !newStep.deadline) return;
     
-    const step: ProgressStep = {
-      id: Date.now().toString(),
+    addProgressStep({
+      clientId: parseInt(clientId),
       title: newStep.title,
       description: newStep.description,
       deadline: newStep.deadline,
       completed: false,
       important: newStep.important,
       comments: []
-    };
+    });
     
-    setProgressSteps([...progressSteps, step]);
     setNewStep({ title: '', description: '', deadline: '', important: false });
     setShowAddStep(false);
   };
 
-  const handleEditStepOpen = (step: ProgressStep) => {
+  const handleEditStepOpen = (step: any) => {
     setEditingStepId(step.id);
     setEditStep({
       title: step.title,
@@ -237,19 +146,12 @@ const ClientProgressTracker: React.FC<ClientProgressTrackerProps> = ({ clientId,
   const handleEditStepSave = () => {
     if (!editStep.title.trim() || !editStep.deadline || !editingStepId) return;
     
-    setProgressSteps(steps =>
-      steps.map(step =>
-        step.id === editingStepId
-          ? {
-              ...step,
-              title: editStep.title,
-              description: editStep.description,
-              deadline: editStep.deadline,
-              important: editStep.important
-            }
-          : step
-      )
-    );
+    updateProgressStep(editingStepId, {
+      title: editStep.title,
+      description: editStep.description,
+      deadline: editStep.deadline,
+      important: editStep.important
+    });
     
     setShowEditStep(false);
     setEditingStepId(null);
@@ -258,27 +160,26 @@ const ClientProgressTracker: React.FC<ClientProgressTrackerProps> = ({ clientId,
 
   const handleDeleteStep = (stepId: string) => {
     if (confirm('Are you sure you want to delete this step?')) {
-      setProgressSteps(steps => steps.filter(step => step.id !== stepId));
+      deleteProgressStep(stepId);
     }
   };
 
   const handleAddComment = () => {
     if (!newComment.trim() || !commentingStepId) return;
     
-    const comment: Comment = {
-      id: Date.now().toString(),
-      text: newComment,
-      username: 'Current User', // In real app, this would be the logged-in user
-      timestamp: new Date().toISOString()
-    };
-    
-    setProgressSteps(steps =>
-      steps.map(step =>
-        step.id === commentingStepId
-          ? { ...step, comments: [...step.comments, comment] }
-          : step
-      )
-    );
+    const step = progressSteps.find(s => s.id === commentingStepId);
+    if (step) {
+      const newCommentObj = {
+        id: Date.now().toString(),
+        text: newComment,
+        username: 'Current User',
+        timestamp: new Date().toISOString()
+      };
+      
+      updateProgressStep(commentingStepId, {
+        comments: [...step.comments, newCommentObj]
+      });
+    }
     
     setNewComment('');
     setShowCommentModal(false);
@@ -287,13 +188,12 @@ const ClientProgressTracker: React.FC<ClientProgressTrackerProps> = ({ clientId,
 
   const handleDeleteComment = (stepId: string, commentId: string) => {
     if (confirm('Are you sure you want to delete this comment?')) {
-      setProgressSteps(steps =>
-        steps.map(step =>
-          step.id === stepId
-            ? { ...step, comments: step.comments.filter(c => c.id !== commentId) }
-            : step
-        )
-      );
+      const step = progressSteps.find(s => s.id === stepId);
+      if (step) {
+        updateProgressStep(stepId, {
+          comments: step.comments.filter(c => c.id !== commentId)
+        });
+      }
     }
   };
 
@@ -302,7 +202,7 @@ const ClientProgressTracker: React.FC<ClientProgressTrackerProps> = ({ clientId,
     if (!files) return;
 
     Array.from(files).forEach(file => {
-      const newFile: AttachedFile = {
+      const newFile = {
         id: Date.now().toString() + Math.random().toString(36).substr(2, 9),
         name: file.name,
         size: `${(file.size / 1024 / 1024).toFixed(1)} MB`,
@@ -323,7 +223,7 @@ const ClientProgressTracker: React.FC<ClientProgressTrackerProps> = ({ clientId,
   const handleAddLink = () => {
     if (!newLinkTitle.trim() || !newLinkUrl.trim()) return;
 
-    const link: WebsiteLink = {
+    const link = {
       id: Date.now().toString(),
       title: newLinkTitle,
       url: newLinkUrl,
@@ -347,7 +247,7 @@ const ClientProgressTracker: React.FC<ClientProgressTrackerProps> = ({ clientId,
   const progressPercentage = totalSteps > 0 ? Math.round((completedSteps / totalSteps) * 100) : 0;
 
   // Helper function to check if a step is overdue
-  const isStepOverdue = (step: ProgressStep) => {
+  const isStepOverdue = (step: any) => {
     if (step.completed) return false;
     const now = new Date();
     const deadline = new Date(step.deadline);
@@ -383,7 +283,7 @@ const ClientProgressTracker: React.FC<ClientProgressTrackerProps> = ({ clientId,
                   <User className="w-8 h-8 text-white" />
                 </div>
                 <div>
-                  <h2 className="text-2xl font-bold text-slate-900">{client.name}</h2>
+                  <h2 className="text-2xl font-bold text-slate-900">{client.businessName}</h2>
                   <p className="text-slate-600">Progress Tracker</p>
                 </div>
               </div>

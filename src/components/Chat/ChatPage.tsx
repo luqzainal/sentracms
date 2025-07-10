@@ -1,86 +1,15 @@
 import React, { useState } from 'react';
 import { Send, Search, Phone, Video, MoreHorizontal, Paperclip, Smile } from 'lucide-react';
+import { useAppStore } from '../../store/AppStore';
 
 const ChatPage: React.FC = () => {
   const [activeChat, setActiveChat] = useState(1);
   const [message, setMessage] = useState('');
 
-  const chats = [
-    {
-      id: 1,
-      client: 'Acme Corporation',
-      avatar: 'AC',
-      lastMessage: 'Thanks for the update on the project',
-      timestamp: '10:30 AM',
-      unread: 2,
-      online: true
-    },
-    {
-      id: 2,
-      client: 'Tech Solutions Inc',
-      avatar: 'TS',
-      lastMessage: 'When can we schedule the next meeting?',
-      timestamp: '9:15 AM',
-      unread: 0,
-      online: false
-    },
-    {
-      id: 3,
-      client: 'Global Marketing',
-      avatar: 'GM',
-      lastMessage: 'The designs look great!',
-      timestamp: 'Yesterday',
-      unread: 1,
-      online: true
-    },
-    {
-      id: 4,
-      client: 'Digital Agency',
-      avatar: 'DA',
-      lastMessage: 'Payment has been processed',
-      timestamp: '2 days ago',
-      unread: 0,
-      online: false
-    },
-  ];
+  const { chats } = useAppStore();
 
-  const messages = [
-    {
-      id: 1,
-      sender: 'client',
-      content: 'Hi! I wanted to check on the progress of our project.',
-      timestamp: '10:15 AM',
-      type: 'text'
-    },
-    {
-      id: 2,
-      sender: 'admin',
-      content: 'Hello! The project is going well. We\'ve completed the design phase and are now moving into development.',
-      timestamp: '10:18 AM',
-      type: 'text'
-    },
-    {
-      id: 3,
-      sender: 'client',
-      content: 'That\'s great to hear! Can you share some screenshots?',
-      timestamp: '10:20 AM',
-      type: 'text'
-    },
-    {
-      id: 4,
-      sender: 'admin',
-      content: 'Absolutely! I\'ll send them over shortly. The UI is looking very clean and modern.',
-      timestamp: '10:22 AM',
-      type: 'text'
-    },
-    {
-      id: 5,
-      sender: 'client',
-      content: 'Thanks for the update on the project',
-      timestamp: '10:30 AM',
-      type: 'text'
-    },
-  ];
+  const activeClient = chats.find(chat => chat.id === activeChat);
+  const messages = activeClient?.messages || [];
 
   const handleSendMessage = () => {
     if (message.trim()) {
@@ -89,8 +18,6 @@ const ChatPage: React.FC = () => {
       setMessage('');
     }
   };
-
-  const activeClient = chats.find(chat => chat.id === activeChat);
 
   return (
     <div className="p-6 h-[calc(100vh-8rem)]">

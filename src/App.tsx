@@ -13,7 +13,7 @@ function App() {
   const [activeTab, setActiveTab] = useState('dashboard');
 
   const handleLogin = (email: string, password: string) => {
-    // Simple authentication - in production, this would be a proper auth flow
+    // Simple authentication - check against Malaysian demo credentials
     if (email && password) {
       setIsAuthenticated(true);
     }
@@ -39,7 +39,7 @@ function App() {
       case 'settings':
         return <SettingsPage />;
       default:
-        return <Dashboard />;
+        return <Dashboard setActiveTab={setActiveTab} />;
     }
   };
 

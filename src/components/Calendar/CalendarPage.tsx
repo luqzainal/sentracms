@@ -1,21 +1,12 @@
 import React, { useState } from 'react';
 import { ChevronLeft, ChevronRight, Plus, Calendar as CalendarIcon, Clock, Users, X } from 'lucide-react';
-
-interface EventFormData {
-  title: string;
-  startDate: string;
-  endDate: string;
-  startTime: string;
-  endTime: string;
-  description: string;
-  client: string;
-}
+import { useAppStore } from '../../store/AppStore';
 
 const CalendarPage: React.FC = () => {
   const [currentDate, setCurrentDate] = useState(new Date());
   const [view, setView] = useState<'month' | 'week' | 'day'>('month');
   const [showNewEventModal, setShowNewEventModal] = useState(false);
-  const [eventFormData, setEventFormData] = useState<EventFormData>({
+  const [eventFormData, setEventFormData] = useState({
     title: '',
     startDate: '',
     endDate: '',
@@ -25,49 +16,26 @@ const CalendarPage: React.FC = () => {
     client: ''
   });
 
-  const events = [
-    {
-      id: 1,
-      title: 'Client Meeting - Acme Corp',
-      date: '2025-01-15',
-      time: '10:00 AM',
-      type: 'meeting',
-      client: 'Acme Corporation',
-      description: 'Project kickoff meeting'
-    },
-    {
-      id: 2,
-      title: 'Payment Due - Tech Solutions',
-      date: '2025-01-16',
-      time: '11:30 AM',
-      type: 'payment',
-      client: 'Tech Solutions Inc',
-      description: 'Final payment for mobile app'
-    },
-    {
-      id: 3,
-      title: 'Project Deadline - Global Marketing',
-      date: '2025-01-18',
-      time: '5:00 PM',
-      type: 'deadline',
-      client: 'Global Marketing',
-      description: 'SEO optimization deliverables'
-    },
-    {
-      id: 4,
-      title: 'Follow-up Call - Digital Agency',
-      date: '2025-01-20',
-      time: '2:00 PM',
-      type: 'call',
-      client: 'Digital Agency',
-      description: 'Progress review call'
-    },
-  ];
+  const { calendarEvents, clients, addCalendarEvent } = useAppStore();
 
   const monthNames = [
     'January', 'February', 'March', 'April', 'May', 'June',
     'July', 'August', 'September', 'October', 'November', 'December'
   ];
+
+  // Convert calendar events to display format
+  const events = calendarEvents.map(event => {
+    const client = clients.find(c => c.id === event.clientId);
+    return {
+      id: event.id,
+      title: event.title,
+      date: event.startDate,
+      time: event.startTime,
+      type: event.type,
+      client: client?.businessName || 'Unknown Client',
+      description: event.description
+    };
+  });
 
   const daysInMonth = new Date(currentDate.getFullYear(), currentDate.getMonth() + 1, 0).getDate();
   const firstDayOfMonth = new Date(currentDate.getFullYear(), currentDate.getMonth(), 1).getDay();
@@ -191,8 +159,19 @@ const CalendarPage: React.FC = () => {
       return;
     }
     
-    // Here you would typically save the event to your backend
-    console.log('Creating new event:', eventFormData);
+    // Find client ID
+    const selectedClient = clients.find(c => c.businessName === eventFormData.client);
+    
+    addCalendarEvent({
+      clientId: selectedClient?.id || 0,
+      title: eventFormData.title,
+      startDate: eventFormData.startDate,
+      endDate: eventFormData.endDate,
+      startTime: eventFormData.startTime,
+      endTime: eventFormData.endTime,
+      description: eventFormData.description,
+      type: 'meeting'
+    });
     
     // Close modal and reset form
     handleCloseModal();
@@ -358,11 +337,11 @@ const CalendarPage: React.FC = () => {
                     className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none"
                   >
                     <option value="">Select Client</option>
-                    <option value="Acme Corporation">Acme Corporation</option>
-                    <option value="Tech Solutions Inc">Tech Solutions Inc</option>
-                    <option value="Global Marketing">Global Marketing</option>
-                    <option value="Digital Agency">Digital Agency</option>
-                    <option value="StartUp Ventures">StartUp Ventures</option>
+                    {clients.map(client => (
+                      <option key={client.id} value={client.businessName}>
+                        {client.businessName}
+                      </option>
+                    ))}
                   </select>
                 </div>
               </div>

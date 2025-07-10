@@ -124,7 +124,7 @@ const Login: React.FC<LoginProps> = ({ onLogin }) => {
             {/* Demo credentials */}
             <div className="mt-6 p-3 bg-slate-50 rounded-lg border border-slate-200">
               <p className="text-xs text-slate-600 text-center">
-                <span className="font-medium">Demo:</span> admin@sentra.com / password
+                <span className="font-medium">Demo:</span> admin@sentra.com / password123
               </p>
             </div>
           </div>
