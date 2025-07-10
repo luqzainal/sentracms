@@ -392,9 +392,18 @@ const ClientProgressTracker: React.FC<ClientProgressTrackerProps> = ({ clientId,
                 <h3 className="text-lg font-semibold text-slate-900">Overall Progress</h3>
                 <p className="text-sm text-slate-600">{completedSteps} of {totalSteps} steps completed</p>
               </div>
-              <div className="text-right">
+              <div className="flex items-center space-x-4">
+                <button
+                  onClick={() => setShowAddStep(true)}
+                  className="bg-green-600 text-white px-4 py-2 rounded-lg flex items-center space-x-2 hover:bg-green-700 transition-all duration-200 font-medium shadow-sm"
+                >
+                  <Plus className="w-4 h-4" />
+                  <span>Add Step</span>
+                </button>
+                <div className="text-right">
                 <div className="text-3xl font-bold text-blue-600">{progressPercentage}%</div>
                 <div className="text-sm text-slate-500">Complete</div>
+              </div>
               </div>
             </div>
             <div className="w-full bg-slate-200 rounded-full h-4 overflow-hidden">
@@ -623,7 +632,7 @@ const ClientProgressTracker: React.FC<ClientProgressTrackerProps> = ({ clientId,
                 <p className="text-slate-600 mb-6">Start tracking progress by adding your first milestone</p>
                 <button
                   onClick={() => setShowAddStep(true)}
-                  className="bg-blue-600 text-white px-6 py-3 rounded-xl flex items-center space-x-2 hover:bg-blue-700 transition-all duration-200 mx-auto font-medium"
+                  className="bg-green-600 text-white px-6 py-3 rounded-xl flex items-center space-x-2 hover:bg-green-700 transition-all duration-200 mx-auto font-medium"
                 >
                   <Plus className="w-5 h-5" />
                   <span>Add First Step</span>
