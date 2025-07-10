@@ -426,7 +426,7 @@ const ClientProgressTracker: React.FC<ClientProgressTrackerProps> = ({ clientId,
                         : 'border-slate-200 bg-white hover:border-blue-200 hover:shadow-sm'
                     }`}>
                       <div className="flex items-start justify-between min-w-0">
-                        <div className="flex items-start space-x-4 flex-1 min-w-0 overflow-hidden">
+                        <div className="flex items-start space-x-3 lg:space-x-4 flex-1 min-w-0 overflow-hidden">
                           <button
                             onClick={() => handleToggleComplete(step.id)}
                             className={`mt-1 w-6 h-6 rounded-full border-2 flex items-center justify-center transition-all duration-200 ${
@@ -441,19 +441,25 @@ const ClientProgressTracker: React.FC<ClientProgressTrackerProps> = ({ clientId,
                           </button>
                           
                           <div className="flex-1 min-w-0 overflow-hidden">
-                            <div className="flex flex-col sm:flex-row sm:items-center sm:space-x-3 space-y-2 sm:space-y-0 mb-3">
-                              <div className="flex-1 min-w-0">
-                              <h4 className={`text-lg font-semibold ${
+                            <div className="flex flex-col space-y-2 mb-3">
+                              <div className="flex-1 min-w-0 overflow-hidden">
+                              <h4 className={`text-base lg:text-lg font-semibold leading-tight ${
                                 step.completed 
                                   ? 'text-green-700 line-through' 
                                   : isStepOverdue(step)
                                   ? 'text-red-700'
                                   : 'text-slate-900'
-                              } break-words word-wrap overflow-wrap-anywhere`}>
+                              } break-words hyphens-auto overflow-wrap-anywhere word-break-break-word`}
+                              style={{ 
+                                wordWrap: 'break-word',
+                                overflowWrap: 'anywhere',
+                                wordBreak: 'break-word',
+                                hyphens: 'auto'
+                              }}>
                                 {step.title}
                               </h4>
                               </div>
-                              <div className="flex items-center space-x-2 flex-shrink-0">
+                              <div className="flex flex-wrap items-center gap-2">
                               {step.important && (
                                 <span className="flex items-center space-x-1 px-2 py-1 bg-orange-100 text-orange-700 text-xs font-medium rounded-full">
                                   <Star className="w-3 h-3" />
@@ -473,18 +479,24 @@ const ClientProgressTracker: React.FC<ClientProgressTrackerProps> = ({ clientId,
                               </div>
                             </div>
                             
-                            <p className={`mb-4 break-words word-wrap overflow-wrap-anywhere ${
+                            <p className={`mb-4 text-sm lg:text-base leading-relaxed break-words hyphens-auto overflow-wrap-anywhere word-break-break-word ${
                               step.completed 
                                 ? 'text-slate-600 opacity-75' 
                                 : isStepOverdue(step)
                                 ? 'text-red-600'
                                 : 'text-slate-600'
-                            }`}>
+                            }`}
+                            style={{ 
+                              wordWrap: 'break-word',
+                              overflowWrap: 'anywhere',
+                              wordBreak: 'break-word',
+                              hyphens: 'auto'
+                            }}>
                               {step.description}
                             </p>
                             
-                            <div className="flex flex-col sm:flex-row sm:items-center sm:space-x-6 space-y-2 sm:space-y-0 text-sm mb-4">
-                              <div className={`flex items-center space-x-2 flex-shrink-0 ${
+                            <div className="flex flex-col space-y-2 text-sm mb-4">
+                              <div className={`flex items-center space-x-2 ${
                                 step.completed 
                                   ? 'text-green-600' 
                                   : isStepOverdue(step)
@@ -506,7 +518,7 @@ const ClientProgressTracker: React.FC<ClientProgressTrackerProps> = ({ clientId,
                               </div>
                               
                               {step.completed && step.completedDate && (
-                                <div className="flex items-center space-x-2 text-green-600 flex-shrink-0">
+                                <div className="flex items-center space-x-2 text-green-600">
                                   <Check className="w-4 h-4" />
                                   <span className="font-medium">Completed:</span>
                                   <span>
@@ -522,7 +534,7 @@ const ClientProgressTracker: React.FC<ClientProgressTrackerProps> = ({ clientId,
 
                             {/* Comments Section */}
                             <div className="border-t border-slate-200 pt-4 mt-4">
-                              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between space-y-2 sm:space-y-0 mb-3">
+                              <div className="flex flex-col space-y-2 mb-3">
                                 <div className="flex items-center space-x-2">
                                   <MessageCircle className="w-4 h-4 text-slate-500" />
                                   <span className="text-sm font-medium text-slate-700">
@@ -544,23 +556,35 @@ const ClientProgressTracker: React.FC<ClientProgressTrackerProps> = ({ clientId,
                                 <div className="space-y-3 max-h-40 overflow-y-auto">
                                   {step.comments.map((comment) => (
                                     <div key={comment.id} className="bg-slate-50 rounded-lg p-3 border border-slate-200 min-w-0">
-                                      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between space-y-1 sm:space-y-0 mb-2">
-                                        <span className="text-xs font-medium text-blue-600 break-words word-wrap overflow-wrap-anywhere">
+                                      <div className="flex flex-col space-y-1 mb-2">
+                                        <div className="flex items-center justify-between">
+                                        <span className="text-xs font-medium text-blue-600 break-words hyphens-auto overflow-wrap-anywhere word-break-break-word flex-1 min-w-0"
+                                        style={{ 
+                                          wordWrap: 'break-word',
+                                          overflowWrap: 'anywhere',
+                                          wordBreak: 'break-word',
+                                          hyphens: 'auto'
+                                        }}>
                                           {comment.username}
                                         </span>
-                                        <div className="flex items-center space-x-2 flex-shrink-0">
-                                          <span className="text-xs text-slate-500 whitespace-nowrap">
-                                            {new Date(comment.timestamp).toLocaleDateString()} {new Date(comment.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                                          </span>
                                           <button
                                             onClick={() => handleDeleteComment(step.id, comment.id)}
-                                            className="p-1 text-red-500 hover:text-red-700"
+                                            className="p-1 text-red-500 hover:text-red-700 flex-shrink-0"
                                           >
                                             <Trash className="w-3 h-3" />
                                           </button>
                                         </div>
+                                        <span className="text-xs text-slate-500">
+                                          {new Date(comment.timestamp).toLocaleDateString()} {new Date(comment.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                                        </span>
                                       </div>
-                                      <p className="text-sm text-slate-700 break-words word-wrap overflow-wrap-anywhere">{comment.text}</p>
+                                      <p className="text-sm text-slate-700 break-words hyphens-auto overflow-wrap-anywhere word-break-break-word leading-relaxed"
+                                      style={{ 
+                                        wordWrap: 'break-word',
+                                        overflowWrap: 'anywhere',
+                                        wordBreak: 'break-word',
+                                        hyphens: 'auto'
+                                      }}>{comment.text}</p>
                                     </div>
                                   ))}
                                 </div>
@@ -571,18 +595,18 @@ const ClientProgressTracker: React.FC<ClientProgressTrackerProps> = ({ clientId,
                           </div>
                         </div>
                         
-                        <div className="flex flex-col items-center space-y-2 opacity-0 group-hover:opacity-100 transition-opacity duration-200 flex-shrink-0 ml-2 lg:ml-4">
+                        <div className="flex flex-col items-center space-y-1 lg:space-y-2 opacity-0 group-hover:opacity-100 transition-opacity duration-200 flex-shrink-0 ml-2">
                           <button 
                             onClick={() => handleEditStepOpen(step)}
-                            className="p-1.5 lg:p-2 text-blue-500 hover:text-blue-700 hover:bg-blue-50 rounded-lg transition-all duration-200 border border-transparent hover:border-blue-200"
+                            className="p-1.5 text-blue-500 hover:text-blue-700 hover:bg-blue-50 rounded-lg transition-all duration-200 border border-transparent hover:border-blue-200"
                           >
-                            <Edit className="w-3 h-3 lg:w-4 lg:h-4" />
+                            <Edit className="w-3 h-3" />
                           </button>
                           <button 
                             onClick={() => handleDeleteStep(step.id)}
-                            className="p-1.5 lg:p-2 text-red-500 hover:text-red-700 hover:bg-red-50 rounded-lg transition-all duration-200 border border-transparent hover:border-red-200"
+                            className="p-1.5 text-red-500 hover:text-red-700 hover:bg-red-50 rounded-lg transition-all duration-200 border border-transparent hover:border-red-200"
                           >
-                            <Trash2 className="w-3 h-3 lg:w-4 lg:h-4" />
+                            <Trash2 className="w-3 h-3" />
                           </button>
                         </div>
                       </div>
