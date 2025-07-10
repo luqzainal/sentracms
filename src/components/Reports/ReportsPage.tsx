@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { Download, Filter, TrendingUp, DollarSign, Users, Calendar, Database, CreditCard, UserX, CheckCircle, Clock } from 'lucide-react';
+import jsPDF from 'jspdf';
 import html2canvas from 'html2canvas';
 import { useAppStore } from '../../store/AppStore';
 
@@ -94,111 +95,91 @@ const ReportsPage: React.FC = () => {
       const reportElement = document.getElementById('report-content');
       if (!reportElement) return;
 
-      // Create a temporary container for landscape layout
+      // Create a temporary container for PDF layout
       const tempContainer = document.createElement('div');
       tempContainer.style.position = 'fixed';
       tempContainer.style.top = '-9999px';
       tempContainer.style.left = '-9999px';
-      tempContainer.style.width = '1920px'; // Landscape width
+      tempContainer.style.width = '210mm'; // A4 width
+      tempContainer.style.minHeight = '297mm'; // A4 height
       tempContainer.style.backgroundColor = 'white';
-      tempContainer.style.padding = '40px';
+      tempContainer.style.padding = '20px';
+      tempContainer.style.fontFamily = 'Arial, sans-serif';
       document.body.appendChild(tempContainer);
 
       // Clone the report content
       const clonedContent = reportElement.cloneNode(true) as HTMLElement;
       clonedContent.style.width = '100%';
       clonedContent.style.maxWidth = 'none';
+      clonedContent.style.fontSize = '12px';
       tempContainer.appendChild(clonedContent);
 
-      // Split content into two pages
-      const sections = clonedContent.children;
-      const page1Sections = Array.from(sections).slice(0, Math.ceil(sections.length / 2));
-      const page2Sections = Array.from(sections).slice(Math.ceil(sections.length / 2));
-
-      // Create page 1
-      const page1Container = document.createElement('div');
-      page1Container.style.width = '1920px';
-      page1Container.style.minHeight = '1080px';
-      page1Container.style.backgroundColor = 'white';
-      page1Container.style.padding = '40px';
-      page1Container.style.boxSizing = 'border-box';
-      
-      // Add header to page 1
-      const header1 = document.createElement('div');
-      header1.innerHTML = `
-        <div style="margin-bottom: 30px; border-bottom: 2px solid #e2e8f0; padding-bottom: 20px;">
-          <h1 style="font-size: 32px; font-weight: bold; color: #1e293b; margin: 0;">Business Reports - Page 1</h1>
-          <p style="color: #64748b; margin: 8px 0 0 0; font-size: 16px;">Generated on ${new Date().toLocaleDateString()}</p>
+      // Add header to the report
+      const header = document.createElement('div');
+      header.innerHTML = `
+        <div style="margin-bottom: 20px; border-bottom: 2px solid #e2e8f0; padding-bottom: 15px; text-align: center;">
+          <h1 style="font-size: 24px; font-weight: bold; color: #1e293b; margin: 0;">Sentra CMS - Business Reports</h1>
+          <p style="color: #64748b; margin: 8px 0 0 0; font-size: 14px;">Generated on ${new Date().toLocaleDateString('en-MY', {
+            weekday: 'long',
+            year: 'numeric',
+            month: 'long',
+            day: 'numeric'
+          })}</p>
+          <p style="color: #64748b; margin: 4px 0 0 0; font-size: 12px;">
+            ${dateFilter === 'custom' && customDateStart && customDateEnd ? 
+              `Report Period: ${new Date(customDateStart).toLocaleDateString('en-MY')} - ${new Date(customDateEnd).toLocaleDateString('en-MY')}` : 
+              `Report Period: ${dateFilter === 'week' ? 'This Week' : 'This Month'}`
+            }
+          </p>
         </div>
       `;
-      page1Container.appendChild(header1);
-      
-      page1Sections.forEach(section => {
-        page1Container.appendChild(section.cloneNode(true));
-      });
-      
-      document.body.appendChild(page1Container);
+      tempContainer.insertBefore(header, clonedContent);
 
-      // Create page 2
-      const page2Container = document.createElement('div');
-      page2Container.style.width = '1920px';
-      page2Container.style.minHeight = '1080px';
-      page2Container.style.backgroundColor = 'white';
-      page2Container.style.padding = '40px';
-      page2Container.style.boxSizing = 'border-box';
-      
-      // Add header to page 2
-      const header2 = document.createElement('div');
-      header2.innerHTML = `
-        <div style="margin-bottom: 30px; border-bottom: 2px solid #e2e8f0; padding-bottom: 20px;">
-          <h1 style="font-size: 32px; font-weight: bold; color: #1e293b; margin: 0;">Business Reports - Page 2</h1>
-          <p style="color: #64748b; margin: 8px 0 0 0; font-size: 16px;">Generated on ${new Date().toLocaleDateString()}</p>
-        </div>
-      `;
-      page2Container.appendChild(header2);
-      
-      page2Sections.forEach(section => {
-        page2Container.appendChild(section.cloneNode(true));
-      });
-      
-      document.body.appendChild(page2Container);
-
-      // Generate PNG for page 1
-      const canvas1 = await html2canvas(page1Container, {
-        width: 1920,
-        height: 1080,
+      // Generate canvas from the content
+      const canvas = await html2canvas(tempContainer, {
+        width: 794, // A4 width in pixels at 96 DPI
+        height: 1123, // A4 height in pixels at 96 DPI
         scale: 1,
         useCORS: true,
-        backgroundColor: 'white'
+        backgroundColor: 'white',
+        logging: false
       });
       
-      // Generate PNG for page 2
-      const canvas2 = await html2canvas(page2Container, {
-        width: 1920,
-        height: 1080,
-        scale: 1,
-        useCORS: true,
-        backgroundColor: 'white'
+      // Create PDF
+      const pdf = new jsPDF({
+        orientation: 'portrait',
+        unit: 'mm',
+        format: 'a4'
       });
 
-      // Download page 1
-      const link1 = document.createElement('a');
-      link1.download = `business-report-page-1-${new Date().toISOString().split('T')[0]}.png`;
-      link1.href = canvas1.toDataURL('image/png');
-      link1.click();
+      // Calculate dimensions
+      const imgWidth = 210; // A4 width in mm
+      const pageHeight = 297; // A4 height in mm
+      const imgHeight = (canvas.height * imgWidth) / canvas.width;
+      let heightLeft = imgHeight;
+      let position = 0;
 
-      // Download page 2 after a short delay
-      setTimeout(() => {
-        const link2 = document.createElement('a');
-        link2.download = `business-report-page-2-${new Date().toISOString().split('T')[0]}.png`;
-        link2.href = canvas2.toDataURL('image/png');
-        link2.click();
-      }, 1000);
+      // Add first page
+      pdf.addImage(canvas.toDataURL('image/png'), 'PNG', 0, position, imgWidth, imgHeight);
+      heightLeft -= pageHeight;
+
+      // Add additional pages if content is longer than one page
+      while (heightLeft >= 0) {
+        position = heightLeft - imgHeight;
+        pdf.addPage();
+        pdf.addImage(canvas.toDataURL('image/png'), 'PNG', 0, position, imgWidth, imgHeight);
+        heightLeft -= pageHeight;
+      }
+
+      // Generate filename with current date
+      const currentDate = new Date().toISOString().split('T')[0];
+      const filename = `sentra-business-report-${currentDate}.pdf`;
+
+      // Save the PDF
+      pdf.save(filename);
 
       // Clean up
       document.body.removeChild(tempContainer);
-      document.body.removeChild(page1Container);
-      document.body.removeChild(page2Container);
       
     } catch (error) {
       console.error('Error exporting report:', error);
@@ -252,7 +233,7 @@ const ReportsPage: React.FC = () => {
             className="bg-blue-600 text-white px-4 py-2 rounded-lg flex items-center space-x-2 hover:bg-blue-700 transition-colors"
           >
             <Download className="w-4 h-4" />
-            <span>Export Report</span>
+            <span>Export PDF</span>
           </button>
         </div>
       </div>
