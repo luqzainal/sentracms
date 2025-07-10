@@ -1,12 +1,13 @@
 import React, { useState } from 'react';
-import { Users, DollarSign, TrendingUp, Calendar, ArrowUpRight, ArrowDownRight, MessageSquare, UserPlus, Filter, Database, CreditCard, Clock, BarChart3, Activity } from 'lucide-react';
+import { Users, DollarSign, TrendingUp, Calendar, ArrowUpRight, ArrowDownRight, MessageSquare, UserPlus, Filter, Database, CreditCard, Clock, BarChart3, Activity, Menu } from 'lucide-react';
 import { useAppStore } from '../../store/AppStore';
 
 interface DashboardProps {
   setActiveTab?: (tab: string) => void;
+  onToggleSidebar?: () => void;
 }
 
-const Dashboard: React.FC<DashboardProps> = ({ setActiveTab }) => {
+const Dashboard: React.FC<DashboardProps> = ({ setActiveTab, onToggleSidebar }) => {
   const [dateFilter, setDateFilter] = useState('month');
   const [customDateStart, setCustomDateStart] = useState('');
   const [customDateEnd, setCustomDateEnd] = useState('');
@@ -89,20 +90,30 @@ const Dashboard: React.FC<DashboardProps> = ({ setActiveTab }) => {
   const clientCompletionRate = activeClients.length > 0 ? (completeClients / activeClients.length) * 100 : 0;
 
   return (
-    <div className="p-8 space-y-8 bg-slate-50 min-h-screen">
-      <div className="flex items-center justify-between">
+    <div className="p-4 lg:p-8 space-y-6 lg:space-y-8 bg-slate-50 min-h-screen">
+      <div className="flex items-center justify-between flex-wrap gap-4">
+        {/* Mobile Header */}
+        <div className="flex items-center space-x-4">
+          <button
+            onClick={onToggleSidebar}
+            className="lg:hidden p-2 text-slate-600 hover:text-slate-900 hover:bg-white rounded-lg transition-colors"
+          >
+            <Menu className="w-6 h-6" />
+          </button>
         <div>
-          <h1 className="text-3xl font-bold text-slate-900">Executive Dashboard</h1>
-          <p className="text-slate-600 mt-1">Comprehensive business analytics and performance metrics</p>
+            <h1 className="text-2xl lg:text-3xl font-bold text-slate-900">Executive Dashboard</h1>
+            <p className="text-slate-600 mt-1 text-sm lg:text-base">Comprehensive business analytics and performance metrics</p>
         </div>
-        <div className="flex items-center space-x-6">
+        </div>
+        
+        <div className="flex items-center space-x-3 lg:space-x-6 flex-wrap gap-2">
           {/* Date Filter */}
-          <div className="flex items-center space-x-3 bg-white rounded-lg border border-slate-200 px-4 py-2">
+          <div className="flex items-center space-x-2 lg:space-x-3 bg-white rounded-lg border border-slate-200 px-3 lg:px-4 py-2">
             <Filter className="w-4 h-4 text-slate-500" />
             <select
               value={dateFilter}
               onChange={(e) => setDateFilter(e.target.value)}
-              className="border-0 bg-transparent focus:ring-0 outline-none text-sm font-medium text-slate-700"
+              className="border-0 bg-transparent focus:ring-0 outline-none text-xs lg:text-sm font-medium text-slate-700"
             >
               <option value="week">This Week</option>
               <option value="month">This Month</option>
@@ -112,26 +123,26 @@ const Dashboard: React.FC<DashboardProps> = ({ setActiveTab }) => {
           
           {/* Custom Date Range */}
           {dateFilter === 'custom' && (
-            <div className="flex items-center space-x-3 bg-white rounded-lg border border-slate-200 px-4 py-2">
+            <div className="flex items-center space-x-2 lg:space-x-3 bg-white rounded-lg border border-slate-200 px-3 lg:px-4 py-2 w-full lg:w-auto">
               <input
                 type="date"
                 value={customDateStart}
                 onChange={(e) => setCustomDateStart(e.target.value)}
-                className="border-0 bg-transparent focus:ring-0 outline-none text-sm"
+                className="border-0 bg-transparent focus:ring-0 outline-none text-xs lg:text-sm"
               />
               <span className="text-slate-500">to</span>
               <input
                 type="date"
                 value={customDateEnd}
                 onChange={(e) => setCustomDateEnd(e.target.value)}
-                className="border-0 bg-transparent focus:ring-0 outline-none text-sm"
+                className="border-0 bg-transparent focus:ring-0 outline-none text-xs lg:text-sm"
               />
             </div>
           )}
           
-          <div className="text-right bg-white rounded-lg border border-slate-200 px-4 py-2">
-            <p className="text-sm text-slate-500">Today</p>
-            <p className="text-sm font-medium text-slate-900">
+          <div className="text-right bg-white rounded-lg border border-slate-200 px-3 lg:px-4 py-2">
+            <p className="text-xs lg:text-sm text-slate-500">Today</p>
+            <p className="text-xs lg:text-sm font-medium text-slate-900">
               {new Date().toLocaleDateString('en-US', {
                 weekday: 'long',
                 year: 'numeric',
@@ -144,132 +155,132 @@ const Dashboard: React.FC<DashboardProps> = ({ setActiveTab }) => {
       </div>
 
       {/* Top Stats Row */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-        <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-8 hover:shadow-md transition-shadow">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 lg:gap-8">
+        <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-4 lg:p-8 hover:shadow-md transition-shadow">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-sm font-medium text-slate-600 uppercase tracking-wide">Total Sales</p>
-              <p className="text-3xl font-bold text-slate-900 mt-2">{formatCurrency(totalSales)}</p>
+              <p className="text-xs lg:text-sm font-medium text-slate-600 uppercase tracking-wide">Total Sales</p>
+              <p className="text-xl lg:text-3xl font-bold text-slate-900 mt-1 lg:mt-2">{formatCurrency(totalSales)}</p>
               <div className="flex items-center mt-2">
                 <ArrowUpRight className="w-4 h-4 text-green-500 mr-1" />
-                <span className="text-sm text-green-600 font-medium">+12.5%</span>
-                <span className="text-sm text-slate-500 ml-1">vs last month</span>
+                <span className="text-xs lg:text-sm text-green-600 font-medium">+12.5%</span>
+                <span className="text-xs lg:text-sm text-slate-500 ml-1">vs last month</span>
               </div>
             </div>
-            <div className="w-16 h-16 bg-blue-50 rounded-xl flex items-center justify-center">
-              <Database className="w-8 h-8 text-blue-600" />
+            <div className="w-12 h-12 lg:w-16 lg:h-16 bg-blue-50 rounded-xl flex items-center justify-center">
+              <Database className="w-6 h-6 lg:w-8 lg:h-8 text-blue-600" />
             </div>
           </div>
         </div>
 
-        <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-8 hover:shadow-md transition-shadow">
+        <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-4 lg:p-8 hover:shadow-md transition-shadow">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-sm font-medium text-slate-600 uppercase tracking-wide">Collections</p>
-              <p className="text-3xl font-bold text-slate-900 mt-2">{formatCurrency(totalCollection)}</p>
+              <p className="text-xs lg:text-sm font-medium text-slate-600 uppercase tracking-wide">Collections</p>
+              <p className="text-xl lg:text-3xl font-bold text-slate-900 mt-1 lg:mt-2">{formatCurrency(totalCollection)}</p>
               <div className="flex items-center mt-2">
                 <ArrowUpRight className="w-4 h-4 text-green-500 mr-1" />
-                <span className="text-sm text-green-600 font-medium">+8.2%</span>
-                <span className="text-sm text-slate-500 ml-1">vs last month</span>
+                <span className="text-xs lg:text-sm text-green-600 font-medium">+8.2%</span>
+                <span className="text-xs lg:text-sm text-slate-500 ml-1">vs last month</span>
               </div>
             </div>
-            <div className="w-16 h-16 bg-green-50 rounded-xl flex items-center justify-center">
-              <CreditCard className="w-8 h-8 text-green-600" />
+            <div className="w-12 h-12 lg:w-16 lg:h-16 bg-green-50 rounded-xl flex items-center justify-center">
+              <CreditCard className="w-6 h-6 lg:w-8 lg:h-8 text-green-600" />
             </div>
           </div>
         </div>
 
-        <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-8 hover:shadow-md transition-shadow">
+        <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-4 lg:p-8 hover:shadow-md transition-shadow md:col-span-2 lg:col-span-1">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-sm font-medium text-slate-600 uppercase tracking-wide">Balance</p>
-              <p className="text-3xl font-bold text-slate-900 mt-2">{formatCurrency(totalBalance)}</p>
+              <p className="text-xs lg:text-sm font-medium text-slate-600 uppercase tracking-wide">Balance</p>
+              <p className="text-xl lg:text-3xl font-bold text-slate-900 mt-1 lg:mt-2">{formatCurrency(totalBalance)}</p>
               <div className="flex items-center mt-2">
                 <ArrowDownRight className="w-4 h-4 text-orange-500 mr-1" />
-                <span className="text-sm text-orange-600 font-medium">-3.1%</span>
-                <span className="text-sm text-slate-500 ml-1">vs last month</span>
+                <span className="text-xs lg:text-sm text-orange-600 font-medium">-3.1%</span>
+                <span className="text-xs lg:text-sm text-slate-500 ml-1">vs last month</span>
               </div>
             </div>
-            <div className="w-16 h-16 bg-orange-50 rounded-xl flex items-center justify-center">
-              <DollarSign className="w-8 h-8 text-orange-600" />
+            <div className="w-12 h-12 lg:w-16 lg:h-16 bg-orange-50 rounded-xl flex items-center justify-center">
+              <DollarSign className="w-6 h-6 lg:w-8 lg:h-8 text-orange-600" />
             </div>
           </div>
         </div>
       </div>
 
       {/* Second Stats Row */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-        <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-8 hover:shadow-md transition-shadow">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 lg:gap-8">
+        <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-4 lg:p-8 hover:shadow-md transition-shadow">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-sm font-medium text-slate-600 uppercase tracking-wide">Total Clients</p>
-              <p className="text-3xl font-bold text-slate-900 mt-2">{totalClients}</p>
+              <p className="text-xs lg:text-sm font-medium text-slate-600 uppercase tracking-wide">Total Clients</p>
+              <p className="text-xl lg:text-3xl font-bold text-slate-900 mt-1 lg:mt-2">{totalClients}</p>
               <div className="flex items-center mt-2">
                 <Activity className="w-4 h-4 text-blue-500 mr-1" />
-                <span className="text-sm text-blue-600 font-medium">Active Management</span>
+                <span className="text-xs lg:text-sm text-blue-600 font-medium">Active Management</span>
               </div>
             </div>
-            <div className="w-16 h-16 bg-blue-50 rounded-xl flex items-center justify-center">
-              <Users className="w-8 h-8 text-blue-600" />
+            <div className="w-12 h-12 lg:w-16 lg:h-16 bg-blue-50 rounded-xl flex items-center justify-center">
+              <Users className="w-6 h-6 lg:w-8 lg:h-8 text-blue-600" />
             </div>
           </div>
         </div>
 
-        <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-8 hover:shadow-md transition-shadow">
+        <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-4 lg:p-8 hover:shadow-md transition-shadow">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-sm font-medium text-slate-600 uppercase tracking-wide">Completed Clients</p>
-              <p className="text-3xl font-bold text-slate-900 mt-2">{completeClients}</p>
+              <p className="text-xs lg:text-sm font-medium text-slate-600 uppercase tracking-wide">Completed Clients</p>
+              <p className="text-xl lg:text-3xl font-bold text-slate-900 mt-1 lg:mt-2">{completeClients}</p>
               <div className="flex items-center mt-2">
-                <span className="text-sm text-green-600 font-medium">Client Completion {clientCompletionRate.toFixed(1)}%</span>
+                <span className="text-xs lg:text-sm text-green-600 font-medium">Client Completion {clientCompletionRate.toFixed(1)}%</span>
               </div>
             </div>
-            <div className="w-16 h-16 bg-green-50 rounded-xl flex items-center justify-center">
-              <TrendingUp className="w-8 h-8 text-green-600" />
+            <div className="w-12 h-12 lg:w-16 lg:h-16 bg-green-50 rounded-xl flex items-center justify-center">
+              <TrendingUp className="w-6 h-6 lg:w-8 lg:h-8 text-green-600" />
             </div>
           </div>
         </div>
 
-        <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-8 hover:shadow-md transition-shadow">
+        <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-4 lg:p-8 hover:shadow-md transition-shadow md:col-span-2 lg:col-span-1">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-sm font-medium text-slate-600 uppercase tracking-wide">New Clients</p>
-              <p className="text-3xl font-bold text-slate-900 mt-2">2</p>
+              <p className="text-xs lg:text-sm font-medium text-slate-600 uppercase tracking-wide">New Clients</p>
+              <p className="text-xl lg:text-3xl font-bold text-slate-900 mt-1 lg:mt-2">2</p>
               <div className="flex items-center mt-2">
-                <span className="text-sm text-slate-500">This week</span>
+                <span className="text-xs lg:text-sm text-slate-500">This week</span>
               </div>
             </div>
-            <div className="w-16 h-16 bg-purple-50 rounded-xl flex items-center justify-center">
-              <UserPlus className="w-8 h-8 text-purple-600" />
+            <div className="w-12 h-12 lg:w-16 lg:h-16 bg-purple-50 rounded-xl flex items-center justify-center">
+              <UserPlus className="w-6 h-6 lg:w-8 lg:h-8 text-purple-600" />
             </div>
           </div>
         </div>
       </div>
 
       {/* Sales Analytics Chart */}
-      <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-8">
-        <div className="flex items-center justify-between mb-8">
+      <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-4 lg:p-8">
+        <div className="flex flex-col lg:flex-row lg:items-center justify-between mb-6 lg:mb-8 space-y-4 lg:space-y-0">
           <div className="flex items-center space-x-3">
-            <div className="bg-slate-100 rounded-lg p-2">
+            <div className="bg-slate-100 rounded-lg p-1.5 lg:p-2">
               <BarChart3 className="w-6 h-6 text-slate-600" />
             </div>
             <div>
-              <h3 className="text-xl font-semibold text-slate-900">Sales Analytics</h3>
-              <p className="text-sm text-slate-600">Monthly sales performance overview</p>
+              <h3 className="text-lg lg:text-xl font-semibold text-slate-900">Sales Analytics</h3>
+              <p className="text-xs lg:text-sm text-slate-600">Monthly sales performance overview</p>
             </div>
           </div>
           <div className="flex items-center space-x-4">
             <div className="text-right">
-              <p className="text-sm text-slate-500">Total Sales</p>
-              <p className="text-2xl font-bold text-slate-900">{formatCurrency(totalSales)}</p>
+              <p className="text-xs lg:text-sm text-slate-500">Total Sales</p>
+              <p className="text-xl lg:text-2xl font-bold text-slate-900">{formatCurrency(totalSales)}</p>
             </div>
           </div>
         </div>
-        <div className="h-80">
+        <div className="h-48 lg:h-80 overflow-x-auto">
           <div className="flex items-end justify-between h-full space-x-2">
             {monthlyData.map((data, index) => (
               <div key={index} className="flex-1 flex flex-col items-center">
-                <div className="w-full bg-slate-100 rounded-t-sm relative" style={{ height: '280px' }}>
+                <div className="w-full bg-slate-100 rounded-t-sm relative" style={{ height: window.innerWidth < 1024 ? '160px' : '280px' }}>
                   {data.sales > 0 && (
                     <>
                       <div
@@ -277,7 +288,7 @@ const Dashboard: React.FC<DashboardProps> = ({ setActiveTab }) => {
                         style={{ height: `${(data.sales / maxSales) * 100}%` }}
                       />
                       <div 
-                        className="absolute w-full flex justify-center text-xs font-medium text-black"
+                        className="absolute w-full flex justify-center text-xs lg:text-xs font-medium text-black"
                         style={{ 
                           bottom: `${(data.sales / maxSales) * 100}%`,
                           transform: 'translateY(-4px)'
@@ -289,7 +300,7 @@ const Dashboard: React.FC<DashboardProps> = ({ setActiveTab }) => {
                   )}
                 </div>
                 <div className="mt-2 text-center">
-                  <p className="text-xs text-slate-500">{data.month}</p>
+                  <p className="text-xs lg:text-xs text-slate-500 truncate">{data.month.slice(0, 3)}</p>
                 </div>
               </div>
             ))}
@@ -298,51 +309,51 @@ const Dashboard: React.FC<DashboardProps> = ({ setActiveTab }) => {
         <div className="mt-4 flex items-center justify-end">
           <div className="flex items-center space-x-2">
             <div className="w-4 h-4 bg-blue-500 rounded"></div>
-            <span className="text-sm text-slate-600">Sales (MYR)</span>
+            <span className="text-xs lg:text-sm text-slate-600">Sales (MYR)</span>
           </div>
         </div>
       </div>
 
       {/* Bottom Row */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 lg:gap-8">
         {/* Recent Clients */}
-        <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-8">
-          <div className="flex items-center justify-between mb-6">
+        <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-4 lg:p-8">
+          <div className="flex items-center justify-between mb-4 lg:mb-6">
             <div className="flex items-center space-x-3">
-              <div className="bg-slate-100 rounded-lg p-2">
+              <div className="bg-slate-100 rounded-lg p-1.5 lg:p-2">
                 <Users className="w-5 h-5 text-slate-600" />
               </div>
-              <h3 className="text-lg font-semibold text-slate-900">Client Management</h3>
+              <h3 className="text-base lg:text-lg font-semibold text-slate-900">Client Management</h3>
             </div>
             <button 
               onClick={() => setActiveTab?.('clients')}
-              className="text-slate-600 hover:text-slate-900 text-sm font-medium"
+              className="text-slate-600 hover:text-slate-900 text-xs lg:text-sm font-medium"
             >
               View All
             </button>
           </div>
-          <div className="space-y-5">
+          <div className="space-y-3 lg:space-y-5">
             {recentClients.map((client) => {
               const progressPercentage = client.totalSales > 0 ? 
                 Math.round((client.totalCollection / client.totalSales) * 100) : 0;
               
               return (
-                <div key={client.id} className="flex items-center justify-between p-4 bg-slate-50 rounded-lg hover:bg-slate-100 transition-colors border border-slate-100">
+                <div key={client.id} className="flex items-center justify-between p-3 lg:p-4 bg-slate-50 rounded-lg hover:bg-slate-100 transition-colors border border-slate-100">
                   <div className="flex-1">
-                    <h4 className="font-semibold text-slate-900">{client.businessName}</h4>
-                    <p className="text-sm text-slate-500">{client.email}</p>
+                    <h4 className="font-semibold text-slate-900 text-sm lg:text-base truncate">{client.businessName}</h4>
+                    <p className="text-xs lg:text-sm text-slate-500 truncate">{client.email}</p>
                   </div>
-                  <div className="flex items-center space-x-3">
-                    <div className="flex items-center space-x-3">
-                      <div className="w-20 bg-slate-200 rounded-full h-2">
+                  <div className="flex items-center space-x-2 lg:space-x-3 ml-2">
+                    <div className="flex items-center space-x-2 lg:space-x-3">
+                      <div className="w-12 lg:w-20 bg-slate-200 rounded-full h-2">
                         <div
                           className="bg-slate-600 h-2 rounded-full transition-all duration-300"
                           style={{ width: `${progressPercentage}%` }}
                         />
                       </div>
-                      <span className="text-xs font-medium text-slate-600 w-8">{progressPercentage}%</span>
+                      <span className="text-xs font-medium text-slate-600 w-6 lg:w-8">{progressPercentage}%</span>
                     </div>
-                    <span className={`px-3 py-1 rounded-full text-xs font-medium ${getStatusColor(client.status)}`}>
+                    <span className={`px-2 lg:px-3 py-1 rounded-full text-xs font-medium ${getStatusColor(client.status)} hidden sm:inline`}>
                       {client.status}
                     </span>
                   </div>
@@ -353,47 +364,47 @@ const Dashboard: React.FC<DashboardProps> = ({ setActiveTab }) => {
         </div>
 
         {/* Latest Messages */}
-        <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-8">
-          <div className="flex items-center justify-between mb-6">
+        <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-4 lg:p-8">
+          <div className="flex items-center justify-between mb-4 lg:mb-6">
             <div className="flex items-center space-x-2">
-              <div className="bg-slate-100 rounded-lg p-2">
+              <div className="bg-slate-100 rounded-lg p-1.5 lg:p-2">
                 <MessageSquare className="w-5 h-5 text-slate-600" />
               </div>
-              <h3 className="text-lg font-semibold text-slate-900">Latest Messages</h3>
+              <h3 className="text-base lg:text-lg font-semibold text-slate-900">Latest Messages</h3>
               {totalUnreadMessages > 0 && (
-                <span className="bg-red-500 text-white text-xs px-2 py-1 rounded-full font-medium">
+                <span className="bg-red-500 text-white text-xs px-1.5 lg:px-2 py-1 rounded-full font-medium">
                   {totalUnreadMessages}
                 </span>
               )}
             </div>
             <button 
               onClick={() => setActiveTab?.('chat')}
-              className="text-slate-600 hover:text-slate-900 text-sm font-medium"
+              className="text-slate-600 hover:text-slate-900 text-xs lg:text-sm font-medium"
             >
               View All
             </button>
           </div>
-          <div className="space-y-4 max-h-80 overflow-y-auto">
+          <div className="space-y-3 lg:space-y-4 max-h-60 lg:max-h-80 overflow-y-auto">
             {allMessages.map((message, index) => (
-              <div key={`${message.chatId}-${message.id}`} className={`p-4 rounded-lg border transition-colors ${
+              <div key={`${message.chatId}-${message.id}`} className={`p-3 lg:p-4 rounded-lg border transition-colors ${
                 message.isUnread ? 'bg-slate-50 border-slate-300' : 'bg-slate-25 border-slate-200'
               }`}>
-                <div className="flex items-start space-x-3">
-                  <div className="w-8 h-8 bg-slate-600 rounded-full flex items-center justify-center text-white text-xs font-medium flex-shrink-0">
+                <div className="flex items-start space-x-2 lg:space-x-3">
+                  <div className="w-6 h-6 lg:w-8 lg:h-8 bg-slate-600 rounded-full flex items-center justify-center text-white text-xs font-medium flex-shrink-0">
                     {message.avatar}
                   </div>
                   <div className="flex-1 min-w-0">
-                    <div className="flex items-center justify-between mb-1">
-                      <h4 className="text-sm font-semibold text-slate-900 truncate">{message.client}</h4>
+                    <div className="flex items-center justify-between mb-1 gap-2">
+                      <h4 className="text-xs lg:text-sm font-semibold text-slate-900 truncate">{message.client}</h4>
                       <div className="flex items-center space-x-1">
-                        <Clock className="w-3 h-3 text-slate-400" />
-                        <span className="text-xs text-slate-500">{message.timestamp}</span>
+                        <Clock className="w-3 h-3 text-slate-400 flex-shrink-0" />
+                        <span className="text-xs text-slate-500 whitespace-nowrap">{message.timestamp}</span>
                       </div>
                     </div>
-                    <p className="text-sm text-slate-600 line-clamp-2">{message.content}</p>
+                    <p className="text-xs lg:text-sm text-slate-600 line-clamp-2">{message.content}</p>
                     {message.isUnread && (
                       <div className="mt-1">
-                        <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-red-50 text-red-700 border border-red-200">
+                        <span className="inline-flex items-center px-1.5 lg:px-2 py-1 rounded-full text-xs font-medium bg-red-50 text-red-700 border border-red-200">
                           Unread
                         </span>
                       </div>
@@ -403,24 +414,24 @@ const Dashboard: React.FC<DashboardProps> = ({ setActiveTab }) => {
               </div>
             ))}
             {allMessages.length === 0 && (
-              <div className="text-center py-8">
-                <MessageSquare className="w-12 h-12 text-slate-400 mx-auto mb-3" />
-                <p className="text-slate-500">No messages yet</p>
+              <div className="text-center py-6 lg:py-8">
+                <MessageSquare className="w-8 h-8 lg:w-12 lg:h-12 text-slate-400 mx-auto mb-2 lg:mb-3" />
+                <p className="text-slate-500 text-sm">No messages yet</p>
               </div>
             )}
           </div>
         </div>
 
         {/* Today Appointment */}
-        <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-8">
-          <div className="flex items-center justify-between mb-6">
+        <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-4 lg:p-8">
+          <div className="flex items-center justify-between mb-4 lg:mb-6">
             <div className="flex items-center space-x-2">
-              <div className="bg-slate-100 rounded-lg p-2">
+              <div className="bg-slate-100 rounded-lg p-1.5 lg:p-2">
                 <Calendar className="w-5 h-5 text-slate-600" />
               </div>
-              <h3 className="text-lg font-semibold text-slate-900">Today Appointment</h3>
+              <h3 className="text-base lg:text-lg font-semibold text-slate-900">Today Appointment</h3>
             </div>
-            <div className="text-sm font-medium text-slate-600">
+            <div className="text-xs lg:text-sm font-medium text-slate-600">
               {new Date().toLocaleDateString('en-US', {
                 weekday: 'long',
                 day: '2-digit',
@@ -429,10 +440,10 @@ const Dashboard: React.FC<DashboardProps> = ({ setActiveTab }) => {
               })}
             </div>
           </div>
-          <div className="text-center py-8">
-            <Calendar className="w-12 h-12 text-slate-400 mx-auto mb-3" />
-            <p className="text-slate-500 font-medium">No appointments scheduled</p>
-            <p className="text-sm text-slate-400">Your calendar is clear for today</p>
+          <div className="text-center py-6 lg:py-8">
+            <Calendar className="w-8 h-8 lg:w-12 lg:h-12 text-slate-400 mx-auto mb-2 lg:mb-3" />
+            <p className="text-slate-500 font-medium text-sm lg:text-base">No appointments scheduled</p>
+            <p className="text-xs lg:text-sm text-slate-400">Your calendar is clear for today</p>
           </div>
         </div>
       </div>

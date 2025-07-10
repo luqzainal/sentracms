@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Plus, Search, Filter, Trash2 } from 'lucide-react';
+import { Plus, Search, Filter, Trash2, Menu } from 'lucide-react';
 import ClientModal from './ClientModal';
 import ClientProfile from './ClientProfile';
 import ClientProgressTracker from './ClientProgressTracker';
@@ -7,9 +7,10 @@ import { useAppStore } from '../../store/AppStore';
 
 interface ClientsPageProps {
   setActiveTab?: (tab: string) => void;
+  onToggleSidebar?: () => void;
 }
 
-const ClientsPage: React.FC<ClientsPageProps> = ({ setActiveTab }) => {
+const ClientsPage: React.FC<ClientsPageProps> = ({ setActiveTab, onToggleSidebar }) => {
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
   const [picFilter, setPicFilter] = useState('all');
@@ -182,15 +183,23 @@ const ClientsPage: React.FC<ClientsPageProps> = ({ setActiveTab }) => {
   }
 
   return (
-    <div className="p-8 space-y-8">
-      <div className="flex items-center justify-between">
+    <div className="p-4 lg:p-8 space-y-6 lg:space-y-8">
+      <div className="flex items-center justify-between flex-wrap gap-4">
+        <div className="flex items-center space-x-4">
+          <button
+            onClick={onToggleSidebar}
+            className="lg:hidden p-2 text-slate-600 hover:text-slate-900 hover:bg-white rounded-lg transition-colors"
+          >
+            <Menu className="w-6 h-6" />
+          </button>
         <div>
-          <h1 className="text-3xl font-bold text-slate-900">Clients</h1>
-          <p className="text-slate-600 mt-2">Manage your client relationships and projects</p>
+            <h1 className="text-2xl lg:text-3xl font-bold text-slate-900">Clients</h1>
+            <p className="text-slate-600 mt-1 lg:mt-2 text-sm lg:text-base">Manage your client relationships and projects</p>
+        </div>
         </div>
         <button
           onClick={handleAddClient}
-          className="bg-blue-600 text-white px-6 py-3 rounded-xl flex items-center space-x-2 hover:bg-blue-700 transition-all duration-200 font-medium shadow-sm"
+          className="bg-blue-600 text-white px-4 lg:px-6 py-2 lg:py-3 rounded-xl flex items-center space-x-2 hover:bg-blue-700 transition-all duration-200 font-medium shadow-sm text-sm lg:text-base"
         >
           <Plus className="w-5 h-5" />
           <span>Add Client</span>
@@ -198,49 +207,49 @@ const ClientsPage: React.FC<ClientsPageProps> = ({ setActiveTab }) => {
       </div>
 
       {/* Stats Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-        <div className="bg-gradient-to-br from-green-50 to-green-100 rounded-2xl p-8 border border-green-200 shadow-sm">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 lg:gap-8">
+        <div className="bg-gradient-to-br from-green-50 to-green-100 rounded-2xl p-4 lg:p-8 border border-green-200 shadow-sm">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-green-700 font-semibold text-sm uppercase tracking-wide">Complete Clients</p>
-              <p className="text-3xl font-bold text-green-900 mt-2">
+              <p className="text-green-700 font-semibold text-xs lg:text-sm uppercase tracking-wide">Complete Clients</p>
+              <p className="text-2xl lg:text-3xl font-bold text-green-900 mt-1 lg:mt-2">
                 {clients.filter(c => c.status === 'Complete').length}
               </p>
             </div>
-            <div className="w-16 h-16 bg-green-500 rounded-2xl flex items-center justify-center shadow-lg">
-              <span className="text-white font-bold text-xl">
+            <div className="w-12 h-12 lg:w-16 lg:h-16 bg-green-500 rounded-2xl flex items-center justify-center shadow-lg">
+              <span className="text-white font-bold text-lg lg:text-xl">
                 {clients.filter(c => c.status === 'Complete').length}
               </span>
             </div>
           </div>
         </div>
 
-        <div className="bg-gradient-to-br from-yellow-50 to-yellow-100 rounded-2xl p-8 border border-yellow-200 shadow-sm">
+        <div className="bg-gradient-to-br from-yellow-50 to-yellow-100 rounded-2xl p-4 lg:p-8 border border-yellow-200 shadow-sm">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-yellow-700 font-semibold text-sm uppercase tracking-wide">Pending Clients</p>
-              <p className="text-3xl font-bold text-yellow-900 mt-2">
+              <p className="text-yellow-700 font-semibold text-xs lg:text-sm uppercase tracking-wide">Pending Clients</p>
+              <p className="text-2xl lg:text-3xl font-bold text-yellow-900 mt-1 lg:mt-2">
                 {clients.filter(c => c.status === 'Pending').length}
               </p>
             </div>
-            <div className="w-16 h-16 bg-yellow-500 rounded-2xl flex items-center justify-center shadow-lg">
-              <span className="text-white font-bold text-xl">
+            <div className="w-12 h-12 lg:w-16 lg:h-16 bg-yellow-500 rounded-2xl flex items-center justify-center shadow-lg">
+              <span className="text-white font-bold text-lg lg:text-xl">
                 {clients.filter(c => c.status === 'Pending').length}
               </span>
             </div>
           </div>
         </div>
 
-        <div className="bg-gradient-to-br from-red-50 to-red-100 rounded-2xl p-8 border border-red-200 shadow-sm">
+        <div className="bg-gradient-to-br from-red-50 to-red-100 rounded-2xl p-4 lg:p-8 border border-red-200 shadow-sm md:col-span-2 lg:col-span-1">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-red-700 font-semibold text-sm uppercase tracking-wide">Inactive Clients</p>
-              <p className="text-3xl font-bold text-red-900 mt-2">
+              <p className="text-red-700 font-semibold text-xs lg:text-sm uppercase tracking-wide">Inactive Clients</p>
+              <p className="text-2xl lg:text-3xl font-bold text-red-900 mt-1 lg:mt-2">
                 {clients.filter(c => c.status === 'Inactive').length}
               </p>
             </div>
-            <div className="w-16 h-16 bg-red-500 rounded-2xl flex items-center justify-center shadow-lg">
-              <span className="text-white font-bold text-xl">
+            <div className="w-12 h-12 lg:w-16 lg:h-16 bg-red-500 rounded-2xl flex items-center justify-center shadow-lg">
+              <span className="text-white font-bold text-lg lg:text-xl">
                 {clients.filter(c => c.status === 'Inactive').length}
               </span>
             </div>
@@ -249,8 +258,8 @@ const ClientsPage: React.FC<ClientsPageProps> = ({ setActiveTab }) => {
       </div>
 
       {/* Filters */}
-      <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-8">
-        <div className="flex flex-col lg:flex-row gap-6">
+      <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-4 lg:p-8">
+        <div className="flex flex-col sm:flex-row lg:flex-row gap-4 lg:gap-6">
           <div className="flex-1 relative">
             <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-slate-400 w-5 h-5" />
             <input
@@ -258,15 +267,15 @@ const ClientsPage: React.FC<ClientsPageProps> = ({ setActiveTab }) => {
               placeholder="Search clients..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              className="w-full pl-10 pr-4 py-3 border border-slate-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition-all duration-200"
+              className="w-full pl-10 pr-4 py-2 lg:py-3 border border-slate-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition-all duration-200 text-sm lg:text-base"
             />
           </div>
-          <div className="flex items-center space-x-3">
+          <div className="flex items-center space-x-2 lg:space-x-3">
             <Filter className="w-5 h-5 text-slate-400" />
             <select
               value={statusFilter}
               onChange={(e) => setStatusFilter(e.target.value)}
-              className="px-4 py-3 border border-slate-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none min-w-[140px] transition-all duration-200"
+              className="px-3 lg:px-4 py-2 lg:py-3 border border-slate-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none min-w-[120px] lg:min-w-[140px] transition-all duration-200 text-sm lg:text-base"
             >
               <option value="all">All Status</option>
               <option value="complete">Complete</option>
@@ -274,12 +283,12 @@ const ClientsPage: React.FC<ClientsPageProps> = ({ setActiveTab }) => {
               <option value="inactive">Inactive</option>
             </select>
           </div>
-          <div className="flex items-center space-x-3">
+          <div className="flex items-center space-x-2 lg:space-x-3">
             <Filter className="w-5 h-5 text-slate-400" />
             <select
               value={picFilter}
               onChange={(e) => setPicFilter(e.target.value)}
-              className="px-4 py-3 border border-slate-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none min-w-[140px] transition-all duration-200"
+              className="px-3 lg:px-4 py-2 lg:py-3 border border-slate-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none min-w-[120px] lg:min-w-[140px] transition-all duration-200 text-sm lg:text-base"
             >
               <option value="all">All PICs</option>
               {uniquePics.map((pic) => (
@@ -292,48 +301,48 @@ const ClientsPage: React.FC<ClientsPageProps> = ({ setActiveTab }) => {
 
       {/* Clients Table */}
       <div className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
-        <div className="overflow-x-auto">
+        <div className="overflow-x-auto -mx-4 lg:mx-0">
           <table className="w-full">
             <thead className="bg-gradient-to-r from-slate-50 to-slate-100 border-b border-slate-200">
               <tr>
-                <th className="text-center py-4 px-6 font-semibold text-slate-900">Client</th>
-                <th className="text-center py-4 px-6 font-semibold text-slate-900">Contact</th>
-                <th className="text-center py-4 px-6 font-semibold text-slate-900">Status</th>
-                <th className="text-center py-4 px-6 font-semibold text-slate-900">Progress</th>
-                <th className="text-center py-4 px-6 font-semibold text-slate-900">Total<br/>Sales</th>
-                <th className="text-center py-4 px-6 font-semibold text-slate-900">Total<br/>Collection</th>
-                <th className="text-center py-4 px-6 font-semibold text-slate-900">Balance</th>
-                <th className="text-center py-4 px-6 font-semibold text-slate-900">Invoices</th>
-                <th className="text-center py-4 px-6 font-semibold text-slate-900">Actions</th>
+                <th className="text-center py-3 lg:py-4 px-3 lg:px-6 font-semibold text-slate-900 text-xs lg:text-sm min-w-[200px]">Client</th>
+                <th className="text-center py-3 lg:py-4 px-3 lg:px-6 font-semibold text-slate-900 text-xs lg:text-sm min-w-[180px] hidden lg:table-cell">Contact</th>
+                <th className="text-center py-3 lg:py-4 px-3 lg:px-6 font-semibold text-slate-900 text-xs lg:text-sm min-w-[100px]">Status</th>
+                <th className="text-center py-3 lg:py-4 px-3 lg:px-6 font-semibold text-slate-900 text-xs lg:text-sm min-w-[120px]">Progress</th>
+                <th className="text-center py-3 lg:py-4 px-3 lg:px-6 font-semibold text-slate-900 text-xs lg:text-sm min-w-[100px] hidden md:table-cell">Total<br/>Sales</th>
+                <th className="text-center py-3 lg:py-4 px-3 lg:px-6 font-semibold text-slate-900 text-xs lg:text-sm min-w-[100px] hidden md:table-cell">Total<br/>Collection</th>
+                <th className="text-center py-3 lg:py-4 px-3 lg:px-6 font-semibold text-slate-900 text-xs lg:text-sm min-w-[100px] hidden lg:table-cell">Balance</th>
+                <th className="text-center py-3 lg:py-4 px-3 lg:px-6 font-semibold text-slate-900 text-xs lg:text-sm min-w-[80px] hidden lg:table-cell">Invoices</th>
+                <th className="text-center py-3 lg:py-4 px-3 lg:px-6 font-semibold text-slate-900 text-xs lg:text-sm min-w-[120px]">Actions</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-200">
               {filteredClients.map((client) => {
                 const progressStatus = getClientProgressStatus(client.id);
                 return (
-                  <tr key={client.id} className="hover:bg-slate-50 transition-colors duration-150">
-                    <td className="py-4 px-6 text-center">
+                  <tr key={client.id} className="hover:bg-slate-50 transition-colors duration-150 border-b border-slate-100">
+                    <td className="py-3 lg:py-4 px-3 lg:px-6 text-center">
                       <div>
-                        <h4 className="font-medium text-slate-900">{client.businessName}</h4>
-                        <p className="text-sm text-slate-600">{client.name}</p>
-                        <p className="text-sm text-slate-500">PIC: {client.pic}</p>
+                        <h4 className="font-medium text-slate-900 text-xs lg:text-sm">{client.businessName}</h4>
+                        <p className="text-xs lg:text-sm text-slate-600">{client.name}</p>
+                        <p className="text-xs text-slate-500">PIC: {client.pic}</p>
                       </div>
                     </td>
-                    <td className="py-4 px-6 text-center">
+                    <td className="py-3 lg:py-4 px-3 lg:px-6 text-center hidden lg:table-cell">
                       <div>
-                        <p className="text-sm text-slate-900">{client.email}</p>
-                        <p className="text-sm text-slate-600">{client.phone}</p>
+                        <p className="text-xs lg:text-sm text-slate-900">{client.email}</p>
+                        <p className="text-xs lg:text-sm text-slate-600">{client.phone}</p>
                       </div>
                     </td>
-                    <td className="py-4 px-6 text-center">
-                      <span className={`px-2 py-1 rounded text-xs font-medium ${getStatusColor(client.status)}`}>
+                    <td className="py-3 lg:py-4 px-3 lg:px-6 text-center">
+                      <span className={`px-1.5 lg:px-2 py-1 rounded text-xs font-medium ${getStatusColor(client.status)}`}>
                         {client.status}
                       </span>
                     </td>
-                    <td className="py-4 px-6 text-center">
+                    <td className="py-3 lg:py-4 px-3 lg:px-6 text-center">
                       <div className="flex flex-col items-center space-y-2">
                         <div className="flex items-center space-x-2">
-                          <div className="w-20 bg-slate-200 rounded-full h-2">
+                          <div className="w-12 lg:w-20 bg-slate-200 rounded-full h-2">
                             <div
                               className={`h-2 rounded-full transition-all duration-300 ${
                                 progressStatus.hasOverdue 
@@ -343,7 +352,7 @@ const ClientsPage: React.FC<ClientsPageProps> = ({ setActiveTab }) => {
                               style={{ width: `${progressStatus.percentage}%` }}
                             />
                           </div>
-                          <span className={`text-sm min-w-[35px] font-medium ${
+                          <span className={`text-xs lg:text-sm min-w-[25px] lg:min-w-[35px] font-medium ${
                             progressStatus.hasOverdue 
                               ? 'text-red-600' 
                               : 'text-slate-600'
@@ -352,51 +361,61 @@ const ClientsPage: React.FC<ClientsPageProps> = ({ setActiveTab }) => {
                           </span>
                         </div>
                         {progressStatus.hasOverdue && (
-                          <div className="px-2 py-1 bg-red-100 text-red-700 text-xs font-medium rounded-full flex items-center space-x-1">
+                          <div className="px-1.5 lg:px-2 py-1 bg-red-100 text-red-700 text-xs font-medium rounded-full flex items-center space-x-1">
                             <span className="w-1.5 h-1.5 bg-red-500 rounded-full animate-pulse"></span>
                             <span>{progressStatus.overdueCount} Overdue</span>
                           </div>
                         )}
                       </div>
                     </td>
-                    <td className="py-4 px-6 text-center">
-                      <div className="text-sm font-medium text-slate-900 min-w-[80px]">
+                    <td className="py-3 lg:py-4 px-3 lg:px-6 text-center hidden md:table-cell">
+                      <div className="text-xs lg:text-sm font-medium text-slate-900 min-w-[80px]">
                         {formatCurrency(client.totalSales)}
                       </div>
                     </td>
-                    <td className="py-4 px-6 text-center">
-                      <div className="text-sm font-medium text-green-600 min-w-[80px]">
+                    <td className="py-3 lg:py-4 px-3 lg:px-6 text-center hidden md:table-cell">
+                      <div className="text-xs lg:text-sm font-medium text-green-600 min-w-[80px]">
                         {formatCurrency(client.totalCollection)}
                       </div>
                     </td>
-                    <td className="py-4 px-6 text-center">
-                      <div className="text-sm font-medium text-orange-600 min-w-[80px]">
+                    <td className="py-3 lg:py-4 px-3 lg:px-6 text-center hidden lg:table-cell">
+                      <div className="text-xs lg:text-sm font-medium text-orange-600 min-w-[80px]">
                         {formatCurrency(client.balance)}
                       </div>
                     </td>
-                    <td className="py-4 px-6 text-center">
-                      <span className="font-medium text-slate-900">{client.invoiceCount}</span>
+                    <td className="py-3 lg:py-4 px-3 lg:px-6 text-center hidden lg:table-cell">
+                      <span className="font-medium text-slate-900 text-xs lg:text-sm">{client.invoiceCount}</span>
                     </td>
-                    <td className="py-4 px-6 text-center">
-                      <div className="flex items-center justify-center space-x-2">
+                    <td className="py-3 lg:py-4 px-3 lg:px-6 text-center">
+                      <div className="flex flex-col lg:flex-row items-center justify-center space-y-1 lg:space-y-0 lg:space-x-2">
                         <button 
                           onClick={() => handleViewProfile(client.id.toString())}
-                          className="px-3 py-1 text-xs font-medium bg-blue-100 text-blue-700 rounded-lg hover:bg-blue-200 transition-all duration-200"
+                          className="px-2 lg:px-3 py-1 text-xs font-medium bg-blue-100 text-blue-700 rounded-lg hover:bg-blue-200 transition-all duration-200 w-full lg:w-auto"
                         >
                           View
                         </button>
                         <button
                           onClick={() => handleTrackProgress(client.id.toString())}
-                          className="px-3 py-1 text-xs font-medium bg-purple-100 text-purple-700 rounded-lg hover:bg-purple-200 transition-all duration-200"
+                          className="px-2 lg:px-3 py-1 text-xs font-medium bg-purple-100 text-purple-700 rounded-lg hover:bg-purple-200 transition-all duration-200 w-full lg:w-auto"
                         >
                           Track
                         </button>
-                        <button 
-                          onClick={() => handleDeleteClient(client.id)}
-                          className="p-2 text-red-500 hover:text-red-700 hover:bg-red-50 rounded-lg transition-all duration-200 flex items-center justify-center"
-                        >
-                          <Trash2 className="w-4 h-4" />
-                        </button>
+                        <div className="lg:hidden">
+                          <button 
+                            onClick={() => handleDeleteClient(client.id)}
+                            className="p-1 text-red-500 hover:text-red-700 hover:bg-red-50 rounded-lg transition-all duration-200 flex items-center justify-center"
+                          >
+                            <Trash2 className="w-3 h-3" />
+                          </button>
+                        </div>
+                        <div className="hidden lg:block">
+                          <button 
+                            onClick={() => handleDeleteClient(client.id)}
+                            className="p-2 text-red-500 hover:text-red-700 hover:bg-red-50 rounded-lg transition-all duration-200 flex items-center justify-center"
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </button>
+                        </div>
                       </div>
                     </td>
                   </tr>

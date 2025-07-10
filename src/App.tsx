@@ -11,6 +11,7 @@ import SettingsPage from './components/Settings/SettingsPage';
 function App() {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [activeTab, setActiveTab] = useState('dashboard');
+  const [sidebarOpen, setSidebarOpen] = useState(false);
 
   const handleLogin = (email: string, password: string) => {
     // Simple authentication - check against Malaysian demo credentials
@@ -22,24 +23,29 @@ function App() {
   const handleLogout = () => {
     setIsAuthenticated(false);
     setActiveTab('dashboard');
+    setSidebarOpen(false);
+  };
+
+  const toggleSidebar = () => {
+    setSidebarOpen(!sidebarOpen);
   };
 
   const renderContent = () => {
     switch (activeTab) {
       case 'dashboard':
-        return <Dashboard setActiveTab={setActiveTab} />;
+        return <Dashboard setActiveTab={setActiveTab} onToggleSidebar={toggleSidebar} />;
       case 'clients':
-        return <ClientsPage setActiveTab={setActiveTab} />;
+        return <ClientsPage setActiveTab={setActiveTab} onToggleSidebar={toggleSidebar} />;
       case 'calendar':
-        return <CalendarPage />;
+        return <CalendarPage onToggleSidebar={toggleSidebar} />;
       case 'chat':
-        return <ChatPage />;
+        return <ChatPage onToggleSidebar={toggleSidebar} />;
       case 'reports':
-        return <ReportsPage />;
+        return <ReportsPage onToggleSidebar={toggleSidebar} />;
       case 'settings':
-        return <SettingsPage />;
+        return <SettingsPage onToggleSidebar={toggleSidebar} />;
       default:
-        return <Dashboard setActiveTab={setActiveTab} />;
+        return <Dashboard setActiveTab={setActiveTab} onToggleSidebar={toggleSidebar} />;
     }
   };
 
@@ -48,13 +54,15 @@ function App() {
   }
 
   return (
-    <div className="flex h-screen bg-slate-100">
+    <div className="flex h-screen bg-slate-100 overflow-hidden">
       <Sidebar 
         activeTab={activeTab} 
         setActiveTab={setActiveTab} 
         onLogout={handleLogout}
+        isOpen={sidebarOpen}
+        onToggle={toggleSidebar}
       />
-      <main className="flex-1 overflow-y-auto">
+      <main className="flex-1 overflow-y-auto lg:ml-0">
         {renderContent()}
       </main>
     </div>

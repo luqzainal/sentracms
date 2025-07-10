@@ -24,7 +24,7 @@ const Login: React.FC<LoginProps> = ({ onLogin }) => {
 
   return (
     <div 
-      className="min-h-screen flex items-center justify-center p-4 bg-cover bg-center bg-no-repeat relative"
+      className="min-h-screen flex items-center justify-center p-4 lg:p-8 bg-cover bg-center bg-no-repeat relative"
       style={{ 
         backgroundImage: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%), url(/src/assets/Picture1.png)',
         backgroundBlendMode: 'overlay'
@@ -39,31 +39,31 @@ const Login: React.FC<LoginProps> = ({ onLogin }) => {
       }}></div>
       
       {/* Main login container */}
-      <div className="relative z-10 w-full max-w-md">        
+      <div className="relative z-10 w-full max-w-sm lg:max-w-md">        
         {/* Login card */}
         <div className="rounded-2xl shadow-2xl border border-slate-200/20 overflow-hidden" style={{ backgroundColor: '#eded21' }}>
           {/* Header with brand colors */}
-          <div className="bg-gradient-to-r from-slate-800 to-slate-900 px-8 py-8 text-center">
+          <div className="bg-gradient-to-r from-slate-800 to-slate-900 px-4 lg:px-8 py-6 lg:py-8 text-center">
             <div className="flex justify-center">
                 <img 
                   src="/src/assets/AiChatbot (13) copy copy.png" 
                   alt="Sentra Logo" 
-                  className="w-full h-auto max-w-xs"
+                  className="w-full h-auto max-w-[200px] lg:max-w-xs"
                 />
             </div>
           </div>
 
           {/* Form section */}
-          <div className="px-8 py-8" style={{ backgroundColor: '#eded21' }}>
-            <div className="text-center mb-8">
-              <h2 className="text-xl font-semibold text-slate-800 mb-2">Welcome Back</h2>
-              <p className="text-slate-600 text-sm">Please sign in to your account</p>
+          <div className="px-4 lg:px-8 py-6 lg:py-8" style={{ backgroundColor: '#eded21' }}>
+            <div className="text-center mb-6 lg:mb-8">
+              <h2 className="text-lg lg:text-xl font-semibold text-slate-800 mb-2">Welcome Back</h2>
+              <p className="text-slate-600 text-sm lg:text-base">Please sign in to your account</p>
             </div>
 
-            <form onSubmit={handleSubmit} className="space-y-6">
+            <form onSubmit={handleSubmit} className="space-y-4 lg:space-y-6">
               {/* Email field */}
               <div>
-                <label className="block text-sm font-medium text-slate-700 mb-2">
+                <label className="block text-sm lg:text-base font-medium text-slate-700 mb-2">
                   Email Address
                 </label>
                 <div className="relative">
@@ -73,7 +73,7 @@ const Login: React.FC<LoginProps> = ({ onLogin }) => {
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
                     required
-                    className="w-full pl-10 pr-4 py-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-slate-500 focus:border-slate-500 outline-none transition-all duration-200 bg-slate-50 hover:bg-white"
+                    className="w-full pl-10 pr-4 py-2 lg:py-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-slate-500 focus:border-slate-500 outline-none transition-all duration-200 bg-slate-50 hover:bg-white text-sm lg:text-base"
                     placeholder="admin@sentra.com"
                   />
                 </div>
@@ -81,7 +81,7 @@ const Login: React.FC<LoginProps> = ({ onLogin }) => {
 
               {/* Password field */}
               <div>
-                <label className="block text-sm font-medium text-slate-700 mb-2">
+                <label className="block text-sm lg:text-base font-medium text-slate-700 mb-2">
                   Password
                 </label>
                 <div className="relative">
@@ -91,7 +91,7 @@ const Login: React.FC<LoginProps> = ({ onLogin }) => {
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
                     required
-                    className="w-full pl-10 pr-12 py-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-slate-500 focus:border-slate-500 outline-none transition-all duration-200 bg-slate-50 hover:bg-white"
+                    className="w-full pl-10 pr-12 py-2 lg:py-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-slate-500 focus:border-slate-500 outline-none transition-all duration-200 bg-slate-50 hover:bg-white text-sm lg:text-base"
                     placeholder="Enter your password"
                   />
                   <button
@@ -108,7 +108,7 @@ const Login: React.FC<LoginProps> = ({ onLogin }) => {
               <button
                 type="submit"
                 disabled={isLoading}
-                className="w-full bg-slate-800 text-white py-3 rounded-lg font-medium hover:bg-slate-900 focus:ring-2 focus:ring-slate-500 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200 shadow-lg"
+                className="w-full bg-slate-800 text-white py-2 lg:py-3 rounded-lg font-medium hover:bg-slate-900 focus:ring-2 focus:ring-slate-500 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200 shadow-lg text-sm lg:text-base"
               >
                 {isLoading ? (
                   <div className="flex items-center justify-center space-x-2">
@@ -122,8 +122,8 @@ const Login: React.FC<LoginProps> = ({ onLogin }) => {
             </form>
 
             {/* Demo credentials */}
-            <div className="mt-6 p-3 bg-slate-50 rounded-lg border border-slate-200">
-              <p className="text-xs text-slate-600 text-center">
+            <div className="mt-4 lg:mt-6 p-3 bg-slate-50 rounded-lg border border-slate-200">
+              <p className="text-xs lg:text-sm text-slate-600 text-center">
                 <span className="font-medium">Demo:</span> admin@sentra.com / password123
               </p>
             </div>
@@ -131,7 +131,7 @@ const Login: React.FC<LoginProps> = ({ onLogin }) => {
         </div>
 
         {/* Footer */}
-        <div className="text-center mt-6">
+        <div className="text-center mt-4 lg:mt-6">
           <p className="text-white/70 text-xs">
             © 2025 mysentree. All rights reserved.
           </p>
