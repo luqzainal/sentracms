@@ -323,9 +323,11 @@ const ClientsPage: React.FC<ClientsPageProps> = ({ setActiveTab, onToggleSidebar
                   <tr key={client.id} className="hover:bg-slate-50 transition-colors duration-150 border-b border-slate-100">
                     <td className="py-3 lg:py-4 px-3 lg:px-6 text-center">
                       <div>
-                        <h4 className="font-medium text-slate-900 text-xs lg:text-sm">{client.businessName}</h4>
-                        <p className="text-xs lg:text-sm text-slate-600">{client.name}</p>
-                        <p className="text-xs text-slate-500">PIC: {client.pic}</p>
+                        <div className="px-2 py-1">
+                          <h4 className="font-medium text-slate-900 text-xs lg:text-sm">{client.businessName}</h4>
+                          <p className="text-xs lg:text-sm text-slate-600 mt-1">{client.name}</p>
+                          <p className="text-xs text-slate-500 mt-1">PIC: {client.pic}</p>
+                        </div>
                       </div>
                     </td>
                     <td className="py-3 lg:py-4 px-3 lg:px-6 text-center hidden lg:table-cell">
@@ -387,23 +389,23 @@ const ClientsPage: React.FC<ClientsPageProps> = ({ setActiveTab, onToggleSidebar
                       <span className="font-medium text-slate-900 text-xs lg:text-sm">{client.invoiceCount}</span>
                     </td>
                     <td className="py-3 lg:py-4 px-3 lg:px-6 text-center">
-                      <div className="flex flex-col lg:flex-row items-center justify-center space-y-1 lg:space-y-0 lg:space-x-2">
+                      <div className="flex flex-col lg:flex-row items-center justify-center space-y-2 lg:space-y-0 lg:space-x-2 px-2 py-1">
                         <button 
                           onClick={() => handleViewProfile(client.id.toString())}
-                          className="px-2 lg:px-3 py-1 text-xs font-medium bg-blue-100 text-blue-700 rounded-lg hover:bg-blue-200 transition-all duration-200 w-full lg:w-auto"
+                          className="px-3 lg:px-4 py-2 text-xs font-medium bg-blue-100 text-blue-700 rounded-lg hover:bg-blue-200 transition-all duration-200 w-full lg:w-auto min-w-[60px]"
                         >
                           View
                         </button>
                         <button
                           onClick={() => handleTrackProgress(client.id.toString())}
-                          className="px-2 lg:px-3 py-1 text-xs font-medium bg-purple-100 text-purple-700 rounded-lg hover:bg-purple-200 transition-all duration-200 w-full lg:w-auto"
+                          className="px-3 lg:px-4 py-2 text-xs font-medium bg-purple-100 text-purple-700 rounded-lg hover:bg-purple-200 transition-all duration-200 w-full lg:w-auto min-w-[60px]"
                         >
                           Track
                         </button>
                         <div className="lg:hidden">
                           <button 
                             onClick={() => handleDeleteClient(client.id)}
-                            className="p-1 text-red-500 hover:text-red-700 hover:bg-red-50 rounded-lg transition-all duration-200 flex items-center justify-center"
+                            className="p-2 text-red-500 hover:text-red-700 hover:bg-red-50 rounded-lg transition-all duration-200 flex items-center justify-center min-w-[36px] min-h-[36px]"
                           >
                             <Trash2 className="w-3 h-3" />
                           </button>
@@ -411,7 +413,7 @@ const ClientsPage: React.FC<ClientsPageProps> = ({ setActiveTab, onToggleSidebar
                         <div className="hidden lg:block">
                           <button 
                             onClick={() => handleDeleteClient(client.id)}
-                            className="p-2 text-red-500 hover:text-red-700 hover:bg-red-50 rounded-lg transition-all duration-200 flex items-center justify-center"
+                            className="p-3 text-red-500 hover:text-red-700 hover:bg-red-50 rounded-lg transition-all duration-200 flex items-center justify-center min-w-[40px] min-h-[40px]"
                           >
                             <Trash2 className="w-4 h-4" />
                           </button>
