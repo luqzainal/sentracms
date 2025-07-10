@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Send, Search, Phone, Video, MoreHorizontal, Paperclip, Smile, Menu } from 'lucide-react';
+import { Send, Search, Phone, Video, MoreHorizontal, Paperclip, Smile, Menu, ArrowLeft } from 'lucide-react';
 import { useAppStore } from '../../store/AppStore';
 
 interface ChatPageProps {
