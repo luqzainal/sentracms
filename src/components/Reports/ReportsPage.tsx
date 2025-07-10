@@ -1,91 +1,29 @@
 import React, { useState } from 'react';
 import { Download, Filter, TrendingUp, DollarSign, Users, Calendar, Database, CreditCard, UserX, CheckCircle, Clock } from 'lucide-react';
 import html2canvas from 'html2canvas';
+import { useAppStore } from '../../store/AppStore';
 
 const ReportsPage: React.FC = () => {
   const [dateFilter, setDateFilter] = useState('month');
   const [customDateStart, setCustomDateStart] = useState('');
   const [customDateEnd, setCustomDateEnd] = useState('');
 
-  // Mock data for calculations - in real app, this would be fetched from backend
-  const clients = [
-    {
-      id: 1,
-      name: 'Acme Corporation',
-      status: 'Complete',
-      totalSales: 25000,
-      totalCollection: 20000,
-      balance: 5000,
-      progressSteps: { completed: 8, total: 10 }
-    },
-    {
-      id: 2,
-      name: 'Tech Solutions Inc',
-      status: 'Complete',
-      totalSales: 18500,
-      totalCollection: 15000,
-      balance: 3500,
-      progressSteps: { completed: 6, total: 8 }
-    },
-    {
-      id: 3,
-      name: 'Global Marketing',
-      status: 'Pending',
-      totalSales: 12000,
-      totalCollection: 8000,
-      balance: 4000,
-      progressSteps: { completed: 3, total: 6 }
-    },
-    {
-      id: 4,
-      name: 'Digital Agency',
-      status: 'Complete',
-      totalSales: 35000,
-      totalCollection: 30000,
-      balance: 5000,
-      progressSteps: { completed: 9, total: 10 }
-    },
-    {
-      id: 5,
-      name: 'StartUp Ventures',
-      status: 'Inactive',
-      totalSales: 8000,
-      totalCollection: 6000,
-      balance: 2000,
-      progressSteps: { completed: 2, total: 4 }
-    },
-    {
-      id: 6,
-      name: 'Innovation Labs',
-      status: 'Complete',
-      totalSales: 22000,
-      totalCollection: 18000,
-      balance: 4000,
-      progressSteps: { completed: 7, total: 9 }
-    },
-    {
-      id: 7,
-      name: 'Creative Studio',
-      status: 'Inactive',
-      totalSales: 15000,
-      totalCollection: 10000,
-      balance: 5000,
-      progressSteps: { completed: 4, total: 8 }
-    }
-  ];
+  const { 
+    clients, 
+    getTotalSales, 
+    getTotalCollection, 
+    getTotalBalance 
+  } = useAppStore();
 
   // Calculate metrics
-  const totalSales = clients.reduce((sum, client) => sum + client.totalSales, 0);
-  const totalCollection = clients.reduce((sum, client) => sum + client.totalCollection, 0);
-  const totalBalance = clients.reduce((sum, client) => sum + client.balance, 0);
+  const totalSales = getTotalSales();
+  const totalCollection = getTotalCollection();
+  const totalBalance = getTotalBalance();
   const collectionRate = totalSales > 0 ? (totalCollection / totalSales) * 100 : 0;
   
   const totalClients = clients.length;
   const inactiveClients = clients.filter(c => c.status === 'Inactive').length;
   const dropoutRate = totalClients > 0 ? (inactiveClients / totalClients) * 100 : 0;
-  
-  // Job completion rate - only for Complete and Pending clients
-  const completeAndPendingClients = clients.filter(c => c.status === 'Complete' || c.status === 'Pending');
   
   // Client completion rate - complete clients over total clients (excluding inactive) * 100
   const activeClients = clients.filter(c => c.status !== 'Inactive');
@@ -93,21 +31,21 @@ const ReportsPage: React.FC = () => {
   const clientCompletionRate = activeClients.length > 0 ? (completeClients.length / activeClients.length) * 100 : 0;
 
   const monthlyData = [
-    { month: 'January', revenue: 0, displayValue: 'RM 0' },
-    { month: 'February', revenue: 0, displayValue: 'RM 0' },
-    { month: 'March', revenue: 0, displayValue: 'RM 0' },
-    { month: 'April', revenue: 0, displayValue: 'RM 0' },
-    { month: 'May', revenue: 0, displayValue: 'RM 0' },
-    { month: 'June', revenue: 19994, displayValue: 'RM 19,994' },
-    { month: 'July', revenue: 49979, displayValue: 'RM 49,979' },
-    { month: 'August', revenue: 0, displayValue: 'RM 0' },
-    { month: 'September', revenue: 0, displayValue: 'RM 0' },
-    { month: 'October', revenue: 0, displayValue: 'RM 0' },
-    { month: 'November', revenue: 0, displayValue: 'RM 0' },
-    { month: 'December', revenue: 0, displayValue: 'RM 0' },
+    { month: 'January', sales: 0, displayValue: 'RM 0' },
+    { month: 'February', sales: 0, displayValue: 'RM 0' },
+    { month: 'March', sales: 0, displayValue: 'RM 0' },
+    { month: 'April', sales: 0, displayValue: 'RM 0' },
+    { month: 'May', sales: 0, displayValue: 'RM 0' },
+    { month: 'June', sales: 19994, displayValue: 'RM 19,994' },
+    { month: 'July', sales: 49979, displayValue: 'RM 49,979' },
+    { month: 'August', sales: 0, displayValue: 'RM 0' },
+    { month: 'September', sales: 0, displayValue: 'RM 0' },
+    { month: 'October', sales: 0, displayValue: 'RM 0' },
+    { month: 'November', sales: 0, displayValue: 'RM 0' },
+    { month: 'December', sales: 0, displayValue: 'RM 0' },
   ];
 
-  const maxRevenue = Math.max(...monthlyData.map(d => d.revenue));
+  const maxSales = Math.max(...monthlyData.map(d => d.sales));
 
   const clientPerformanceData = clients.map(client => ({
     name: client.name,
@@ -294,14 +232,17 @@ const ReportsPage: React.FC = () => {
             </div>
           )}
           
-          <button className="bg-blue-600 text-white px-4 py-2 rounded-lg flex items-center space-x-2 hover:bg-blue-700 transition-colors">
+          <button 
+            onClick={handleExportReport}
+            className="bg-blue-600 text-white px-4 py-2 rounded-lg flex items-center space-x-2 hover:bg-blue-700 transition-colors"
+          >
             <Download className="w-4 h-4" />
-            <span onClick={handleExportReport}>Export Report</span>
+            <span>Export Report</span>
           </button>
         </div>
       </div>
 
-      {/* Summary Statistics - Moved to top */}
+      {/* Summary Statistics */}
       <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-6">
         <h3 className="text-lg font-semibold text-slate-900 mb-6">Summary Statistics</h3>
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
@@ -444,7 +385,7 @@ const ReportsPage: React.FC = () => {
         </div>
       </div>
 
-      {/* Revenue Analysis Chart */}
+      {/* Sales Analytics Chart */}
       <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-6">
         <h3 className="text-lg font-semibold text-slate-900 mb-6">Monthly Sales Chart</h3>
         <div className="h-80">
@@ -452,16 +393,16 @@ const ReportsPage: React.FC = () => {
             {monthlyData.map((data, index) => (
               <div key={index} className="flex-1 flex flex-col items-center">
                 <div className="w-full bg-slate-100 rounded-t-sm relative" style={{ height: '280px' }}>
-                  {data.revenue > 0 && (
+                  {data.sales > 0 && (
                     <>
                       <div
                         className="absolute bottom-0 w-full bg-gradient-to-t from-blue-400 to-blue-500 rounded-t-sm"
-                        style={{ height: `${(data.revenue / maxRevenue) * 100}%` }}
+                        style={{ height: `${(data.sales / maxSales) * 100}%` }}
                       />
                       <div 
                         className="absolute w-full flex justify-center text-xs font-medium text-black"
                         style={{ 
-                          bottom: `${(data.revenue / maxRevenue) * 100}%`,
+                          bottom: `${(data.sales / maxSales) * 100}%`,
                           transform: 'translateY(-4px)'
                         }}
                       >

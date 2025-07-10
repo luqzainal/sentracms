@@ -5,6 +5,7 @@ import AddPaymentModal from './AddPaymentModal';
 import AddComponentModal from './AddComponentModal';
 import AddEventModal from './AddEventModal';
 import ClientModal from './ClientModal';
+import { useAppStore } from '../../store/AppStore';
 
 interface ClientProfileProps {
   clientId: string;
@@ -13,94 +14,104 @@ interface ClientProfileProps {
 }
 
 const ClientProfile: React.FC<ClientProfileProps> = ({ clientId, onBack, onEdit }) => {
-  const [activeTab, setActiveTab] = useState('components');
   const [showInvoiceModal, setShowInvoiceModal] = useState(false);
   const [showPaymentModal, setShowPaymentModal] = useState(false);
   const [showComponentModal, setShowComponentModal] = useState(false);
   const [showEventModal, setShowEventModal] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
 
-  // Mock client data - in real app, this would be fetched based on clientId
-  const client = {
-    id: clientId,
-    name: 'Syazwani binti Jamali',
-    businessName: 'Syazwani Tech Solutions',
-    email: 'syazwani@gmail.com',
-    phone: '0193721960',
-    status: 'complete',
-    pic: 'Ahmad Razak',
-    registeredAt: '2025-07-09 10:44:34',
-    company: 'Tech Solutions Sdn Bhd',
-    address: 'Jalan Sultanah Zainab, Kota Bharu, Kelantan',
-    notes: 'VIP client with multiple ongoing projects'
-  };
+  const { 
+    getClientById, 
+    getInvoicesByClientId, 
+    getPaymentsByClientId,
+    getComponentsByClientId,
+    updateClient,
+    addInvoice,
+    addPayment,
+    addComponent,
+    addCalendarEvent,
+    deleteComponent
+  } = useAppStore();
 
-  const components = [
-    { id: 1, name: 'Akses 12 Month Sistem Kuasa', active: true, price: 'RM 299.00' },
-    { id: 2, name: 'Akses 12 Month Sistem Telah AI', active: true, price: 'RM 199.00' },
-    { id: 3, name: 'Akses 12 Month Group Support Kuasa', active: true, price: 'RM 99.00' },
-    { id: 4, name: 'Akses 12 Month Group Support Telah AI', active: false, price: 'RM 99.00' },
-    { id: 5, name: 'Executive Kuasa Workshop: Step by Step Weekly', active: false, price: 'RM 499.00' },
-    { id: 6, name: 'Group Onboarding Coaching (1 Sessions)', active: false, price: 'RM 299.00' },
-    { id: 7, name: '3 Month Online Session with Kuasa Expert', active: false, price: 'RM 799.00' }
-  ];
+  const client = getClientById(parseInt(clientId));
+  const invoices = getInvoicesByClientId(parseInt(clientId));
+  const payments = getPaymentsByClientId(parseInt(clientId));
+  const components = getComponentsByClientId(parseInt(clientId));
 
-  const invoices = [
-    {
-      id: 'Kuasa 360',
-      amount: 'RM9,997.00',
-      paid: 'RM3,000.00',
-      due: 'RM6,997.00',
-      status: 'Partial'
-    }
-  ];
-
-  const calendarEvents = [];
+  if (!client) {
+    return (
+      <div className="p-6">
+        <div className="text-center">
+          <h2 className="text-xl font-semibold text-slate-900">Client not found</h2>
+          <button onClick={onBack} className="mt-4 text-blue-600 hover:text-blue-700">
+            Go back
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   const handleEditProfile = () => {
     setShowEditModal(true);
   };
 
   const handleSaveProfile = (clientData: any) => {
-    console.log('Saving client profile:', clientData);
+    updateClient(client.id, clientData);
     setShowEditModal(false);
-    // Here you would typically update the client data
-  };
-
-  const handleAddInvoice = () => {
-    setShowInvoiceModal(true);
-  };
-
-  const handleAddPayment = () => {
-    setShowPaymentModal(true);
-  };
-
-  const handleAddComponent = () => {
-    setShowComponentModal(true);
-  };
-
-  const handleSaveComponent = (componentData: any) => {
-    console.log('Saving components:', componentData);
-    setShowComponentModal(false);
-    // Here you would typically save to your backend
-  };
-
-  const handleSaveEvent = (eventData: any) => {
-    console.log('Saving event:', eventData);
-    setShowEventModal(false);
-    // Here you would typically save to your backend
   };
 
   const handleSaveInvoice = (invoiceData: any) => {
-    console.log('Saving invoice:', invoiceData);
+    addInvoice({
+      ...invoiceData,
+      clientId: client.id,
+      amount: parseFloat(invoiceData.totalAmount.replace(/[^\d.]/g, '')),
+      paid: 0,
+      due: parseFloat(invoiceData.totalAmount.replace(/[^\d.]/g, '')),
+      status: 'Pending',
+      createdAt: invoiceData.invoiceDate
+    });
     setShowInvoiceModal(false);
-    // Here you would typically save to your backend
   };
 
   const handleSavePayment = (paymentData: any) => {
-    console.log('Saving payment:', paymentData);
+    const invoice = invoices[0]; // For demo, use first invoice
+    if (invoice) {
+      addPayment({
+        ...paymentData,
+        clientId: client.id,
+        invoiceId: invoice.id,
+        amount: parseFloat(paymentData.amount.replace(/[^\d.]/g, '')),
+        paidAt: paymentData.paidAt
+      });
+    }
     setShowPaymentModal(false);
-    // Here you would typically save to your backend
+  };
+
+  const handleSaveComponent = (componentData: any) => {
+    componentData.forEach((comp: any) => {
+      addComponent({
+        clientId: client.id,
+        name: comp.name,
+        price: 'RM 299.00',
+        active: true
+      });
+    });
+    setShowComponentModal(false);
+  };
+
+  const handleSaveEvent = (eventData: any) => {
+    addCalendarEvent({
+      ...eventData,
+      clientId: client.id,
+      type: 'meeting'
+    });
+    setShowEventModal(false);
+  };
+
+  const handleDeleteComponent = (componentId: string) => {
+    if (confirm('Are you sure you want to delete this component?')) {
+      deleteComponent(componentId);
+    }
   };
 
   return (
@@ -176,7 +187,7 @@ const ClientProfile: React.FC<ClientProfileProps> = ({ clientId, onBack, onEdit 
             <div className="flex items-center justify-between mb-4">
               <h3 className="text-lg font-semibold text-slate-900">Component Package</h3>
               <button
-                onClick={handleAddComponent}
+                onClick={() => setShowComponentModal(true)}
                 className="bg-blue-600 text-white px-4 py-2 rounded-lg flex items-center space-x-2 hover:bg-blue-700 transition-colors"
               >
                 <Plus className="w-4 h-4" />
@@ -197,12 +208,20 @@ const ClientProfile: React.FC<ClientProfileProps> = ({ clientId, onBack, onEdit 
                     </div>
                   </div>
                   <div className="flex items-center space-x-2">
-                    <button className="p-1 text-red-500 hover:text-red-700 transition-colors">
+                    <button 
+                      onClick={() => handleDeleteComponent(component.id)}
+                      className="p-1 text-red-500 hover:text-red-700 transition-colors"
+                    >
                       <Trash2 className="w-4 h-4" />
                     </button>
                   </div>
                 </div>
               ))}
+              {components.length === 0 && (
+                <div className="text-center py-8 text-slate-500">
+                  No components added yet.
+                </div>
+              )}
             </div>
           </div>
 
@@ -236,7 +255,7 @@ const ClientProfile: React.FC<ClientProfileProps> = ({ clientId, onBack, onEdit 
                 <h3 className="text-lg font-semibold text-slate-900">Invoices</h3>
               </div>
               <button
-                onClick={handleAddInvoice}
+                onClick={() => setShowInvoiceModal(true)}
                 className="bg-blue-600 text-white px-3 py-2 rounded-lg flex items-center space-x-2 hover:bg-blue-700 transition-colors text-sm"
               >
                 <Plus className="w-4 h-4" />
@@ -248,28 +267,20 @@ const ClientProfile: React.FC<ClientProfileProps> = ({ clientId, onBack, onEdit 
               {invoices.map((invoice, index) => (
                 <div key={index} className="border border-slate-200 rounded-lg p-4">
                   <div className="flex items-center justify-between mb-2">
-                    <h4 className="font-medium text-slate-900">{invoice.id}</h4>
-                    <div className="flex items-center space-x-2">
-                      <button className="p-1 text-blue-500 hover:text-blue-700">
-                        <Edit className="w-4 h-4" />
-                      </button>
-                      <button className="p-1 text-red-500 hover:text-red-700">
-                        <Trash2 className="w-4 h-4" />
-                      </button>
-                    </div>
+                    <h4 className="font-medium text-slate-900">{invoice.packageName}</h4>
                   </div>
                   <div className="text-sm space-y-1">
                     <div className="flex justify-between">
                       <span className="text-slate-600">Total:</span>
-                      <span className="font-medium">{invoice.amount}</span>
+                      <span className="font-medium">RM {invoice.amount.toLocaleString()}</span>
                     </div>
                     <div className="flex justify-between">
                       <span className="text-slate-600">Paid:</span>
-                      <span className="text-green-600">{invoice.paid}</span>
+                      <span className="text-green-600">RM {invoice.paid.toLocaleString()}</span>
                     </div>
                     <div className="flex justify-between">
                       <span className="text-slate-600">Due:</span>
-                      <span className="text-red-600">{invoice.due}</span>
+                      <span className="text-red-600">RM {invoice.due.toLocaleString()}</span>
                     </div>
                   </div>
                   
@@ -278,7 +289,7 @@ const ClientProfile: React.FC<ClientProfileProps> = ({ clientId, onBack, onEdit 
                     <div className="flex items-center justify-between">
                       <span className="text-sm text-slate-600">Payment Details</span>
                       <button 
-                        onClick={handleAddPayment}
+                        onClick={() => setShowPaymentModal(true)}
                         className="text-blue-600 hover:text-blue-700 text-sm"
                       >
                         + Add Payment
@@ -287,6 +298,11 @@ const ClientProfile: React.FC<ClientProfileProps> = ({ clientId, onBack, onEdit 
                   </div>
                 </div>
               ))}
+              {invoices.length === 0 && (
+                <div className="text-center py-8 text-slate-500">
+                  No invoices yet.
+                </div>
+              )}
             </div>
           </div>
         </div>
@@ -307,12 +323,12 @@ const ClientProfile: React.FC<ClientProfileProps> = ({ clientId, onBack, onEdit 
         />
       )}
 
-     {showComponentModal && (
-       <AddComponentModal
-         onClose={() => setShowComponentModal(false)}
-         onSave={handleSaveComponent}
-       />
-     )}
+      {showComponentModal && (
+        <AddComponentModal
+          onClose={() => setShowComponentModal(false)}
+          onSave={handleSaveComponent}
+        />
+      )}
 
       {showEditModal && (
         <ClientModal

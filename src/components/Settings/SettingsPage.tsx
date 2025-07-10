@@ -1,17 +1,7 @@
 import React, { useState } from 'react';
 import { Plus, Search, Edit, Trash2, Shield, Users, Key, Eye, EyeOff, UserCheck, UserX, Crown, Briefcase, User } from 'lucide-react';
 import UserModal from './UserModal';
-
-interface User {
-  id: string;
-  name: string;
-  email: string;
-  role: 'Super Admin' | 'Team' | 'Client';
-  status: 'Active' | 'Inactive';
-  lastLogin: string;
-  createdAt: string;
-  permissions: string[];
-}
+import { useAppStore } from '../../store/AppStore';
 
 const SettingsPage: React.FC = () => {
   const [activeTab, setActiveTab] = useState('users');
@@ -19,61 +9,9 @@ const SettingsPage: React.FC = () => {
   const [roleFilter, setRoleFilter] = useState('all');
   const [statusFilter, setStatusFilter] = useState('all');
   const [showUserModal, setShowUserModal] = useState(false);
-  const [selectedUser, setSelectedUser] = useState<User | null>(null);
+  const [selectedUser, setSelectedUser] = useState<any>(null);
 
-  // Mock users data
-  const [users, setUsers] = useState<User[]>([
-    {
-      id: '1',
-      name: 'Admin User',
-      email: 'admin@sentra.com',
-      role: 'Super Admin',
-      status: 'Active',
-      lastLogin: '2025-01-15 10:30:00',
-      createdAt: '2025-01-01 09:00:00',
-      permissions: ['all']
-    },
-    {
-      id: '2',
-      name: 'Nisha KB',
-      email: 'nisha@sentra.com',
-      role: 'Team',
-      status: 'Active',
-      lastLogin: '2025-01-15 09:15:00',
-      createdAt: '2025-01-02 10:00:00',
-      permissions: ['clients', 'calendar', 'chat', 'reports', 'dashboard']
-    },
-    {
-      id: '3',
-      name: 'Ahmad Razak',
-      email: 'ahmad@sentra.com',
-      role: 'Team',
-      status: 'Active',
-      lastLogin: '2025-01-14 16:45:00',
-      createdAt: '2025-01-03 11:00:00',
-      permissions: ['clients', 'calendar', 'chat', 'reports', 'dashboard']
-    },
-    {
-      id: '4',
-      name: 'Acme Corporation',
-      email: 'contact@acme.com',
-      role: 'Client',
-      status: 'Active',
-      lastLogin: '2025-01-15 08:20:00',
-      createdAt: '2025-01-10 14:30:00',
-      permissions: ['client_dashboard', 'client_profile', 'client_messages']
-    },
-    {
-      id: '5',
-      name: 'Tech Solutions Inc',
-      email: 'info@techsol.com',
-      role: 'Client',
-      status: 'Active',
-      lastLogin: '2025-01-14 12:10:00',
-      createdAt: '2025-01-12 16:00:00',
-      permissions: ['client_dashboard', 'client_profile', 'client_messages']
-    }
-  ]);
+  const { users, addUser, updateUser, deleteUser } = useAppStore();
 
   const getRoleIcon = (role: string) => {
     switch (role) {
@@ -131,27 +69,20 @@ const SettingsPage: React.FC = () => {
 
   const handleDeleteUser = (userId: string) => {
     if (confirm('Are you sure you want to delete this user?')) {
-      setUsers(users.filter(user => user.id !== userId));
+      deleteUser(userId);
     }
   };
 
   const handleSaveUser = (userData: any) => {
     if (selectedUser) {
       // Update existing user
-      setUsers(users.map(user => 
-        user.id === selectedUser.id 
-          ? { ...user, ...userData }
-          : user
-      ));
+      updateUser(selectedUser.id, userData);
     } else {
       // Add new user
-      const newUser: User = {
-        id: Date.now().toString(),
+      addUser({
         ...userData,
-        createdAt: new Date().toISOString(),
         lastLogin: 'Never'
-      };
-      setUsers([...users, newUser]);
+      });
     }
     setShowUserModal(false);
   };

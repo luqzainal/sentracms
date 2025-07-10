@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { Users, DollarSign, TrendingUp, Calendar, ArrowUpRight, ArrowDownRight, MessageSquare, UserPlus, Filter, Database, CreditCard, Clock, BarChart3, Activity } from 'lucide-react';
+import { useAppStore } from '../../store/AppStore';
 
 interface DashboardProps {
   setActiveTab?: (tab: string) => void;
@@ -10,59 +11,20 @@ const Dashboard: React.FC<DashboardProps> = ({ setActiveTab }) => {
   const [customDateStart, setCustomDateStart] = useState('');
   const [customDateEnd, setCustomDateEnd] = useState('');
 
-  // Chat data to calculate unread messages
-  const chats = [
-    {
-      id: 1,
-      client: 'Acme Corporation',
-      avatar: 'AC',
-      lastMessage: 'Thanks for the update on the project',
-      timestamp: '10:30 AM',
-      unread: 2,
-      online: true,
-      messages: [
-        { id: 1, content: 'Hi! I wanted to check on the progress of our project.', timestamp: '10:15 AM', isUnread: false },
-        { id: 2, content: 'Can you provide an update on the timeline?', timestamp: '10:25 AM', isUnread: true },
-        { id: 3, content: 'Thanks for the update on the project', timestamp: '10:30 AM', isUnread: true }
-      ]
-    },
-    {
-      id: 2,
-      client: 'Tech Solutions Inc',
-      avatar: 'TS',
-      lastMessage: 'When can we schedule the next meeting?',
-      timestamp: '9:15 AM',
-      unread: 0,
-      online: false,
-      messages: [
-        { id: 1, content: 'When can we schedule the next meeting?', timestamp: '9:15 AM', isUnread: false }
-      ]
-    },
-    {
-      id: 3,
-      client: 'Global Marketing',
-      avatar: 'GM',
-      lastMessage: 'The designs look great!',
-      timestamp: 'Yesterday',
-      unread: 1,
-      online: true,
-      messages: [
-        { id: 1, content: 'The designs look great!', timestamp: 'Yesterday', isUnread: true }
-      ]
-    },
-    {
-      id: 4,
-      client: 'Digital Agency',
-      avatar: 'DA',
-      lastMessage: 'Payment has been processed',
-      timestamp: '2 days ago',
-      unread: 0,
-      online: false,
-      messages: [
-        { id: 1, content: 'Payment has been processed', timestamp: '2 days ago', isUnread: false }
-      ]
-    },
-  ];
+  const { 
+    clients, 
+    chats, 
+    getTotalSales, 
+    getTotalCollection, 
+    getTotalBalance 
+  } = useAppStore();
+
+  // Calculate metrics
+  const totalSales = getTotalSales();
+  const totalCollection = getTotalCollection();
+  const totalBalance = getTotalBalance();
+  const totalClients = clients.length;
+  const completeClients = clients.filter(c => c.status === 'Complete').length;
 
   // Get all messages and sort by most recent, then take first 10
   const allMessages = chats.flatMap(chat => 
@@ -70,7 +32,8 @@ const Dashboard: React.FC<DashboardProps> = ({ setActiveTab }) => {
       ...message,
       client: chat.client,
       avatar: chat.avatar,
-      chatId: chat.id
+      chatId: chat.id,
+      isUnread: chat.unread > 0 && message.id === Math.max(...chat.messages.map(m => m.id))
     }))
   ).sort((a, b) => {
     // Simple timestamp sorting - in real app, you'd use proper date comparison
@@ -83,30 +46,26 @@ const Dashboard: React.FC<DashboardProps> = ({ setActiveTab }) => {
 
   // Calculate total unread messages
   const totalUnreadMessages = chats.reduce((total, chat) => total + chat.unread, 0);
+
   // Monthly sales data matching the attachment
   const monthlyData = [
-    { month: 'January', revenue: 0, displayValue: 'RM 0' },
-    { month: 'February', revenue: 0, displayValue: 'RM 0' },
-    { month: 'March', revenue: 0, displayValue: 'RM 0' },
-    { month: 'April', revenue: 0, displayValue: 'RM 0' },
-    { month: 'May', revenue: 0, displayValue: 'RM 0' },
-    { month: 'June', revenue: 19994, displayValue: 'RM 19,994' },
-    { month: 'July', revenue: 49979, displayValue: 'RM 49,979' },
-    { month: 'August', revenue: 0, displayValue: 'RM 0' },
-    { month: 'September', revenue: 0, displayValue: 'RM 0' },
-    { month: 'October', revenue: 0, displayValue: 'RM 0' },
-    { month: 'November', revenue: 0, displayValue: 'RM 0' },
-    { month: 'December', revenue: 0, displayValue: 'RM 0' },
+    { month: 'January', sales: 0, displayValue: 'RM 0' },
+    { month: 'February', sales: 0, displayValue: 'RM 0' },
+    { month: 'March', sales: 0, displayValue: 'RM 0' },
+    { month: 'April', sales: 0, displayValue: 'RM 0' },
+    { month: 'May', sales: 0, displayValue: 'RM 0' },
+    { month: 'June', sales: 19994, displayValue: 'RM 19,994' },
+    { month: 'July', sales: 49979, displayValue: 'RM 49,979' },
+    { month: 'August', sales: 0, displayValue: 'RM 0' },
+    { month: 'September', sales: 0, displayValue: 'RM 0' },
+    { month: 'October', sales: 0, displayValue: 'RM 0' },
+    { month: 'November', sales: 0, displayValue: 'RM 0' },
+    { month: 'December', sales: 0, displayValue: 'RM 0' },
   ];
 
-  const maxRevenue = Math.max(...monthlyData.map(d => d.revenue));
+  const maxSales = Math.max(...monthlyData.map(d => d.sales));
 
-  const recentClients = [
-    { id: 1, name: 'Acme Corporation', email: 'contact@acme.com', status: 'Complete', progress: 75 },
-    { id: 2, name: 'Tech Solutions Inc', email: 'info@techsol.com', status: 'Complete', progress: 60 },
-    { id: 3, name: 'Global Marketing', email: 'hello@global.com', status: 'Pending', progress: 30 },
-    { id: 4, name: 'Digital Agency', email: 'team@digital.com', status: 'Complete', progress: 90 },
-  ];
+  const recentClients = clients.slice(0, 4);
 
   const getStatusColor = (status: string) => {
     switch (status) {
@@ -120,6 +79,12 @@ const Dashboard: React.FC<DashboardProps> = ({ setActiveTab }) => {
         return 'bg-gray-100 text-gray-800';
     }
   };
+
+  const formatCurrency = (amount: number) => {
+    return `RM ${amount.toLocaleString()}`;
+  };
+
+  const clientCompletionRate = totalClients > 0 ? (completeClients / totalClients) * 100 : 0;
 
   return (
     <div className="p-8 space-y-8 bg-slate-50 min-h-screen">
@@ -182,7 +147,7 @@ const Dashboard: React.FC<DashboardProps> = ({ setActiveTab }) => {
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm font-medium text-slate-600 uppercase tracking-wide">Total Sales</p>
-              <p className="text-3xl font-bold text-slate-900 mt-2">RM 69,979</p>
+              <p className="text-3xl font-bold text-slate-900 mt-2">{formatCurrency(totalSales)}</p>
               <div className="flex items-center mt-2">
                 <ArrowUpRight className="w-4 h-4 text-green-500 mr-1" />
                 <span className="text-sm text-green-600 font-medium">+12.5%</span>
@@ -199,7 +164,7 @@ const Dashboard: React.FC<DashboardProps> = ({ setActiveTab }) => {
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm font-medium text-slate-600 uppercase tracking-wide">Collections</p>
-              <p className="text-3xl font-bold text-slate-900 mt-2">RM 36,294</p>
+              <p className="text-3xl font-bold text-slate-900 mt-2">{formatCurrency(totalCollection)}</p>
               <div className="flex items-center mt-2">
                 <ArrowUpRight className="w-4 h-4 text-green-500 mr-1" />
                 <span className="text-sm text-green-600 font-medium">+8.2%</span>
@@ -215,8 +180,8 @@ const Dashboard: React.FC<DashboardProps> = ({ setActiveTab }) => {
         <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-8 hover:shadow-md transition-shadow">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-sm font-medium text-slate-600 uppercase tracking-wide">Outstanding</p>
-              <p className="text-3xl font-bold text-slate-900 mt-2">RM 33,685</p>
+              <p className="text-sm font-medium text-slate-600 uppercase tracking-wide">Balance</p>
+              <p className="text-3xl font-bold text-slate-900 mt-2">{formatCurrency(totalBalance)}</p>
               <div className="flex items-center mt-2">
                 <ArrowDownRight className="w-4 h-4 text-orange-500 mr-1" />
                 <span className="text-sm text-orange-600 font-medium">-3.1%</span>
@@ -236,10 +201,10 @@ const Dashboard: React.FC<DashboardProps> = ({ setActiveTab }) => {
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm font-medium text-slate-600 uppercase tracking-wide">Total Clients</p>
-              <p className="text-3xl font-bold text-slate-900 mt-2">7</p>
+              <p className="text-3xl font-bold text-slate-900 mt-2">{totalClients}</p>
               <div className="flex items-center mt-2">
                 <Activity className="w-4 h-4 text-blue-500 mr-1" />
-                <span className="text-sm text-blue-600 font-medium">Active Portfolio</span>
+                <span className="text-sm text-blue-600 font-medium">Active Management</span>
               </div>
             </div>
             <div className="w-16 h-16 bg-blue-50 rounded-xl flex items-center justify-center">
@@ -251,10 +216,10 @@ const Dashboard: React.FC<DashboardProps> = ({ setActiveTab }) => {
         <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-8 hover:shadow-md transition-shadow">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-sm font-medium text-slate-600 uppercase tracking-wide">Completed Projects</p>
-              <p className="text-3xl font-bold text-slate-900 mt-2">6</p>
+              <p className="text-sm font-medium text-slate-600 uppercase tracking-wide">Completed Clients</p>
+              <p className="text-3xl font-bold text-slate-900 mt-2">{completeClients}</p>
               <div className="flex items-center mt-2">
-                <span className="text-sm text-green-600 font-medium">Client Completion (%) 85.7%</span>
+                <span className="text-sm text-green-600 font-medium">Client Completion {clientCompletionRate.toFixed(1)}%</span>
               </div>
             </div>
             <div className="w-16 h-16 bg-green-50 rounded-xl flex items-center justify-center">
@@ -279,7 +244,7 @@ const Dashboard: React.FC<DashboardProps> = ({ setActiveTab }) => {
         </div>
       </div>
 
-      {/* Revenue Analytics Chart - Positioned above Client Portfolio */}
+      {/* Sales Analytics Chart */}
       <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-8">
         <div className="flex items-center justify-between mb-8">
           <div className="flex items-center space-x-3">
@@ -287,14 +252,14 @@ const Dashboard: React.FC<DashboardProps> = ({ setActiveTab }) => {
               <BarChart3 className="w-6 h-6 text-slate-600" />
             </div>
             <div>
-              <h3 className="text-xl font-semibold text-slate-900">Revenue Analytics</h3>
+              <h3 className="text-xl font-semibold text-slate-900">Sales Analytics</h3>
               <p className="text-sm text-slate-600">Monthly sales performance overview</p>
             </div>
           </div>
           <div className="flex items-center space-x-4">
             <div className="text-right">
-              <p className="text-sm text-slate-500">Total Revenue</p>
-              <p className="text-2xl font-bold text-slate-900">RM 69,979</p>
+              <p className="text-sm text-slate-500">Total Sales</p>
+              <p className="text-2xl font-bold text-slate-900">{formatCurrency(totalSales)}</p>
             </div>
           </div>
         </div>
@@ -303,17 +268,16 @@ const Dashboard: React.FC<DashboardProps> = ({ setActiveTab }) => {
             {monthlyData.map((data, index) => (
               <div key={index} className="flex-1 flex flex-col items-center">
                 <div className="w-full bg-slate-100 rounded-t-sm relative" style={{ height: '280px' }}>
-                  {data.revenue > 0 && (
+                  {data.sales > 0 && (
                     <>
                       <div
                         className="absolute bottom-0 w-full bg-gradient-to-t from-blue-400 to-blue-500 rounded-t-sm"
-                        style={{ height: `${(data.revenue / maxRevenue) * 100}%` }}
+                        style={{ height: `${(data.sales / maxSales) * 100}%` }}
                       />
-                      {/* Sales figure positioned at the edge of blue bar */}
                       <div 
                         className="absolute w-full flex justify-center text-xs font-medium text-black"
                         style={{ 
-                          bottom: `${(data.revenue / maxRevenue) * 100}%`,
+                          bottom: `${(data.sales / maxSales) * 100}%`,
                           transform: 'translateY(-4px)'
                         }}
                       >
@@ -322,7 +286,6 @@ const Dashboard: React.FC<DashboardProps> = ({ setActiveTab }) => {
                     </>
                   )}
                 </div>
-                {/* Month labels */}
                 <div className="mt-2 text-center">
                   <p className="text-xs text-slate-500">{data.month}</p>
                 </div>
@@ -337,6 +300,7 @@ const Dashboard: React.FC<DashboardProps> = ({ setActiveTab }) => {
           </div>
         </div>
       </div>
+
       {/* Bottom Row */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
         {/* Recent Clients */}
@@ -346,35 +310,43 @@ const Dashboard: React.FC<DashboardProps> = ({ setActiveTab }) => {
               <div className="bg-slate-100 rounded-lg p-2">
                 <Users className="w-5 h-5 text-slate-600" />
               </div>
-              <h3 className="text-lg font-semibold text-slate-900">Client Portfolio</h3>
+              <h3 className="text-lg font-semibold text-slate-900">Client Management</h3>
             </div>
-            <button className="text-slate-600 hover:text-slate-900 text-sm font-medium">
+            <button 
+              onClick={() => setActiveTab?.('clients')}
+              className="text-slate-600 hover:text-slate-900 text-sm font-medium"
+            >
               View All
             </button>
           </div>
           <div className="space-y-5">
-            {recentClients.map((client) => (
-              <div key={client.id} className="flex items-center justify-between p-4 bg-slate-50 rounded-lg hover:bg-slate-100 transition-colors border border-slate-100">
-                <div className="flex-1">
-                  <h4 className="font-semibold text-slate-900">{client.name}</h4>
-                  <p className="text-sm text-slate-500">{client.email}</p>
-                </div>
-                <div className="flex items-center space-x-3">
-                  <div className="flex items-center space-x-3">
-                    <div className="w-20 bg-slate-200 rounded-full h-2">
-                      <div
-                        className="bg-slate-600 h-2 rounded-full transition-all duration-300"
-                        style={{ width: `${client.progress}%` }}
-                      />
-                    </div>
-                    <span className="text-xs font-medium text-slate-600 w-8">{client.progress}%</span>
+            {recentClients.map((client) => {
+              const progressPercentage = client.totalSales > 0 ? 
+                Math.round((client.totalCollection / client.totalSales) * 100) : 0;
+              
+              return (
+                <div key={client.id} className="flex items-center justify-between p-4 bg-slate-50 rounded-lg hover:bg-slate-100 transition-colors border border-slate-100">
+                  <div className="flex-1">
+                    <h4 className="font-semibold text-slate-900">{client.businessName}</h4>
+                    <p className="text-sm text-slate-500">{client.email}</p>
                   </div>
-                  <span className={`px-3 py-1 rounded-full text-xs font-medium ${getStatusColor(client.status)}`}>
-                    {client.status}
-                  </span>
+                  <div className="flex items-center space-x-3">
+                    <div className="flex items-center space-x-3">
+                      <div className="w-20 bg-slate-200 rounded-full h-2">
+                        <div
+                          className="bg-slate-600 h-2 rounded-full transition-all duration-300"
+                          style={{ width: `${progressPercentage}%` }}
+                        />
+                      </div>
+                      <span className="text-xs font-medium text-slate-600 w-8">{progressPercentage}%</span>
+                    </div>
+                    <span className={`px-3 py-1 rounded-full text-xs font-medium ${getStatusColor(client.status)}`}>
+                      {client.status}
+                    </span>
+                  </div>
                 </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
         </div>
 
@@ -436,6 +408,7 @@ const Dashboard: React.FC<DashboardProps> = ({ setActiveTab }) => {
             )}
           </div>
         </div>
+
         {/* Today Appointment */}
         <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-8">
           <div className="flex items-center justify-between mb-6">
@@ -461,7 +434,6 @@ const Dashboard: React.FC<DashboardProps> = ({ setActiveTab }) => {
           </div>
         </div>
       </div>
-
     </div>
   );
 };
