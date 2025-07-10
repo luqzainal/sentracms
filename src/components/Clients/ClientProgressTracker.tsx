@@ -440,7 +440,7 @@ const ClientProgressTracker: React.FC<ClientProgressTrackerProps> = ({ clientId,
                             {step.completed && <Check className="w-4 h-4" />}
                           </button>
                           
-                          <div className="flex-1">
+                          <div className="flex-1 min-w-0 overflow-hidden">
                             <div className="flex items-center space-x-3 mb-2">
                               <h4 className={`text-lg font-semibold ${
                                 step.completed 
@@ -448,7 +448,7 @@ const ClientProgressTracker: React.FC<ClientProgressTrackerProps> = ({ clientId,
                                   : isStepOverdue(step)
                                   ? 'text-red-700'
                                   : 'text-slate-900'
-                              }`}>
+                              } break-words`}>
                                 {step.title}
                               </h4>
                               {step.important && (
@@ -469,7 +469,7 @@ const ClientProgressTracker: React.FC<ClientProgressTrackerProps> = ({ clientId,
                               )}
                             </div>
                             
-                            <p className={`mb-4 ${
+                            <p className={`mb-4 break-words ${
                               step.completed 
                                 ? 'text-slate-600 opacity-75' 
                                 : isStepOverdue(step)
@@ -479,7 +479,7 @@ const ClientProgressTracker: React.FC<ClientProgressTrackerProps> = ({ clientId,
                               {step.description}
                             </p>
                             
-                            <div className="flex items-center space-x-6 text-sm mb-4">
+                            <div className="flex flex-col sm:flex-row sm:items-center sm:space-x-6 space-y-2 sm:space-y-0 text-sm mb-4">
                               <div className={`flex items-center space-x-2 ${
                                 step.completed 
                                   ? 'text-green-600' 
@@ -489,7 +489,7 @@ const ClientProgressTracker: React.FC<ClientProgressTrackerProps> = ({ clientId,
                               }`}>
                                 <Calendar className="w-4 h-4" />
                                 <span className="font-medium">Deadline:</span>
-                                <span>
+                                <span className="break-words">
                                   {new Date(step.deadline).toLocaleDateString('en-US', {
                                     month: 'short',
                                     day: 'numeric',
@@ -502,7 +502,7 @@ const ClientProgressTracker: React.FC<ClientProgressTrackerProps> = ({ clientId,
                               </div>
                               
                               {step.completed && step.completedDate && (
-                                <div className="flex items-center space-x-2 text-green-600">
+                                <div className="flex items-center space-x-2 text-green-600 flex-shrink-0">
                                   <Check className="w-4 h-4" />
                                   <span className="font-medium">Completed:</span>
                                   <span>
@@ -517,7 +517,7 @@ const ClientProgressTracker: React.FC<ClientProgressTrackerProps> = ({ clientId,
                             </div>
 
                             {/* Comments Section */}
-                            <div className="border-t border-slate-200 pt-4">
+                            <div className="border-t border-slate-200 pt-4 mt-4">
                               <div className="flex items-center justify-between mb-3">
                                 <div className="flex items-center space-x-2">
                                   <MessageCircle className="w-4 h-4 text-slate-500" />
@@ -537,15 +537,15 @@ const ClientProgressTracker: React.FC<ClientProgressTrackerProps> = ({ clientId,
                               </div>
                               
                               {step.comments.length > 0 ? (
-                                <div className="space-y-2 max-h-32 overflow-y-auto">
+                                <div className="space-y-3 max-h-40 overflow-y-auto">
                                   {step.comments.map((comment) => (
-                                    <div key={comment.id} className="bg-slate-50 rounded-lg p-3">
+                                    <div key={comment.id} className="bg-slate-50 rounded-lg p-3 border border-slate-200">
                                       <div className="flex items-center justify-between mb-1">
-                                        <span className="text-xs font-medium text-blue-600">
+                                        <span className="text-xs font-medium text-blue-600 break-words">
                                           {comment.username}
                                         </span>
                                         <div className="flex items-center space-x-2">
-                                          <span className="text-xs text-slate-500">
+                                          <span className="text-xs text-slate-500 whitespace-nowrap">
                                             {new Date(comment.timestamp).toLocaleDateString()} {new Date(comment.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                                           </span>
                                           <button
@@ -556,7 +556,7 @@ const ClientProgressTracker: React.FC<ClientProgressTrackerProps> = ({ clientId,
                                           </button>
                                         </div>
                                       </div>
-                                      <p className="text-sm text-slate-700">{comment.text}</p>
+                                      <p className="text-sm text-slate-700 break-words">{comment.text}</p>
                                     </div>
                                   ))}
                                 </div>
@@ -567,16 +567,16 @@ const ClientProgressTracker: React.FC<ClientProgressTrackerProps> = ({ clientId,
                           </div>
                         </div>
                         
-                        <div className="flex items-center space-x-2 opacity-0 group-hover:opacity-100 transition-opacity duration-200">
+                        <div className="flex flex-col sm:flex-row items-center space-y-2 sm:space-y-0 sm:space-x-2 opacity-0 group-hover:opacity-100 transition-opacity duration-200 flex-shrink-0 ml-4">
                           <button 
                             onClick={() => handleEditStepOpen(step)}
-                            className="p-2 text-blue-500 hover:text-blue-700 hover:bg-blue-50 rounded-lg transition-all duration-200"
+                            className="p-2 text-blue-500 hover:text-blue-700 hover:bg-blue-50 rounded-lg transition-all duration-200 border border-transparent hover:border-blue-200"
                           >
                             <Edit className="w-4 h-4" />
                           </button>
                           <button 
                             onClick={() => handleDeleteStep(step.id)}
-                            className="p-2 text-red-500 hover:text-red-700 hover:bg-red-50 rounded-lg transition-all duration-200"
+                            className="p-2 text-red-500 hover:text-red-700 hover:bg-red-50 rounded-lg transition-all duration-200 border border-transparent hover:border-red-200"
                           >
                             <Trash2 className="w-4 h-4" />
                           </button>
