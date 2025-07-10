@@ -51,7 +51,7 @@ const Sidebar: React.FC<SidebarProps> = ({ activeTab, setActiveTab, onLogout }) 
                   className={`w-full flex items-center space-x-3 px-4 py-3 rounded-lg transition-all duration-200 text-left ${
                     activeTab === item.id
                       ? 'bg-slate-800 text-white border border-slate-600 shadow-lg'
-                      : 'text-slate-300 hover:bg-slate-800/50 hover:text-white'
+                      : 'text-slate-300 hover:bg-slate-800/50 hover:text-white transition-none'
                   }`}
                 >
                   <Icon className="w-5 h-5" />
@@ -67,7 +67,7 @@ const Sidebar: React.FC<SidebarProps> = ({ activeTab, setActiveTab, onLogout }) 
       <div className="p-4 border-t border-slate-700">
         <button
           onClick={onLogout}
-          className="w-full flex items-center space-x-3 px-4 py-3 rounded-lg text-slate-300 hover:bg-red-900/20 hover:text-red-300 transition-all duration-200 border border-transparent hover:border-red-800"
+          className="w-full flex items-center space-x-3 px-4 py-3 rounded-lg text-slate-300 hover:bg-red-900/20 hover:text-red-300 border border-transparent hover:border-red-800"
         >
           <LogOut className="w-5 h-5" />
           <span className="font-medium">Sign Out</span>
