@@ -99,15 +99,14 @@ const ReportsPage: React.FC<ReportsPageProps> = ({ onToggleSidebar }) => {
       const reportElement = document.getElementById('report-content');
       if (!reportElement) return;
 
-      // Create a temporary container optimized for PDF layout
+      // Create a temporary container for better PDF layout
       const tempContainer = document.createElement('div');
       tempContainer.style.position = 'fixed';
       tempContainer.style.top = '-9999px';
       tempContainer.style.left = '-9999px';
-      tempContainer.style.width = '794px'; // A4 width in pixels
-      tempContainer.style.minHeight = '1123px'; // A4 height in pixels
+      tempContainer.style.width = '1200px'; // Wider for better content fit
       tempContainer.style.backgroundColor = 'white';
-      tempContainer.style.padding = '40px';
+      tempContainer.style.padding = '20px';
       tempContainer.style.fontFamily = 'Arial, sans-serif';
       tempContainer.style.boxSizing = 'border-box';
       document.body.appendChild(tempContainer);
@@ -116,62 +115,23 @@ const ReportsPage: React.FC<ReportsPageProps> = ({ onToggleSidebar }) => {
       const clonedContent = reportElement.cloneNode(true) as HTMLElement;
       clonedContent.style.width = '100%';
       clonedContent.style.maxWidth = 'none';
-      clonedContent.style.fontSize = '11px';
-      clonedContent.style.lineHeight = '1.4';
-      
-      // Optimize spacing for PDF
-      const sections = clonedContent.querySelectorAll('.space-y-4, .space-y-6, .space-y-8');
-      sections.forEach(section => {
-        (section as HTMLElement).style.gap = '16px';
-        (section as HTMLElement).style.display = 'flex';
-        (section as HTMLElement).style.flexDirection = 'column';
-      });
-      
-      // Optimize grid layouts
-      const grids = clonedContent.querySelectorAll('.grid');
-      grids.forEach(grid => {
-        (grid as HTMLElement).style.display = 'grid';
-        (grid as HTMLElement).style.gap = '12px';
-      });
-      
-      // Optimize tables for PDF
-      const tables = clonedContent.querySelectorAll('table');
-      tables.forEach(table => {
-        (table as HTMLElement).style.fontSize = '10px';
-        (table as HTMLElement).style.width = '100%';
-        (table as HTMLElement).style.borderCollapse = 'collapse';
-      });
-      
-      // Optimize text elements
-      const textElements = clonedContent.querySelectorAll('h1, h2, h3, h4, h5, h6, p, span, div');
-      textElements.forEach(element => {
-        const el = element as HTMLElement;
-        if (el.style.fontSize) {
-          const currentSize = parseInt(el.style.fontSize);
-          if (currentSize > 16) {
-            el.style.fontSize = '14px';
-          } else if (currentSize > 12) {
-            el.style.fontSize = '11px';
-          } else {
-            el.style.fontSize = '10px';
-          }
-        }
-      });
+      clonedContent.style.fontSize = '12px';
+      clonedContent.style.lineHeight = '1.3';
       
       tempContainer.appendChild(clonedContent);
 
       // Add header to the report
       const header = document.createElement('div');
       header.innerHTML = `
-        <div style="margin-bottom: 16px; border-bottom: 2px solid #e2e8f0; padding-bottom: 12px; text-align: center;">
-          <h1 style="font-size: 18px; font-weight: bold; color: #1e293b; margin: 0; line-height: 1.2;">Sentra CMS - Business Reports</h1>
-          <p style="color: #64748b; margin: 6px 0 0 0; font-size: 11px; line-height: 1.3;">Generated on ${new Date().toLocaleDateString('en-MY', {
+        <div style="margin-bottom: 20px; border-bottom: 2px solid #e2e8f0; padding-bottom: 15px; text-align: center;">
+          <h1 style="font-size: 24px; font-weight: bold; color: #1e293b; margin: 0; line-height: 1.2;">Sentra CMS - Business Reports</h1>
+          <p style="color: #64748b; margin: 8px 0 0 0; font-size: 14px; line-height: 1.3;">Generated on ${new Date().toLocaleDateString('en-MY', {
             weekday: 'long',
             year: 'numeric',
             month: 'long',
             day: 'numeric'
           })}</p>
-          <p style="color: #64748b; margin: 3px 0 0 0; font-size: 10px; line-height: 1.3;">
+          <p style="color: #64748b; margin: 5px 0 0 0; font-size: 12px; line-height: 1.3;">
             ${dateFilter === 'custom' && customDateStart && customDateEnd ? 
               `Report Period: ${new Date(customDateStart).toLocaleDateString('en-MY')} - ${new Date(customDateEnd).toLocaleDateString('en-MY')}` : 
               `Report Period: ${dateFilter === 'week' ? 'This Week' : 'This Month'}`
@@ -181,16 +141,14 @@ const ReportsPage: React.FC<ReportsPageProps> = ({ onToggleSidebar }) => {
       `;
       tempContainer.insertBefore(header, clonedContent);
 
-      // Generate canvas from the content with higher quality
+      // Generate canvas with proper dimensions
       const canvas = await html2canvas(tempContainer, {
-        width: 794, // A4 width in pixels at 96 DPI
-        height: Math.max(1123, tempContainer.scrollHeight), // Dynamic height
-        scale: 1.5, // Higher quality
+        width: 1200,
+        height: tempContainer.scrollHeight + 100, // Add padding
+        scale: 1,
         useCORS: true,
         backgroundColor: 'white',
-        logging: false,
-        allowTaint: true,
-        foreignObjectRendering: true
+        logging: false
       });
       
       // Create PDF
@@ -198,45 +156,54 @@ const ReportsPage: React.FC<ReportsPageProps> = ({ onToggleSidebar }) => {
         orientation: 'portrait',
         unit: 'mm',
         format: 'a4',
-        compress: true
+        compress: false
       });
 
-      // Calculate dimensions
+      // Calculate dimensions for A4
       const imgWidth = 210; // A4 width in mm
       const pageHeight = 297; // A4 height in mm
-      const margin = 10; // 10mm margin
-      const contentWidth = imgWidth - (margin * 2);
+      const margin = 15; // 15mm margin
+      const contentWidth = imgWidth - (margin * 2); // 180mm content width
       const imgHeight = (canvas.height * imgWidth) / canvas.width;
+
+      const contentHeight = pageHeight - (margin * 2); // 267mm content height
+      
       let heightLeft = imgHeight;
-      let position = margin;
+      let position = 0;
 
-      // Add first page
-      pdf.addImage(canvas.toDataURL('image/png', 0.95), 'PNG', margin, position, contentWidth, imgHeight);
-      heightLeft -= (pageHeight - margin);
-
-      // Add additional pages if content is longer than one page
-      while (heightLeft >= 0) {
-        position = heightLeft - imgHeight + margin;
+      // First page
+      pdf.addImage(
+        canvas.toDataURL('image/png', 1.0), 
+        'PNG', 
+        margin, 
+        margin, 
+        contentWidth, 
+        Math.min(imgHeight, contentHeight)
+      );
+      
+      heightLeft -= contentHeight;
+      
+      // Add additional pages if needed
+      while (heightLeft > 0) {
         pdf.addPage();
-        pdf.addImage(canvas.toDataURL('image/png', 0.95), 'PNG', margin, position, contentWidth, imgHeight);
-        heightLeft -= (pageHeight - margin);
-      }
-
+        position += contentHeight;
+        
         pdf.addImage(
-          canvas.toDataURL('image/png', 0.95), 
+          canvas.toDataURL('image/png', 1.0), 
           'PNG', 
           margin, 
-          position, 
+          margin - position, 
           contentWidth, 
-          (canvas.height * contentWidth) / canvas.width,
-          undefined,
-          'FAST'
+          imgHeight
         );
+        
         heightLeft -= contentHeight;
+      }
+
+      // Generate filename and save
       const currentDate = new Date().toISOString().split('T')[0];
       const filename = `sentra-business-report-${currentDate}.pdf`;
 
-      // Save the PDF
       pdf.save(filename);
 
       // Clean up
