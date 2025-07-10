@@ -15,19 +15,34 @@ const ReportsPage: React.FC = () => {
     getTotalBalance 
   } = useAppStore();
 
+  // Filter clients based on date range if custom dates are selected
+  const getFilteredClients = () => {
+    if (dateFilter === 'custom' && customDateStart && customDateEnd) {
+      const startDate = new Date(customDateStart);
+      const endDate = new Date(customDateEnd);
+      return clients.filter(client => {
+        const clientDate = new Date(client.registeredAt);
+        return clientDate >= startDate && clientDate <= endDate;
+      });
+    }
+    return clients;
+  };
+
+  const filteredClients = getFilteredClients();
+
   // Calculate metrics
-  const totalSales = getTotalSales();
-  const totalCollection = getTotalCollection();
-  const totalBalance = getTotalBalance();
+  const totalSales = filteredClients.reduce((sum, client) => sum + client.totalSales, 0);
+  const totalCollection = filteredClients.reduce((sum, client) => sum + client.totalCollection, 0);
+  const totalBalance = filteredClients.reduce((sum, client) => sum + client.balance, 0);
   const collectionRate = totalSales > 0 ? (totalCollection / totalSales) * 100 : 0;
   
-  const totalClients = clients.length;
-  const inactiveClients = clients.filter(c => c.status === 'Inactive').length;
+  const totalClients = filteredClients.length;
+  const inactiveClients = filteredClients.filter(c => c.status === 'Inactive').length;
   const dropoutRate = totalClients > 0 ? (inactiveClients / totalClients) * 100 : 0;
   
   // Client completion rate - complete clients over total clients (excluding inactive) * 100
-  const activeClients = clients.filter(c => c.status !== 'Inactive');
-  const completeClients = clients.filter(c => c.status === 'Complete');
+  const activeClients = filteredClients.filter(c => c.status !== 'Inactive');
+  const completeClients = filteredClients.filter(c => c.status === 'Complete');
   const clientCompletionRate = activeClients.length > 0 ? (completeClients.length / activeClients.length) * 100 : 0;
 
   const monthlyData = [
@@ -47,7 +62,7 @@ const ReportsPage: React.FC = () => {
 
   const maxSales = Math.max(...monthlyData.map(d => d.sales));
 
-  const clientPerformanceData = clients.map(client => ({
+  const clientPerformanceData = filteredClients.map(client => ({
     name: client.name,
     status: client.status,
     totalSales: client.totalSales,
@@ -252,22 +267,37 @@ const ReportsPage: React.FC = () => {
             </div>
             <p className="text-2xl font-bold text-slate-900">{totalClients}</p>
             <p className="text-sm text-slate-600">Total Clients</p>
+            {dateFilter === 'custom' && customDateStart && customDateEnd && (
+              <p className="text-xs text-slate-500 mt-1">
+                {new Date(customDateStart).toLocaleDateString()} - {new Date(customDateEnd).toLocaleDateString()}
+              </p>
+            )}
           </div>
           
           <div className="text-center">
             <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-3">
               <CheckCircle className="w-8 h-8 text-green-600" />
             </div>
-            <p className="text-2xl font-bold text-slate-900">{clients.filter(c => c.status === 'Complete').length}</p>
+            <p className="text-2xl font-bold text-slate-900">{completeClients.length}</p>
             <p className="text-sm text-slate-600">Complete Clients</p>
+            {dateFilter === 'custom' && customDateStart && customDateEnd && (
+              <p className="text-xs text-slate-500 mt-1">
+                {new Date(customDateStart).toLocaleDateString()} - {new Date(customDateEnd).toLocaleDateString()}
+              </p>
+            )}
           </div>
           
           <div className="text-center">
             <div className="w-16 h-16 bg-yellow-100 rounded-full flex items-center justify-center mx-auto mb-3">
               <Clock className="w-8 h-8 text-yellow-600" />
             </div>
-            <p className="text-2xl font-bold text-slate-900">{clients.filter(c => c.status === 'Pending').length}</p>
+            <p className="text-2xl font-bold text-slate-900">{filteredClients.filter(c => c.status === 'Pending').length}</p>
             <p className="text-sm text-slate-600">Pending Clients</p>
+            {dateFilter === 'custom' && customDateStart && customDateEnd && (
+              <p className="text-xs text-slate-500 mt-1">
+                {new Date(customDateStart).toLocaleDateString()} - {new Date(customDateEnd).toLocaleDateString()}
+              </p>
+            )}
           </div>
           
           <div className="text-center">
@@ -276,6 +306,11 @@ const ReportsPage: React.FC = () => {
             </div>
             <p className="text-2xl font-bold text-slate-900">{inactiveClients}</p>
             <p className="text-sm text-slate-600">Inactive Clients</p>
+            {dateFilter === 'custom' && customDateStart && customDateEnd && (
+              <p className="text-xs text-slate-500 mt-1">
+                {new Date(customDateStart).toLocaleDateString()} - {new Date(customDateEnd).toLocaleDateString()}
+              </p>
+            )}
           </div>
         </div>
       </div>
@@ -368,7 +403,12 @@ const ReportsPage: React.FC = () => {
             <div>
               <p className="text-sm text-slate-600">Client Completion (%)</p>
               <p className="text-2xl font-bold text-slate-900">{clientCompletionRate.toFixed(1)}%</p>
-              <p className="text-xs text-slate-500 mt-1">Complete Clients / Total Clients (Excluding Inactive)</p>
+              <p className="text-xs text-slate-500 mt-1">Complete Clients / Active Clients * 100</p>
+              {dateFilter === 'custom' && customDateStart && customDateEnd && (
+                <p className="text-xs text-slate-500 mt-1">
+                  Period: {new Date(customDateStart).toLocaleDateString()} - {new Date(customDateEnd).toLocaleDateString()}
+                </p>
+              )}
             </div>
             <div className="w-12 h-12 bg-green-100 rounded-lg flex items-center justify-center">
               <CheckCircle className="w-6 h-6 text-green-600" />
