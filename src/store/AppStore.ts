@@ -480,8 +480,8 @@ export const useAppStore = create<AppState>((set, get) => ({
     {
       id: 'step-1',
       clientId: 1,
-      title: 'Account Setup Kuasa',
-      description: 'Initial account configuration and setup',
+      title: 'Akses 12 Month Sistem Kuasa',
+      description: 'Complete setup and configuration for Akses 12 Month Sistem Kuasa',
       deadline: '2025-01-25T10:00:00',
       completed: true,
       completedDate: '2025-01-20',
@@ -489,7 +489,7 @@ export const useAppStore = create<AppState>((set, get) => ({
       comments: [
         {
           id: 'comment-1',
-          text: 'Account has been successfully created and configured',
+          text: 'Component has been successfully configured and activated',
           username: 'Ahmad Razak',
           timestamp: '2025-01-20T09:30:00'
         }
@@ -498,27 +498,37 @@ export const useAppStore = create<AppState>((set, get) => ({
     {
       id: 'step-2',
       clientId: 1,
-      title: 'Export Database Dalam WhatsApp',
-      description: 'Export and configure WhatsApp database integration',
+      title: 'Akses 12 Month Sistem Telah AI',
+      description: 'Complete setup and configuration for Akses 12 Month Sistem Telah AI',
       deadline: '2025-01-30T10:00:00',
       completed: false,
       important: false,
       comments: [
         {
           id: 'comment-2',
-          text: 'Waiting for client to provide WhatsApp access',
+          text: 'Waiting for client to provide AI system requirements',
           username: 'Nisha KB',
           timestamp: '2025-01-22T14:20:00'
         }
       ]
+    },
+    {
+      id: 'step-2a',
+      clientId: 1,
+      title: 'Executive Kuasa Workshop',
+      description: 'Complete setup and configuration for Executive Kuasa Workshop',
+      deadline: '2025-02-05T10:00:00',
+      completed: false,
+      important: false,
+      comments: []
     },
     
     // Siti Digital Marketing progress
     {
       id: 'step-3',
       clientId: 2,
-      title: 'Digital Marketing Strategy',
-      description: 'Develop comprehensive digital marketing strategy',
+      title: 'Digital Marketing Suite Pro',
+      description: 'Complete setup and configuration for Digital Marketing Suite Pro',
       deadline: '2025-01-28T15:00:00',
       completed: true,
       completedDate: '2025-01-25',
@@ -528,9 +538,64 @@ export const useAppStore = create<AppState>((set, get) => ({
     {
       id: 'step-4',
       clientId: 2,
-      title: 'Social Media Setup',
-      description: 'Configure social media accounts and automation',
+      title: 'Social Media Management',
+      description: 'Complete setup and configuration for Social Media Management',
       deadline: '2025-02-05T12:00:00',
+      completed: false,
+      important: false,
+      comments: []
+    },
+    
+    // Wei Ming Enterprise progress
+    {
+      id: 'step-5',
+      clientId: 3,
+      title: 'Basic Website Package',
+      description: 'Complete setup and configuration for Basic Website Package',
+      deadline: '2025-02-10T14:00:00',
+      completed: false,
+      important: true,
+      comments: []
+    },
+    {
+      id: 'step-6',
+      clientId: 3,
+      title: 'SEO Optimization',
+      description: 'Complete setup and configuration for SEO Optimization',
+      deadline: '2025-02-15T16:00:00',
+      completed: false,
+      important: false,
+      comments: []
+    },
+    
+    // Kumar Digital Agency progress
+    {
+      id: 'step-7',
+      clientId: 4,
+      title: 'Premium Agency Package',
+      description: 'Complete setup and configuration for Premium Agency Package',
+      deadline: '2025-02-01T10:00:00',
+      completed: true,
+      completedDate: '2025-01-28',
+      important: true,
+      comments: []
+    },
+    {
+      id: 'step-8',
+      clientId: 4,
+      title: 'Brand Development',
+      description: 'Complete setup and configuration for Brand Development',
+      deadline: '2025-02-08T12:00:00',
+      completed: false,
+      important: false,
+      comments: []
+    },
+    {
+      id: 'step-9',
+      clientId: 4,
+      title: 'Content Creation Suite',
+      description: 'Complete setup and configuration for Content Creation Suite',
+      deadline: '2025-02-12T15:00:00',
       completed: false,
       important: false,
       comments: []

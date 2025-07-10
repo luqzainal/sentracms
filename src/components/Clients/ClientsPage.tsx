@@ -147,6 +147,11 @@ const ClientsPage: React.FC<ClientsPageProps> = ({ setActiveTab }) => {
           permissions: ['client_dashboard', 'client_profile', 'client_messages']
         });
       }
+      
+      // Auto-copy any existing components to progress steps for new clients
+      setTimeout(() => {
+        copyComponentsToProgressSteps(newClient.id);
+      }, 100);
     }
     setShowModal(false);
   };
