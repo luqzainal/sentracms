@@ -140,6 +140,7 @@ interface AppState {
   addComponent: (component: Omit<Component, 'id'>) => void;
   updateComponent: (id: string, component: Partial<Component>) => void;
   deleteComponent: (id: string) => void;
+  copyComponentsToProgressSteps: (clientId: number) => void;
   
   addProgressStep: (step: Omit<ProgressStep, 'id'>) => void;
   updateProgressStep: (id: string, step: Partial<ProgressStep>) => void;
@@ -866,7 +867,23 @@ export const useAppStore = create<AppState>((set, get) => ({
 
   addComponent: (component) => set((state) => {
     const newComponent = { ...component, id: `comp-${Date.now()}` };
-    return { components: [...state.components, newComponent] };
+    
+    // Auto-create progress step for this component
+    const newProgressStep = {
+      id: `step-${Date.now()}`,
+      clientId: component.clientId,
+      title: component.name,
+      description: `Complete setup and configuration for ${component.name}`,
+      deadline: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(), // 7 days from now
+      completed: false,
+      important: false,
+      comments: []
+    };
+    
+    return { 
+      components: [...state.components, newComponent],
+      progressSteps: [...state.progressSteps, newProgressStep]
+    };
   }),
 
   updateComponent: (id, updates) => set((state) => ({
@@ -879,6 +896,30 @@ export const useAppStore = create<AppState>((set, get) => ({
     components: state.components.filter(component => component.id !== id)
   })),
 
+  copyComponentsToProgressSteps: (clientId) => set((state) => {
+    const clientComponents = state.components.filter(comp => comp.clientId === clientId);
+    const existingStepTitles = state.progressSteps
+      .filter(step => step.clientId === clientId)
+      .map(step => step.title.toLowerCase());
+    
+    // Only create progress steps for components that don't already have corresponding steps
+    const newProgressSteps = clientComponents
+      .filter(component => !existingStepTitles.includes(component.name.toLowerCase()))
+      .map(component => ({
+        id: `step-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+        clientId: clientId,
+        title: component.name,
+        description: `Complete setup and configuration for ${component.name}`,
+        deadline: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(), // 7 days from now
+        completed: false,
+        important: false,
+        comments: []
+      }));
+    
+    return {
+      progressSteps: [...state.progressSteps, ...newProgressSteps]
+    };
+  }),
   addProgressStep: (step) => set((state) => {
     const newStep = { ...step, id: `step-${Date.now()}` };
     return { progressSteps: [...state.progressSteps, newStep] };

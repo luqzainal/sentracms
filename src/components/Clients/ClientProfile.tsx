@@ -30,7 +30,8 @@ const ClientProfile: React.FC<ClientProfileProps> = ({ clientId, onBack, onEdit 
     addPayment,
     addComponent,
     addCalendarEvent,
-    deleteComponent
+    deleteComponent,
+    copyComponentsToProgressSteps
   } = useAppStore();
 
   const client = getClientById(parseInt(clientId));
@@ -96,6 +97,12 @@ const ClientProfile: React.FC<ClientProfileProps> = ({ clientId, onBack, onEdit 
         active: true
       });
     });
+    
+    // Auto-copy new components to progress steps
+    setTimeout(() => {
+      copyComponentsToProgressSteps(client.id);
+    }, 100);
+    
     setShowComponentModal(false);
   };
 

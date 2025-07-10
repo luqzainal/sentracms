@@ -4,6 +4,7 @@ import { X, Plus, Trash2, Package, Copy } from 'lucide-react';
 interface AddComponentModalProps {
   onClose: () => void;
   onSave: (componentData: any) => void;
+  clientId?: number;
 }
 
 interface Component {
