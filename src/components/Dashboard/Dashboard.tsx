@@ -84,7 +84,9 @@ const Dashboard: React.FC<DashboardProps> = ({ setActiveTab }) => {
     return `RM ${amount.toLocaleString()}`;
   };
 
-  const clientCompletionRate = totalClients > 0 ? (completeClients / totalClients) * 100 : 0;
+  // Client completion rate - complete clients over total clients (excluding inactive) * 100
+  const activeClients = clients.filter(c => c.status !== 'Inactive');
+  const clientCompletionRate = activeClients.length > 0 ? (completeClients / activeClients.length) * 100 : 0;
 
   return (
     <div className="p-8 space-y-8 bg-slate-50 min-h-screen">
@@ -231,7 +233,7 @@ const Dashboard: React.FC<DashboardProps> = ({ setActiveTab }) => {
         <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-8 hover:shadow-md transition-shadow">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-sm font-medium text-slate-600 uppercase tracking-wide">New Acquisitions</p>
+              <p className="text-sm font-medium text-slate-600 uppercase tracking-wide">New Clients</p>
               <p className="text-3xl font-bold text-slate-900 mt-2">2</p>
               <div className="flex items-center mt-2">
                 <span className="text-sm text-slate-500">This week</span>
