@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
-import { ArrowLeft, Calendar, MessageSquare, DollarSign, HelpCircle, Package, Plus, Clock, CheckCircle, AlertCircle, User, Phone, Mail, MapPin, ChevronLeft, ChevronRight, X } from 'lucide-react';
+import { ArrowLeft, Calendar, MessageSquare, DollarSign, HelpCircle, Package, Plus, Clock, CheckCircle, AlertCircle, User, Phone, Mail, MapPin, ChevronLeft, ChevronRight, X, Send, Paperclip, Smile } from 'lucide-react';
+import ClientProgressTracker from '../Clients/ClientProgressTracker';
 import { useAppStore } from '../../store/AppStore';
 
 interface ClientPortalDashboardProps {
@@ -9,7 +10,11 @@ interface ClientPortalDashboardProps {
 
 const ClientPortalDashboard: React.FC<ClientPortalDashboardProps> = ({ user, onBack }) => {
   const [showAppointmentModal, setShowAppointmentModal] = useState(false);
-  const [currentDate, setCurrentDate] = useState(new Date());
+  const [showProgressTracker, setShowProgressTracker] = useState(false);
+  const [showPackageComponents, setShowPackageComponents] = useState(false);
+  const [showBilling, setShowBilling] = useState(false);
+  const [showScheduleAppointment, setShowScheduleAppointment] = useState(false);
+  const [message, setMessage] = useState('');
   const [appointmentForm, setAppointmentForm] = useState({
     title: '',
     date: '',
@@ -61,62 +66,12 @@ const ClientPortalDashboard: React.FC<ClientPortalDashboardProps> = ({ user, onB
   const paidAmount = invoices.reduce((sum, inv) => sum + inv.paid, 0);
   const dueAmount = invoices.reduce((sum, inv) => sum + inv.due, 0);
 
-  const monthNames = [
-    'January', 'February', 'March', 'April', 'May', 'June',
-    'July', 'August', 'September', 'October', 'November', 'December'
-  ];
-
-  const daysInMonth = new Date(currentDate.getFullYear(), currentDate.getMonth() + 1, 0).getDate();
-  const firstDayOfMonth = new Date(currentDate.getFullYear(), currentDate.getMonth(), 1).getDay();
-  const today = new Date();
-
-  const navigateMonth = (direction: 'prev' | 'next') => {
-    const newDate = new Date(currentDate);
-    newDate.setMonth(currentDate.getMonth() + (direction === 'next' ? 1 : -1));
-    setCurrentDate(newDate);
-  };
-
-  const renderCalendarDays = () => {
-    const days = [];
-    const totalCells = 42; // 6 weeks * 7 days
-
-    // Previous month's days
-    for (let i = firstDayOfMonth - 1; i >= 0; i--) {
-      const prevMonth = new Date(currentDate.getFullYear(), currentDate.getMonth() - 1, 0);
-      const day = prevMonth.getDate() - i;
-      days.push(
-        <div key={`prev-${day}`} className="h-8 flex items-center justify-center text-slate-400 text-sm">
-          {day}
-        </div>
-      );
+  const handleSendMessage = () => {
+    if (message.trim()) {
+      // Add message logic here
+      console.log('Sending message:', message);
+      setMessage('');
     }
-
-    // Current month's days
-    for (let day = 1; day <= daysInMonth; day++) {
-      const isToday = today.getDate() === day && 
-                     today.getMonth() === currentDate.getMonth() && 
-                     today.getFullYear() === currentDate.getFullYear();
-
-      days.push(
-        <div key={day} className={`h-8 flex items-center justify-center text-sm cursor-pointer hover:bg-blue-50 rounded ${
-          isToday ? 'bg-blue-500 text-white rounded' : 'text-slate-900'
-        }`}>
-          {day}
-        </div>
-      );
-    }
-
-    // Next month's days
-    const remainingCells = totalCells - days.length;
-    for (let day = 1; day <= remainingCells; day++) {
-      days.push(
-        <div key={`next-${day}`} className="h-8 flex items-center justify-center text-slate-400 text-sm">
-          {day}
-        </div>
-      );
-    }
-
-    return days;
   };
 
   const handleAppointmentSubmit = (e: React.FormEvent) => {
@@ -153,6 +108,285 @@ const ClientPortalDashboard: React.FC<ClientPortalDashboardProps> = ({ user, onB
     }));
   };
 
+  // Show Progress Tracker
+  if (showProgressTracker) {
+    return (
+      <ClientProgressTracker
+        clientId={client.id.toString()}
+        onBack={() => setShowProgressTracker(false)}
+      />
+    );
+  }
+
+  // Show Package Components
+  if (showPackageComponents) {
+    return (
+      <div className="min-h-screen bg-slate-50">
+        <div className="bg-white border-b border-slate-200 px-4 lg:px-8 py-4 lg:py-6">
+          <div className="max-w-7xl mx-auto flex items-center justify-between">
+            <div className="flex items-center space-x-4">
+              <button
+                onClick={() => setShowPackageComponents(false)}
+                className="flex items-center space-x-2 px-3 py-2 text-slate-600 hover:text-slate-900 hover:bg-slate-100 rounded-lg transition-colors"
+              >
+                <ArrowLeft className="w-5 h-5" />
+                <span className="font-medium">Back</span>
+              </button>
+              <div>
+                <h1 className="text-xl lg:text-2xl font-bold text-slate-900 flex items-center space-x-2">
+                  <Package className="w-6 h-6 text-orange-600" />
+                  <span>My Packages</span>
+                </h1>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div className="max-w-4xl mx-auto p-4 lg:p-8">
+          <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-6">
+            <div className="mb-6">
+              <p className="text-slate-600 mb-2">Current Package :</p>
+              <h2 className="text-2xl font-bold text-slate-900">Kuasa 360</h2>
+            </div>
+
+            <div className="mb-6">
+              <h3 className="text-lg font-semibold text-slate-900 mb-4">List of Components</h3>
+              <div className="space-y-3">
+                {components.map((component, index) => (
+                  <div key={component.id} className="flex items-center justify-between p-4 border border-slate-200 rounded-lg">
+                    <div className="flex items-center space-x-3">
+                      <Package className="w-5 h-5 text-slate-600" />
+                      <span className="font-medium text-slate-900">Component {index + 1}: {component.name}</span>
+                      {component.active && (
+                        <span className="px-2 py-1 bg-green-100 text-green-700 text-xs font-medium rounded-full">
+                          Selesai
+                        </span>
+                      )}
+                    </div>
+                    <button className="text-slate-400 hover:text-slate-600">
+                      <ChevronRight className="w-5 h-5" />
+                    </button>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // Show Billing
+  if (showBilling) {
+    return (
+      <div className="min-h-screen bg-slate-50">
+        <div className="bg-white border-b border-slate-200 px-4 lg:px-8 py-4 lg:py-6">
+          <div className="max-w-7xl mx-auto flex items-center justify-between">
+            <div className="flex items-center space-x-4">
+              <button
+                onClick={() => setShowBilling(false)}
+                className="flex items-center space-x-2 px-3 py-2 text-slate-600 hover:text-slate-900 hover:bg-slate-100 rounded-lg transition-colors"
+              >
+                <ArrowLeft className="w-5 h-5" />
+                <span className="font-medium">Back</span>
+              </button>
+              <div>
+                <h1 className="text-xl lg:text-2xl font-bold text-slate-900">My Account & Billing</h1>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div className="max-w-4xl mx-auto p-4 lg:p-8 space-y-6">
+          {/* Account Information */}
+          <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-6">
+            <h3 className="text-lg font-semibold text-slate-900 mb-4">Account Information</h3>
+            <div className="space-y-3">
+              <div>
+                <span className="font-medium text-slate-700">Name: </span>
+                <span className="text-slate-900">{client.name}</span>
+              </div>
+              <div>
+                <span className="font-medium text-slate-700">Email: </span>
+                <span className="text-slate-900">{client.email}</span>
+              </div>
+              <div>
+                <span className="font-medium text-slate-700">Registered Package: </span>
+                <span className="text-slate-900">Kuasa 360</span>
+              </div>
+            </div>
+          </div>
+
+          {/* Payment Summary */}
+          <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-6">
+            <h3 className="text-lg font-semibold text-slate-900 mb-4">Payment Summary</h3>
+            <div className="space-y-3">
+              <div>
+                <span className="font-medium text-slate-700">Total Invoiced: </span>
+                <span className="text-slate-900">RM {totalAmount.toLocaleString()}</span>
+              </div>
+              <div>
+                <span className="font-medium text-slate-700">Total Paid: </span>
+                <span className="text-green-600">RM {paidAmount.toLocaleString()}</span>
+              </div>
+              <div>
+                <span className="font-medium text-slate-700">Balance: </span>
+                <span className="text-red-600">RM {dueAmount.toLocaleString()}</span>
+              </div>
+            </div>
+          </div>
+
+          {/* Invoice & Payment History */}
+          <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-6">
+            <h3 className="text-lg font-semibold text-slate-900 mb-4">Invoice & Payment History</h3>
+            <div className="overflow-x-auto">
+              <table className="w-full">
+                <thead className="bg-slate-50 border-b border-slate-200">
+                  <tr>
+                    <th className="text-left py-3 px-4 font-medium text-slate-900">Invoice</th>
+                    <th className="text-left py-3 px-4 font-medium text-slate-900">Amount</th>
+                    <th className="text-left py-3 px-4 font-medium text-slate-900">Date</th>
+                    <th className="text-left py-3 px-4 font-medium text-slate-900">Payment</th>
+                    <th className="text-left py-3 px-4 font-medium text-slate-900">Receipt</th>
+                    <th className="text-left py-3 px-4 font-medium text-slate-900">Status</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-200">
+                  {invoices.map((invoice) => (
+                    <tr key={invoice.id}>
+                      <td className="py-3 px-4 text-slate-900">Kuasa 360</td>
+                      <td className="py-3 px-4 text-slate-900">RM {invoice.amount.toLocaleString()}</td>
+                      <td className="py-3 px-4 text-slate-600">{new Date(invoice.createdAt).toLocaleDateString()}</td>
+                      <td className="py-3 px-4 text-slate-900">RM {invoice.paid.toLocaleString()}</td>
+                      <td className="py-3 px-4 text-slate-600">-</td>
+                      <td className="py-3 px-4">
+                        <span className="px-2 py-1 bg-green-100 text-green-700 text-xs font-medium rounded-full">
+                          Paid
+                        </span>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+            
+            <div className="mt-6 text-center">
+              <button className="bg-green-600 text-white px-6 py-2 rounded-lg hover:bg-green-700 transition-colors">
+                Need help? Contact us
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // Show Schedule Appointment
+  if (showScheduleAppointment) {
+    return (
+      <div className="min-h-screen bg-slate-50">
+        <div className="bg-white border-b border-slate-200 px-4 lg:px-8 py-4 lg:py-6">
+          <div className="max-w-7xl mx-auto flex items-center justify-between">
+            <div className="flex items-center space-x-4">
+              <button
+                onClick={() => setShowScheduleAppointment(false)}
+                className="flex items-center space-x-2 px-3 py-2 text-slate-600 hover:text-slate-900 hover:bg-slate-100 rounded-lg transition-colors"
+              >
+                <ArrowLeft className="w-5 h-5" />
+                <span className="font-medium">Back</span>
+              </button>
+              <div>
+                <h1 className="text-xl lg:text-2xl font-bold text-slate-900 flex items-center space-x-2">
+                  <Package className="w-6 h-6 text-orange-600" />
+                  <span>Schedule Appointment</span>
+                </h1>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div className="max-w-4xl mx-auto p-4 lg:p-8">
+          <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-6">
+            <form className="space-y-6">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div>
+                  <label className="block text-sm font-medium text-slate-700 mb-2">Title</label>
+                  <input
+                    type="text"
+                    className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none"
+                    placeholder="Enter appointment title"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-slate-700 mb-2">Purpose</label>
+                  <input
+                    type="text"
+                    className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none"
+                    placeholder="Enter purpose"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-2">Purpose Date</label>
+                <input
+                  type="datetime-local"
+                  className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none"
+                />
+              </div>
+
+              <button
+                type="button"
+                className="bg-green-600 text-white px-6 py-2 rounded-lg hover:bg-green-700 transition-colors"
+              >
+                Set Appointment
+              </button>
+            </form>
+
+            <div className="mt-8">
+              <h3 className="text-lg font-semibold text-slate-900 mb-4">Your Appointments</h3>
+              <div className="overflow-x-auto">
+                <table className="w-full">
+                  <thead className="bg-slate-50 border-b border-slate-200">
+                    <tr>
+                      <th className="text-left py-3 px-4 font-medium text-slate-900">Title</th>
+                      <th className="text-left py-3 px-4 font-medium text-slate-900">Start</th>
+                      <th className="text-left py-3 px-4 font-medium text-slate-900">End</th>
+                      <th className="text-left py-3 px-4 font-medium text-slate-900">Status</th>
+                      <th className="text-left py-3 px-4 font-medium text-slate-900">Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-200">
+                    <tr>
+                      <td className="py-3 px-4 text-slate-900">Follow up for First Session</td>
+                      <td className="py-3 px-4 text-slate-600">21/07/2025 10:30</td>
+                      <td className="py-3 px-4 text-slate-600">21/07/2025 12:30</td>
+                      <td className="py-3 px-4">
+                        <span className="px-2 py-1 bg-green-100 text-green-700 text-xs font-medium rounded-full">
+                          Approved
+                        </span>
+                      </td>
+                      <td className="py-3 px-4">
+                        <div className="flex space-x-2">
+                          <button className="text-red-600 hover:text-red-700 text-sm border border-red-300 px-2 py-1 rounded">
+                            Cancel
+                          </button>
+                          <button className="text-blue-600 hover:text-blue-700 text-sm border border-blue-300 px-2 py-1 rounded">
+                            Edit
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen bg-slate-50">
       {/* Header */}
@@ -184,7 +418,10 @@ const ClientPortalDashboard: React.FC<ClientPortalDashboardProps> = ({ user, onB
         {/* Top Cards Grid */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 lg:gap-6 mb-6 lg:mb-8">
           {/* Progress Tracking */}
-          <div className="bg-white rounded-xl p-6 shadow-sm border border-slate-200 hover:shadow-md transition-shadow cursor-pointer">
+          <div 
+            className="bg-white rounded-xl p-6 shadow-sm border border-slate-200 hover:shadow-md transition-shadow cursor-pointer"
+            onClick={() => setShowProgressTracker(true)}
+          >
             <div className="text-center">
               <div className="w-12 h-12 bg-blue-100 rounded-full flex items-center justify-center mx-auto mb-3">
                 <CheckCircle className="w-6 h-6 text-blue-600" />
@@ -201,13 +438,16 @@ const ClientPortalDashboard: React.FC<ClientPortalDashboardProps> = ({ user, onB
             </div>
           </div>
 
-          {/* Kuasa 360 Component */}
-          <div className="bg-white rounded-xl p-6 shadow-sm border border-slate-200 hover:shadow-md transition-shadow cursor-pointer">
+          {/* Package Component */}
+          <div 
+            className="bg-white rounded-xl p-6 shadow-sm border border-slate-200 hover:shadow-md transition-shadow cursor-pointer"
+            onClick={() => setShowPackageComponents(true)}
+          >
             <div className="text-center">
               <div className="w-12 h-12 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-3">
                 <Package className="w-6 h-6 text-green-600" />
               </div>
-              <h3 className="font-semibold text-slate-900 mb-2">Kuasa 360 Component</h3>
+              <h3 className="font-semibold text-slate-900 mb-2">Package Component</h3>
               <p className="text-sm text-slate-600 mb-3">Senarai modul yang anda ada akses</p>
               <div className="text-lg font-bold text-green-600">{components.length}</div>
               <p className="text-xs text-slate-500">Active Components</p>
@@ -215,7 +455,10 @@ const ClientPortalDashboard: React.FC<ClientPortalDashboardProps> = ({ user, onB
           </div>
 
           {/* My Billing */}
-          <div className="bg-white rounded-xl p-6 shadow-sm border border-slate-200 hover:shadow-md transition-shadow cursor-pointer">
+          <div 
+            className="bg-white rounded-xl p-6 shadow-sm border border-slate-200 hover:shadow-md transition-shadow cursor-pointer"
+            onClick={() => setShowBilling(true)}
+          >
             <div className="text-center">
               <div className="w-12 h-12 bg-purple-100 rounded-full flex items-center justify-center mx-auto mb-3">
                 <DollarSign className="w-6 h-6 text-purple-600" />
@@ -230,7 +473,7 @@ const ClientPortalDashboard: React.FC<ClientPortalDashboardProps> = ({ user, onB
           {/* Schedule Appointment */}
           <div 
             className="bg-white rounded-xl p-6 shadow-sm border border-slate-200 hover:shadow-md transition-shadow cursor-pointer"
-            onClick={() => setShowAppointmentModal(true)}
+            onClick={() => setShowScheduleAppointment(true)}
           >
             <div className="text-center">
               <div className="w-12 h-12 bg-orange-100 rounded-full flex items-center justify-center mx-auto mb-3">
@@ -294,164 +537,97 @@ const ClientPortalDashboard: React.FC<ClientPortalDashboardProps> = ({ user, onB
             </div>
           </div>
 
-          {/* Calendar */}
-          <div className="lg:col-span-2 bg-white rounded-xl p-6 shadow-sm border border-slate-200">
-            <div className="mb-6">
-              <h3 className="font-semibold text-slate-900 mb-2">Jadual Temujanji Anda</h3>
-              <p className="text-sm text-slate-600">Manage your appointments and schedule</p>
+          {/* Chat Box */}
+          <div className="lg:col-span-2 bg-white rounded-xl shadow-sm border border-slate-200 flex flex-col h-96">
+            {/* Chat Header */}
+            <div className="p-4 border-b border-slate-200 flex items-center justify-between">
+              <div className="flex items-center space-x-3">
+                <div className="w-10 h-10 bg-blue-500 rounded-full flex items-center justify-center text-white font-medium">
+                  AT
+                </div>
+                <div>
+                  <h3 className="font-medium text-slate-900">Ahmad Tech Solutions</h3>
+                  <p className="text-sm text-slate-500">Online</p>
+                </div>
+              </div>
+              <div className="flex items-center space-x-2">
+                <button className="p-2 hover:bg-slate-100 rounded-lg transition-colors">
+                  <Phone className="w-4 h-4 text-slate-600" />
+                </button>
+                <button className="p-2 hover:bg-slate-100 rounded-lg transition-colors">
+                  <MessageSquare className="w-4 h-4 text-slate-600" />
+                </button>
+              </div>
             </div>
 
-            {/* Calendar Header */}
-            <div className="flex items-center justify-between mb-4">
-              <div className="flex items-center space-x-4">
+            {/* Messages */}
+            <div className="flex-1 overflow-y-auto p-4 space-y-4">
+              <div className="flex justify-start">
+                <div className="bg-slate-100 text-slate-900 px-4 py-2 rounded-lg max-w-xs">
+                  <p className="text-sm">Hi! Saya nak check progress projek kami.</p>
+                  <p className="text-xs text-slate-500 mt-1">10:15 AM</p>
+                </div>
+              </div>
+              
+              <div className="flex justify-end">
+                <div className="bg-blue-500 text-white px-4 py-2 rounded-lg max-w-xs">
+                  <p className="text-sm">Hello! Projek berjalan dengan baik. Kami sudah complete design phase dan sekarang moving ke development.</p>
+                  <p className="text-xs text-blue-100 mt-1">10:18 AM</p>
+                </div>
+              </div>
+              
+              <div className="flex justify-start">
+                <div className="bg-slate-100 text-slate-900 px-4 py-2 rounded-lg max-w-xs">
+                  <p className="text-sm">Bagus! Boleh share beberapa screenshots?</p>
+                  <p className="text-xs text-slate-500 mt-1">10:20 AM</p>
+                </div>
+              </div>
+              
+              <div className="flex justify-end">
+                <div className="bg-blue-500 text-white px-4 py-2 rounded-lg max-w-xs">
+                  <p className="text-sm">Tentu! Saya akan hantar sebentar lagi. UI nampak sangat clean dan modern.</p>
+                  <p className="text-xs text-blue-100 mt-1">10:22 AM</p>
+                </div>
+              </div>
+              
+              <div className="flex justify-start">
+                <div className="bg-slate-100 text-slate-900 px-4 py-2 rounded-lg max-w-xs">
+                  <p className="text-sm">Terima kasih untuk update projek ini</p>
+                  <p className="text-xs text-slate-500 mt-1">10:30 AM</p>
+                </div>
+              </div>
+            </div>
+
+            {/* Message Input */}
+            <div className="p-4 border-t border-slate-200">
+              <div className="flex items-center space-x-2">
+                <button className="p-2 hover:bg-slate-100 rounded-lg transition-colors">
+                  <Paperclip className="w-4 h-4 text-slate-600" />
+                </button>
+                <div className="flex-1 relative">
+                  <input
+                    type="text"
+                    value={message}
+                    onChange={(e) => setMessage(e.target.value)}
+                    onKeyPress={(e) => e.key === 'Enter' && handleSendMessage()}
+                    placeholder="Type a message..."
+                    className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none"
+                  />
+                  <button className="absolute right-2 top-1/2 transform -translate-y-1/2 p-1 hover:bg-slate-100 rounded">
+                    <Smile className="w-4 h-4 text-slate-600" />
+                  </button>
+                </div>
                 <button
-                  onClick={() => navigateMonth('prev')}
-                  className="p-2 hover:bg-slate-100 rounded-lg transition-colors"
+                  onClick={handleSendMessage}
+                  className="p-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors"
                 >
-                  <ChevronLeft className="w-5 h-5 text-slate-600" />
-                </button>
-                <h4 className="text-lg font-semibold text-slate-900">
-                  {monthNames[currentDate.getMonth()]} {currentDate.getFullYear()}
-                </h4>
-                <button
-                  onClick={() => navigateMonth('next')}
-                  className="p-2 hover:bg-slate-100 rounded-lg transition-colors"
-                >
-                  <ChevronRight className="w-5 h-5 text-slate-600" />
+                  <Send className="w-4 h-4" />
                 </button>
               </div>
-              <div className="flex space-x-2">
-                <button className="px-3 py-1 bg-slate-900 text-white rounded text-sm font-medium">
-                  month
-                </button>
-                <button className="px-3 py-1 bg-slate-100 text-slate-600 rounded text-sm font-medium hover:bg-slate-200 transition-colors">
-                  list
-                </button>
-              </div>
-            </div>
-
-            {/* Calendar Grid */}
-            <div className="border border-slate-200 rounded-lg overflow-hidden">
-              {/* Days of Week Header */}
-              <div className="grid grid-cols-7 bg-slate-50 border-b border-slate-200">
-                {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map((day) => (
-                  <div key={day} className="p-3 text-center text-sm font-medium text-slate-600">
-                    {day}
-                  </div>
-                ))}
-              </div>
-
-              {/* Calendar Days */}
-              <div className="grid grid-cols-7 gap-0">
-                {renderCalendarDays()}
-              </div>
-            </div>
-
-            {/* Quick Actions */}
-            <div className="mt-4 flex justify-end">
-              <button
-                onClick={() => setShowAppointmentModal(true)}
-                className="bg-blue-600 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-blue-700 transition-colors flex items-center space-x-2"
-              >
-                <Plus className="w-4 h-4" />
-                <span>Schedule Appointment</span>
-              </button>
             </div>
           </div>
         </div>
       </div>
-
-      {/* Appointment Modal */}
-      {showAppointmentModal && (
-        <div className="fixed inset-0 w-full h-full bg-black bg-opacity-60 flex items-center justify-center p-4 z-50 backdrop-blur-sm">
-          <div className="bg-white rounded-xl shadow-2xl w-full max-w-md max-h-[90vh] overflow-y-auto">
-            <div className="flex items-center justify-between p-6 border-b border-slate-200">
-              <h2 className="text-xl font-semibold text-slate-900">Schedule Appointment</h2>
-              <button
-                onClick={() => setShowAppointmentModal(false)}
-                className="p-2 hover:bg-slate-100 rounded-lg transition-colors"
-              >
-                <X className="w-5 h-5 text-slate-500" />
-              </button>
-            </div>
-
-            <form onSubmit={handleAppointmentSubmit} className="p-6 space-y-4">
-              <div>
-                <label className="block text-sm font-medium text-slate-700 mb-2">
-                  Appointment Title *
-                </label>
-                <input
-                  type="text"
-                  name="title"
-                  value={appointmentForm.title}
-                  onChange={handleFormChange}
-                  required
-                  className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none"
-                  placeholder="e.g., Project Discussion"
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-slate-700 mb-2">
-                  Date *
-                </label>
-                <input
-                  type="date"
-                  name="date"
-                  value={appointmentForm.date}
-                  onChange={handleFormChange}
-                  required
-                  className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none"
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-slate-700 mb-2">
-                  Time *
-                </label>
-                <input
-                  type="time"
-                  name="time"
-                  value={appointmentForm.time}
-                  onChange={handleFormChange}
-                  required
-                  className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none"
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-slate-700 mb-2">
-                  Description
-                </label>
-                <textarea
-                  name="description"
-                  value={appointmentForm.description}
-                  onChange={handleFormChange}
-                  rows={3}
-                  className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none resize-none"
-                  placeholder="Additional details about the appointment..."
-                />
-              </div>
-
-              <div className="flex justify-end space-x-3 pt-4">
-                <button
-                  type="button"
-                  onClick={() => setShowAppointmentModal(false)}
-                  className="px-4 py-2 text-slate-700 bg-slate-100 rounded-lg hover:bg-slate-200 transition-colors"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium"
-                >
-                  Schedule
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
     </div>
   );
 };
