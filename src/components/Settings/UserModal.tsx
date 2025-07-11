@@ -28,10 +28,6 @@ const UserModal: React.FC<UserModalProps> = ({ user, onClose, onSave }) => {
     email: '',
     role: 'Team' as 'Super Admin' | 'Team' | 'Client Admin' | 'Client Team',
     clientId: '',
-    password: '',
-    confirmPassword: '',
-    showPassword: false,
-    showConfirmPassword: false
   });
 
   const [portalAccess, setPortalAccess] = useState({
@@ -40,7 +36,7 @@ const UserModal: React.FC<UserModalProps> = ({ user, onClose, onSave }) => {
     confirmPortalPassword: '',
     showPortalPassword: false,
     showConfirmPortalPassword: false,
-    enablePortalAccess: false
+    hasStoredPassword: false
   });
   const [errors, setErrors] = useState<{ [key: string]: string }>({});
 
@@ -51,10 +47,6 @@ const UserModal: React.FC<UserModalProps> = ({ user, onClose, onSave }) => {
         email: user.email,
         role: user.role,
         clientId: user.clientId ? user.clientId.toString() : '',
-        password: '',
-        confirmPassword: '',
-        showPassword: false,
-        showConfirmPassword: false
       });
       
       // Initialize portal access for client users
@@ -65,7 +57,7 @@ const UserModal: React.FC<UserModalProps> = ({ user, onClose, onSave }) => {
           confirmPortalPassword: '',
           showPortalPassword: false,
           showConfirmPortalPassword: false,
-          enablePortalAccess: true
+          hasStoredPassword: true // Assume existing users have stored passwords
         });
       }
     } else {
@@ -75,10 +67,6 @@ const UserModal: React.FC<UserModalProps> = ({ user, onClose, onSave }) => {
         email: '',
         role: 'Team',
         clientId: '',
-        password: '',
-        confirmPassword: '',
-        showPassword: false,
-        showConfirmPassword: false
       });
       
       setPortalAccess({
@@ -87,7 +75,7 @@ const UserModal: React.FC<UserModalProps> = ({ user, onClose, onSave }) => {
         confirmPortalPassword: '',
         showPortalPassword: false,
         showConfirmPortalPassword: false,
-        enablePortalAccess: false
+        hasStoredPassword: false
       });
     }
   }, [user]);
@@ -107,15 +95,14 @@ const UserModal: React.FC<UserModalProps> = ({ user, onClose, onSave }) => {
       }));
       setPortalAccess(prev => ({
         ...prev,
-        enablePortalAccess: false,
         username: '',
         portalPassword: '',
-        confirmPortalPassword: ''
+        confirmPortalPassword: '',
+        hasStoredPassword: false
       }));
     } else if (name === 'role' && ['Client Admin', 'Client Team'].includes(value)) {
       setPortalAccess(prev => ({
         ...prev,
-        enablePortalAccess: true,
         username: formData.email || ''
       }));
     }
@@ -169,27 +156,8 @@ const UserModal: React.FC<UserModalProps> = ({ user, onClose, onSave }) => {
     if (['Client Admin', 'Client Team'].includes(formData.role) && !formData.clientId) {
       newErrors.clientId = 'Client selection is required for this role';
     }
-    if (!user) { // Only validate password for new users
-      if (!formData.password) {
-        newErrors.password = 'Password is required';
-      } else if (formData.password.length < 6) {
-        newErrors.password = 'Password must be at least 6 characters';
-      }
-
-      if (formData.password !== formData.confirmPassword) {
-        newErrors.confirmPassword = 'Passwords do not match';
-      }
-    } else if (formData.password) { // If editing user and password is provided
-      if (formData.password.length < 6) {
-        newErrors.password = 'Password must be at least 6 characters';
-      }
-      if (formData.password !== formData.confirmPassword) {
-        newErrors.confirmPassword = 'Passwords do not match';
-      }
-    }
-
     // Validate portal access for client users
-    if (portalAccess.enablePortalAccess && ['Client Admin', 'Client Team'].includes(formData.role)) {
+    if (['Client Admin', 'Client Team'].includes(formData.role)) {
       if (!portalAccess.username.trim()) {
         newErrors.portalUsername = 'Portal username is required';
       }
@@ -231,17 +199,12 @@ const UserModal: React.FC<UserModalProps> = ({ user, onClose, onSave }) => {
     if (['Client Admin', 'Client Team'].includes(formData.role) && formData.clientId) {
       (userData as any).clientId = parseInt(formData.clientId);
     }
-    // Only include password if it's provided
-    if (formData.password) {
-      (userData as any).password = formData.password;
-    }
-
     // Include portal access data for client users
-    if (portalAccess.enablePortalAccess && ['Client Admin', 'Client Team'].includes(formData.role)) {
+    if (['Client Admin', 'Client Team'].includes(formData.role)) {
       (userData as any).portalAccess = {
         username: portalAccess.username,
         password: portalAccess.portalPassword || undefined,
-        enabled: true
+        hasStoredPassword: portalAccess.hasStoredPassword || !!portalAccess.portalPassword
       };
     }
     onSave(userData);
@@ -260,6 +223,14 @@ const UserModal: React.FC<UserModalProps> = ({ user, onClose, onSave }) => {
     }));
   };
   const getPermissionsByRole = (role: string) => {
+  const handleResetPassword = () => {
+    setPortalAccess(prev => ({
+      ...prev,
+      portalPassword: '',
+      confirmPortalPassword: '',
+      hasStoredPassword: false
+    }));
+  };
     switch (role) {
       case 'Super Admin':
         return ['all'];
@@ -445,25 +416,12 @@ const UserModal: React.FC<UserModalProps> = ({ user, onClose, onSave }) => {
               <h3 className="text-lg font-medium text-slate-900">Client Portal Access</h3>
               
               <div className="bg-blue-50 rounded-lg p-4 border border-blue-200">
-                <div className="flex items-center space-x-2 mb-3">
-                  <input
-                    type="checkbox"
-                    name="enablePortalAccess"
-                    checked={portalAccess.enablePortalAccess}
-                    onChange={handlePortalAccessChange}
-                    className="w-4 h-4 text-blue-600 border-slate-300 rounded focus:ring-blue-500"
-                  />
-                  <label className="text-sm font-medium text-slate-700">
-                    Enable Client Portal Access
-                  </label>
-                </div>
                 <p className="text-xs text-slate-600">
-                  Allow this user to access the client portal with separate login credentials
+                  Client users automatically have access to the client portal with separate login credentials
                 </p>
               </div>
               
-              {portalAccess.enablePortalAccess && (
-                <div className="space-y-4 pl-4 border-l-2 border-blue-200">
+              <div className="space-y-4 pl-4 border-l-2 border-blue-200">
                   <div>
                     <label className="block text-sm font-medium text-slate-700 mb-2">
                       Portal Username *
@@ -484,10 +442,32 @@ const UserModal: React.FC<UserModalProps> = ({ user, onClose, onSave }) => {
                     </p>
                   </div>
                   
+                  {/* Password Status Display */}
+                  {user && portalAccess.hasStoredPassword && !portalAccess.portalPassword && (
+                    <div className="bg-green-50 rounded-lg p-3 border border-green-200">
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center space-x-2">
+                          <div className="w-2 h-2 bg-green-500 rounded-full"></div>
+                          <span className="text-sm font-medium text-green-800">Portal password is set</span>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={handleResetPassword}
+                          className="px-3 py-1 bg-orange-600 text-white rounded-lg hover:bg-orange-700 transition-colors text-sm font-medium"
+                        >
+                          Reset Password
+                        </button>
+                      </div>
+                      <p className="text-xs text-green-700 mt-1">
+                        User can log into the client portal with their existing password
+                      </p>
+                    </div>
+                  )}
+                  
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div>
                       <label className="block text-sm font-medium text-slate-700 mb-2">
-                        Portal Password {!user && '*'}
+                        Portal Password {(!user || !portalAccess.hasStoredPassword) && '*'}
                       </label>
                       <div className="relative">
                         <input
@@ -498,7 +478,7 @@ const UserModal: React.FC<UserModalProps> = ({ user, onClose, onSave }) => {
                           className={`w-full px-4 pr-12 py-3 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition-all duration-200 ${
                             errors.portalPassword ? 'border-red-300 bg-red-50' : 'border-slate-300'
                           }`}
-                          placeholder={user ? "Leave blank to keep current" : "Enter portal password"}
+                          placeholder={user && portalAccess.hasStoredPassword ? "Leave blank to keep current" : "Enter portal password"}
                         />
                         <button
                           type="button"
@@ -513,7 +493,7 @@ const UserModal: React.FC<UserModalProps> = ({ user, onClose, onSave }) => {
 
                     <div>
                       <label className="block text-sm font-medium text-slate-700 mb-2">
-                        Confirm Portal Password {!user && '*'}
+                        Confirm Portal Password {(!user || !portalAccess.hasStoredPassword) && '*'}
                       </label>
                       <div className="relative">
                         <input
@@ -546,13 +526,13 @@ const UserModal: React.FC<UserModalProps> = ({ user, onClose, onSave }) => {
                     >
                       Generate Secure Password
                     </button>
-                    {user && (
+                    {user && portalAccess.hasStoredPassword && (
                       <button
                         type="button"
-                        onClick={() => setPortalAccess(prev => ({ ...prev, portalPassword: '', confirmPortalPassword: '' }))}
+                        onClick={handleResetPassword}
                         className="px-4 py-2 bg-orange-600 text-white rounded-lg hover:bg-orange-700 transition-colors text-sm font-medium"
                       >
-                        Reset Password
+                        Clear & Reset
                       </button>
                     )}
                   </div>
@@ -563,71 +543,9 @@ const UserModal: React.FC<UserModalProps> = ({ user, onClose, onSave }) => {
                       Clients will use these credentials to access their dedicated portal.
                     </p>
                   </div>
-                </div>
-              )}
+              </div>
             </div>
           )}
-          {/* Password Section */}
-          <div className="space-y-4">
-            <h3 className="text-lg font-medium text-slate-900">
-              {user ? 'Change Password (Optional)' : 'Set Password'}
-            </h3>
-            
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div>
-                <label className="block text-sm font-medium text-slate-700 mb-2">
-                  Password {!user && '*'}
-                </label>
-                <div className="relative">
-                  <input
-                    type={formData.showPassword ? 'text' : 'password'}
-                    name="password"
-                    value={formData.password}
-                    onChange={handleChange}
-                    className={`w-full px-4 pr-12 py-3 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition-all duration-200 ${
-                      errors.password ? 'border-red-300 bg-red-50' : 'border-slate-300'
-                    }`}
-                    placeholder={user ? "Leave blank to keep current password" : "Enter password"}
-                  />
-                  <button
-                    type="button"
-                    onClick={() => setFormData(prev => ({ ...prev, showPassword: !prev.showPassword }))}
-                    className="absolute right-3 top-1/2 transform -translate-y-1/2 text-slate-400 hover:text-slate-600 transition-colors"
-                  >
-                    {formData.showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
-                  </button>
-                </div>
-                {errors.password && <p className="text-red-600 text-sm mt-1">{errors.password}</p>}
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-slate-700 mb-2">
-                  Confirm Password {!user && '*'}
-                </label>
-                <div className="relative">
-                  <input
-                    type={formData.showConfirmPassword ? 'text' : 'password'}
-                    name="confirmPassword"
-                    value={formData.confirmPassword}
-                    onChange={handleChange}
-                    className={`w-full px-4 pr-12 py-3 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition-all duration-200 ${
-                      errors.confirmPassword ? 'border-red-300 bg-red-50' : 'border-slate-300'
-                    }`}
-                    placeholder="Confirm password"
-                  />
-                  <button
-                    type="button"
-                    onClick={() => setFormData(prev => ({ ...prev, showConfirmPassword: !prev.showConfirmPassword }))}
-                    className="absolute right-3 top-1/2 transform -translate-y-1/2 text-slate-400 hover:text-slate-600 transition-colors"
-                  >
-                    {formData.showConfirmPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
-                  </button>
-                </div>
-                {errors.confirmPassword && <p className="text-red-600 text-sm mt-1">{errors.confirmPassword}</p>}
-              </div>
-            </div>
-          </div>
-
           {/* Actions */}
           <div className="flex justify-end space-x-3 pt-4 border-t border-slate-200">
             <button
