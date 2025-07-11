@@ -365,6 +365,7 @@ const Dashboard: React.FC<DashboardProps> = ({ setActiveTab, onToggleSidebar }) 
                   <div className="flex-1">
                     <h4 className="font-semibold text-slate-900 text-sm lg:text-base truncate">{client.businessName}</h4>
                     <p className="text-xs lg:text-sm text-slate-500 truncate">{client.email}</p>
+                    <p className="text-xs text-slate-500 truncate">PIC: {client.pic || 'Project Management'}</p>
                   </div>
                   <div className="flex items-center space-x-2 lg:space-x-3 ml-2">
                     <div className="flex items-center space-x-2 lg:space-x-3">
