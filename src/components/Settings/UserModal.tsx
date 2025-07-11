@@ -34,6 +34,14 @@ const UserModal: React.FC<UserModalProps> = ({ user, onClose, onSave }) => {
     showConfirmPassword: false
   });
 
+  const [portalAccess, setPortalAccess] = useState({
+    username: '',
+    portalPassword: '',
+    confirmPortalPassword: '',
+    showPortalPassword: false,
+    showConfirmPortalPassword: false,
+    enablePortalAccess: false
+  });
   const [errors, setErrors] = useState<{ [key: string]: string }>({});
 
   useEffect(() => {
@@ -48,6 +56,18 @@ const UserModal: React.FC<UserModalProps> = ({ user, onClose, onSave }) => {
         showPassword: false,
         showConfirmPassword: false
       });
+      
+      // Initialize portal access for client users
+      if (user.role === 'Client Admin' || user.role === 'Client Team') {
+        setPortalAccess({
+          username: user.email, // Default to email as username
+          portalPassword: '',
+          confirmPortalPassword: '',
+          showPortalPassword: false,
+          showConfirmPortalPassword: false,
+          enablePortalAccess: true
+        });
+      }
     } else {
       // Reset form for new user
       setFormData({
@@ -59,6 +79,15 @@ const UserModal: React.FC<UserModalProps> = ({ user, onClose, onSave }) => {
         confirmPassword: '',
         showPassword: false,
         showConfirmPassword: false
+      });
+      
+      setPortalAccess({
+        username: '',
+        portalPassword: '',
+        confirmPortalPassword: '',
+        showPortalPassword: false,
+        showConfirmPortalPassword: false,
+        enablePortalAccess: false
       });
     }
   }, [user]);
@@ -76,6 +105,27 @@ const UserModal: React.FC<UserModalProps> = ({ user, onClose, onSave }) => {
         ...prev,
         clientId: ''
       }));
+      setPortalAccess(prev => ({
+        ...prev,
+        enablePortalAccess: false,
+        username: '',
+        portalPassword: '',
+        confirmPortalPassword: ''
+      }));
+    } else if (name === 'role' && ['Client Admin', 'Client Team'].includes(value)) {
+      setPortalAccess(prev => ({
+        ...prev,
+        enablePortalAccess: true,
+        username: formData.email || ''
+      }));
+    }
+    
+    // Update portal username when email changes for client users
+    if (name === 'email' && ['Client Admin', 'Client Team'].includes(formData.role)) {
+      setPortalAccess(prev => ({
+        ...prev,
+        username: value
+      }));
     }
     
     // Clear error when user starts typing
@@ -87,6 +137,21 @@ const UserModal: React.FC<UserModalProps> = ({ user, onClose, onSave }) => {
     }
   };
 
+  const handlePortalAccessChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const { name, value, type, checked } = e.target;
+    setPortalAccess(prev => ({
+      ...prev,
+      [name]: type === 'checkbox' ? checked : value
+    }));
+    
+    // Clear error when user starts typing
+    if (errors[name]) {
+      setErrors(prev => ({
+        ...prev,
+        [name]: ''
+      }));
+    }
+  };
   const validateForm = () => {
     const newErrors: { [key: string]: string } = {};
 
@@ -123,6 +188,24 @@ const UserModal: React.FC<UserModalProps> = ({ user, onClose, onSave }) => {
       }
     }
 
+    // Validate portal access for client users
+    if (portalAccess.enablePortalAccess && ['Client Admin', 'Client Team'].includes(formData.role)) {
+      if (!portalAccess.username.trim()) {
+        newErrors.portalUsername = 'Portal username is required';
+      }
+      
+      if (portalAccess.portalPassword) {
+        if (portalAccess.portalPassword.length < 6) {
+          newErrors.portalPassword = 'Portal password must be at least 6 characters';
+        }
+        if (portalAccess.portalPassword !== portalAccess.confirmPortalPassword) {
+          newErrors.confirmPortalPassword = 'Portal passwords do not match';
+        }
+      } else if (!user) {
+        // Require portal password for new client users
+        newErrors.portalPassword = 'Portal password is required for new client users';
+      }
+    }
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
   };
@@ -153,9 +236,29 @@ const UserModal: React.FC<UserModalProps> = ({ user, onClose, onSave }) => {
       (userData as any).password = formData.password;
     }
 
+    // Include portal access data for client users
+    if (portalAccess.enablePortalAccess && ['Client Admin', 'Client Team'].includes(formData.role)) {
+      (userData as any).portalAccess = {
+        username: portalAccess.username,
+        password: portalAccess.portalPassword || undefined,
+        enabled: true
+      };
+    }
     onSave(userData);
   };
 
+  const handleGeneratePassword = () => {
+    const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789!@#$%^&*';
+    let password = '';
+    for (let i = 0; i < 12; i++) {
+      password += chars.charAt(Math.floor(Math.random() * chars.length));
+    }
+    setPortalAccess(prev => ({
+      ...prev,
+      portalPassword: password,
+      confirmPortalPassword: password
+    }));
+  };
   const getPermissionsByRole = (role: string) => {
     switch (role) {
       case 'Super Admin':
@@ -336,6 +439,134 @@ const UserModal: React.FC<UserModalProps> = ({ user, onClose, onSave }) => {
             </div>
           </div>
 
+          {/* Client Portal Access - Only show for Client roles */}
+          {isClientRole && (
+            <div className="space-y-4">
+              <h3 className="text-lg font-medium text-slate-900">Client Portal Access</h3>
+              
+              <div className="bg-blue-50 rounded-lg p-4 border border-blue-200">
+                <div className="flex items-center space-x-2 mb-3">
+                  <input
+                    type="checkbox"
+                    name="enablePortalAccess"
+                    checked={portalAccess.enablePortalAccess}
+                    onChange={handlePortalAccessChange}
+                    className="w-4 h-4 text-blue-600 border-slate-300 rounded focus:ring-blue-500"
+                  />
+                  <label className="text-sm font-medium text-slate-700">
+                    Enable Client Portal Access
+                  </label>
+                </div>
+                <p className="text-xs text-slate-600">
+                  Allow this user to access the client portal with separate login credentials
+                </p>
+              </div>
+              
+              {portalAccess.enablePortalAccess && (
+                <div className="space-y-4 pl-4 border-l-2 border-blue-200">
+                  <div>
+                    <label className="block text-sm font-medium text-slate-700 mb-2">
+                      Portal Username *
+                    </label>
+                    <input
+                      type="text"
+                      name="username"
+                      value={portalAccess.username}
+                      onChange={handlePortalAccessChange}
+                      className={`w-full px-4 py-3 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition-all duration-200 ${
+                        errors.portalUsername ? 'border-red-300 bg-red-50' : 'border-slate-300'
+                      }`}
+                      placeholder="Enter portal username"
+                    />
+                    {errors.portalUsername && <p className="text-red-600 text-sm mt-1">{errors.portalUsername}</p>}
+                    <p className="text-xs text-slate-500 mt-1">
+                      This will be used to log into the client portal
+                    </p>
+                  </div>
+                  
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-sm font-medium text-slate-700 mb-2">
+                        Portal Password {!user && '*'}
+                      </label>
+                      <div className="relative">
+                        <input
+                          type={portalAccess.showPortalPassword ? 'text' : 'password'}
+                          name="portalPassword"
+                          value={portalAccess.portalPassword}
+                          onChange={handlePortalAccessChange}
+                          className={`w-full px-4 pr-12 py-3 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition-all duration-200 ${
+                            errors.portalPassword ? 'border-red-300 bg-red-50' : 'border-slate-300'
+                          }`}
+                          placeholder={user ? "Leave blank to keep current" : "Enter portal password"}
+                        />
+                        <button
+                          type="button"
+                          onClick={() => setPortalAccess(prev => ({ ...prev, showPortalPassword: !prev.showPortalPassword }))}
+                          className="absolute right-3 top-1/2 transform -translate-y-1/2 text-slate-400 hover:text-slate-600 transition-colors"
+                        >
+                          {portalAccess.showPortalPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
+                        </button>
+                      </div>
+                      {errors.portalPassword && <p className="text-red-600 text-sm mt-1">{errors.portalPassword}</p>}
+                    </div>
+
+                    <div>
+                      <label className="block text-sm font-medium text-slate-700 mb-2">
+                        Confirm Portal Password {!user && '*'}
+                      </label>
+                      <div className="relative">
+                        <input
+                          type={portalAccess.showConfirmPortalPassword ? 'text' : 'password'}
+                          name="confirmPortalPassword"
+                          value={portalAccess.confirmPortalPassword}
+                          onChange={handlePortalAccessChange}
+                          className={`w-full px-4 pr-12 py-3 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition-all duration-200 ${
+                            errors.confirmPortalPassword ? 'border-red-300 bg-red-50' : 'border-slate-300'
+                          }`}
+                          placeholder="Confirm portal password"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => setPortalAccess(prev => ({ ...prev, showConfirmPortalPassword: !prev.showConfirmPortalPassword }))}
+                          className="absolute right-3 top-1/2 transform -translate-y-1/2 text-slate-400 hover:text-slate-600 transition-colors"
+                        >
+                          {portalAccess.showConfirmPortalPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
+                        </button>
+                      </div>
+                      {errors.confirmPortalPassword && <p className="text-red-600 text-sm mt-1">{errors.confirmPortalPassword}</p>}
+                    </div>
+                  </div>
+                  
+                  <div className="flex items-center space-x-3">
+                    <button
+                      type="button"
+                      onClick={handleGeneratePassword}
+                      className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors text-sm font-medium"
+                    >
+                      Generate Secure Password
+                    </button>
+                    {user && (
+                      <button
+                        type="button"
+                        onClick={() => setPortalAccess(prev => ({ ...prev, portalPassword: '', confirmPortalPassword: '' }))}
+                        className="px-4 py-2 bg-orange-600 text-white rounded-lg hover:bg-orange-700 transition-colors text-sm font-medium"
+                      >
+                        Reset Password
+                      </button>
+                    )}
+                  </div>
+                  
+                  <div className="bg-yellow-50 rounded-lg p-3 border border-yellow-200">
+                    <p className="text-xs text-yellow-800">
+                      <strong>Note:</strong> Portal credentials are separate from system login credentials. 
+                      Clients will use these credentials to access their dedicated portal.
+                    </p>
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
           {/* Password Section */}
           <div className="space-y-4">
             <h3 className="text-lg font-medium text-slate-900">
