@@ -472,6 +472,15 @@ export const useAppStore = create<AppState>((set, get) => ({
     set((state) => ({ loading: { ...state.loading, invoices: true } }));
     try {
       if (clientId) {
+        // Skip database query for mock clients (negative IDs)
+        if (clientId < 0) {
+          // For mock clients, just filter existing local invoices
+          set((state) => ({
+            invoices: state.invoices.filter(inv => inv.clientId === clientId)
+          }));
+          return;
+        }
+
         const data = await invoiceService.getByClientId(clientId);
         const invoices = data.map(transformDbInvoice);
         set((state) => ({
@@ -656,6 +665,15 @@ export const useAppStore = create<AppState>((set, get) => ({
     set((state) => ({ loading: { ...state.loading, payments: true } }));
     try {
       if (clientId) {
+        // Skip database query for mock clients (negative IDs)
+        if (clientId < 0) {
+          // For mock clients, just filter existing local payments
+          set((state) => ({
+            payments: state.payments.filter(pay => pay.clientId === clientId)
+          }));
+          return;
+        }
+
         const data = await paymentService.getByClientId(clientId);
         const payments = data.map(transformDbPayment);
         set((state) => ({
@@ -982,6 +1000,15 @@ export const useAppStore = create<AppState>((set, get) => ({
     set((state) => ({ loading: { ...state.loading, components: true } }));
     try {
       if (clientId) {
+        // Skip database query for mock clients (negative IDs)
+        if (clientId < 0) {
+          // For mock clients, just filter existing local components
+          set((state) => ({
+            components: state.components.filter(comp => comp.clientId === clientId)
+          }));
+          return;
+        }
+
         const data = await componentService.getByClientId(clientId);
         const components = data.map(transformDbComponent);
         set((state) => ({
@@ -1162,6 +1189,15 @@ export const useAppStore = create<AppState>((set, get) => ({
     set((state) => ({ loading: { ...state.loading, progressSteps: true } }));
     try {
       if (clientId) {
+        // Skip database query for mock clients (negative IDs)
+        if (clientId < 0) {
+          // For mock clients, just filter existing local progress steps
+          set((state) => ({
+            progressSteps: state.progressSteps.filter(step => step.clientId === clientId)
+          }));
+          return;
+        }
+
         const data = await progressStepService.getByClientId(clientId);
         const steps = data.map(transformDbProgressStep);
         set((state) => ({
