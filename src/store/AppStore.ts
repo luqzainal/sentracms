@@ -102,7 +102,7 @@ export interface User {
   id: string;
   name: string;
   email: string;
-  role: 'Super Admin' | 'Team' | 'Client';
+  role: 'Super Admin' | 'Team' | 'Client Admin' | 'Client Team';
   status: 'Active' | 'Inactive';
   lastLogin: string;
   createdAt: string;
@@ -744,7 +744,7 @@ export const useAppStore = create<AppState>((set, get) => ({
       id: '4',
       name: 'Ahmad Bin Abdullah',
       email: 'ahmad.abdullah@gmail.com',
-      role: 'Client',
+      role: 'Client Admin',
       status: 'Active',
       lastLogin: '2025-01-15 08:20:00',
       createdAt: '2025-01-10 14:30:00',
@@ -754,7 +754,7 @@ export const useAppStore = create<AppState>((set, get) => ({
       id: '5',
       name: 'Siti Nurhaliza Binti Mohd',
       email: 'siti.nurhaliza@gmail.com',
-      role: 'Client',
+      role: 'Client Team',
       status: 'Active',
       lastLogin: '2025-01-14 12:10:00',
       createdAt: '2025-01-12 16:00:00',

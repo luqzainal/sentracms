@@ -141,7 +141,7 @@ const ClientsPage: React.FC<ClientsPageProps> = ({ setActiveTab, onToggleSidebar
         addUser({
           name: clientData.name,
           email: clientData.email,
-          role: 'Client',
+          role: 'Client Admin',
           status: 'Active',
           lastLogin: 'Never',
           createdAt: new Date().toISOString(),

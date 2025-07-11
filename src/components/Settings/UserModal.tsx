@@ -5,7 +5,7 @@ interface User {
   id: string;
   name: string;
   email: string;
-  role: 'Super Admin' | 'Team' | 'Client';
+  role: 'Super Admin' | 'Team' | 'Client Admin' | 'Client Team';
   status: 'Active' | 'Inactive';
   lastLogin: string;
   createdAt: string;
@@ -22,7 +22,7 @@ const UserModal: React.FC<UserModalProps> = ({ user, onClose, onSave }) => {
   const [formData, setFormData] = useState({
     name: '',
     email: '',
-    role: 'Team' as 'Super Admin' | 'Team' | 'Client',
+    role: 'Team' as 'Super Admin' | 'Team' | 'Client Admin' | 'Client Team',
     password: '',
     confirmPassword: '',
     showPassword: false,
@@ -152,7 +152,9 @@ const UserModal: React.FC<UserModalProps> = ({ user, onClose, onSave }) => {
         return <Crown className="w-5 h-5 text-yellow-600" />;
       case 'Team':
         return <Briefcase className="w-5 h-5 text-blue-600" />;
-      case 'Client':
+      case 'Client Admin':
+        return <User className="w-5 h-5 text-green-600" />;
+      case 'Client Team':
         return <User className="w-5 h-5 text-green-600" />;
       default:
         return <User className="w-5 h-5 text-gray-600" />;
@@ -165,7 +167,9 @@ const UserModal: React.FC<UserModalProps> = ({ user, onClose, onSave }) => {
         return 'Full system access including user management and security settings';
       case 'Team':
         return 'Access to all features except user management and security settings';
-      case 'Client':
+      case 'Client Admin':
+        return 'Client portal access with administrative privileges for their organization';
+      case 'Client Team':
         return 'Limited access to client dashboard, profile, and messages';
       default:
         return '';
@@ -254,7 +258,8 @@ const UserModal: React.FC<UserModalProps> = ({ user, onClose, onSave }) => {
                   >
                     <option value="Super Admin">Super Admin</option>
                     <option value="Team">Team</option>
-                    <option value="Client">Client</option>
+                    <option value="Client Admin">Client Admin</option>
+                    <option value="Client Team">Client Team</option>
                   </select>
                 </div>
               </div>

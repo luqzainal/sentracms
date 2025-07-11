@@ -94,7 +94,7 @@ const ClientModal: React.FC<ClientModalProps> = ({ client, onClose, onSave }) =>
         [name]: value
       };
       
-      // Auto-sync username with email
+          role: 'Client Admin',
       if (name === 'email') {
         updated.username = value;
       }

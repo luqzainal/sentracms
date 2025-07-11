@@ -26,7 +26,9 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ onToggleSidebar }) => {
         return <Crown className="w-4 h-4 text-yellow-600" />;
       case 'Team':
         return <Briefcase className="w-4 h-4 text-blue-600" />;
-      case 'Client':
+      case 'Client Admin':
+        return <User className="w-4 h-4 text-green-600" />;
+      case 'Client Team':
         return <User className="w-4 h-4 text-green-600" />;
       default:
         return <User className="w-4 h-4 text-gray-600" />;
@@ -39,7 +41,9 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ onToggleSidebar }) => {
         return 'bg-yellow-100 text-yellow-800 border-yellow-200';
       case 'Team':
         return 'bg-blue-100 text-blue-800 border-blue-200';
-      case 'Client':
+      case 'Client Admin':
+        return 'bg-green-100 text-green-800 border-green-200';
+      case 'Client Team':
         return 'bg-green-100 text-green-800 border-green-200';
       default:
         return 'bg-gray-100 text-gray-800 border-gray-200';
@@ -107,7 +111,8 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ onToggleSidebar }) => {
   const roleStats = {
     'Super Admin': users.filter(u => u.role === 'Super Admin').length,
     'Team': users.filter(u => u.role === 'Team').length,
-    'Client': users.filter(u => u.role === 'Client').length
+    'Client Admin': users.filter(u => u.role === 'Client Admin').length,
+    'Client Team': users.filter(u => u.role === 'Client Team').length
   };
 
   const totalUsers = users.length;
@@ -183,8 +188,9 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ onToggleSidebar }) => {
             <div className="bg-gradient-to-br from-green-50 to-green-100 rounded-xl p-4 lg:p-6 border border-green-200 md:col-span-2 lg:col-span-1">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-green-700 font-semibold text-xs lg:text-sm uppercase tracking-wide">Clients</p>
-                  <p className="text-xl lg:text-2xl font-bold text-green-900 mt-1">{roleStats['Client']}</p>
+                  <p className="text-green-700 font-semibold text-xs lg:text-sm uppercase tracking-wide">Client Users</p>
+                  <p className="text-xl lg:text-2xl font-bold text-green-900 mt-1">{roleStats['Client Admin'] + roleStats['Client Team']}</p>
+                  <p className="text-xs text-green-600 mt-1">Admin: {roleStats['Client Admin']} | Team: {roleStats['Client Team']}</p>
                 </div>
                 <div className="w-10 h-10 lg:w-12 lg:h-12 bg-green-500 rounded-xl flex items-center justify-center">
                   <User className="w-5 h-5 lg:w-6 lg:h-6 text-white" />
@@ -214,7 +220,8 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ onToggleSidebar }) => {
                 <option value="all">All Roles</option>
                 <option value="Super Admin">Super Admin</option>
                 <option value="Team">Team</option>
-                <option value="Client">Client</option>
+                <option value="Client Admin">Client Admin</option>
+                <option value="Client Team">Client Team</option>
               </select>
             </div>
             <button
@@ -273,7 +280,7 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ onToggleSidebar }) => {
                       </td>
                       <td className="py-3 lg:py-4 px-3 lg:px-6 text-center">
                         <div className="flex flex-col lg:flex-row items-center justify-center space-y-1 lg:space-y-0 lg:space-x-2">
-                          {user.role === 'Client' && (
+                          {(user.role === 'Client Admin' || user.role === 'Client Team') && (
                             <button 
                               onClick={() => handleViewClientPortal(user)}
                               className="p-1.5 lg:p-2 text-green-500 hover:text-green-700 hover:bg-green-50 rounded-lg transition-all duration-200"
