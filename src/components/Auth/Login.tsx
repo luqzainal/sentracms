@@ -8,8 +8,6 @@ const Login: React.FC = () => {
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
-  const [showCreateUser, setShowCreateUser] = useState(false);
-  const [createUserError, setCreateUserError] = useState('');
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -35,59 +33,6 @@ const Login: React.FC = () => {
     }
   };
 
-  const handleCreateDemoUser = async () => {
-    setIsLoading(true);
-    setCreateUserError('');
-
-    try {
-      console.log('Creating demo user with Supabase Auth...');
-      
-      const { data, error: signUpError } = await supabase.auth.signUp({
-        email: 'admin@sentra.com',
-        password: 'password123',
-      });
-
-      if (signUpError) {
-        console.error('Sign up error:', signUpError);
-        throw signUpError;
-      }
-      
-      if (!data.user) {
-        throw new Error('No user data returned from sign up');
-      }
-      
-      console.log('Auth user created:', data.user.id);
-      
-      // Now create the user profile in our users table
-      const { error: insertError } = await supabase
-        .from('users')
-        .insert([{
-          id: data.user.id,
-          name: 'Admin User',
-          email: 'admin@sentra.com',
-          role: 'Super Admin',
-          client_id: null,
-          status: 'Active',
-          created_at: new Date().toISOString(),
-          updated_at: new Date().toISOString()
-        }]);
-
-      if (insertError) {
-        console.error('Profile insert error:', insertError);
-        throw new Error(`Failed to create user profile: ${insertError.message}`);
-      }
-
-      console.log('User profile created successfully!');
-      alert('Demo user created successfully!\n\nYou can now log in with:\nEmail: admin@sentra.com\nPassword: password123');
-      setShowCreateUser(false);
-    } catch (err) {
-      console.error('Error creating demo user:', err);
-      const errorMessage = err instanceof Error ? err.message : 'Unknown error occurred';
-      setCreateUserError(`Failed to create demo user: ${errorMessage}`);
-    } finally {
-      setIsLoading(false);
-    }
-  };
   return (
     <div 
       className="min-h-screen flex items-center justify-center p-4 lg:p-8 bg-cover bg-center bg-no-repeat relative"
@@ -196,58 +141,32 @@ const Login: React.FC = () => {
 
             {/* Demo credentials */}
             <div className="mt-4 lg:mt-6 p-3 bg-slate-50 rounded-lg border border-slate-200">
-              <p className="text-xs lg:text-sm text-slate-600 text-center">
-                <span className="font-medium">Demo:</span> admin@sentra.com / password123
-              </p>
-              <p className="text-xs lg:text-sm text-slate-600 text-center">
-                <span className="font-medium">Demo:</span> Use any existing user credentials from the database
-              </p>
-              <div className="mt-2 text-center">
-                <button
-                  type="button"
-                  onClick={() => setShowCreateUser(true)}
-                  className="text-xs text-slate-500 hover:text-slate-700 underline"
-                >
-                  Create Demo User (First Time Setup)
-                </button>
+              <div className="text-center mb-3">
+                <p className="text-xs lg:text-sm font-semibold text-slate-700 mb-2">Demo Accounts:</p>
               </div>
+              
+              <div className="space-y-2">
+                <div className="bg-white rounded-md p-2 border border-slate-300">
+                  <p className="text-xs lg:text-sm text-slate-600">
+                    <span className="font-medium text-blue-600">Super Admin:</span> admin@sentra.com / password123
+                  </p>
+                  <p className="text-xs text-slate-500">Full system access & user management</p>
+                </div>
+                
+                <div className="bg-white rounded-md p-2 border border-slate-300">
+                  <p className="text-xs lg:text-sm text-slate-600">
+                    <span className="font-medium text-green-600">Client Admin:</span> client@sentra.com / password123
+                  </p>
+                  <p className="text-xs text-slate-500">Client portal access & project management</p>
+                </div>
+              </div>
+              
+              <p className="text-xs lg:text-sm text-slate-600 text-center mt-3">
+                <span className="font-medium">Alternative:</span> Use any existing user credentials from the database
+              </p>
             </div>
           </div>
         </div>
-        
-        {/* Create User Modal */}
-        {showCreateUser && (
-          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-            <div className="bg-white rounded-lg p-6 max-w-md w-full mx-4">
-              <h3 className="text-lg font-semibold mb-4">Create Demo User</h3>
-              <p className="text-sm text-gray-600 mb-4">
-                This will create a demo user with email "admin@sentra.com" and password "password123".
-              </p>
-              
-              {createUserError && (
-                <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-lg">
-                  <p className="text-red-700 text-sm">{createUserError}</p>
-                </div>
-              )}
-              
-              <div className="flex space-x-3">
-                <button
-                  onClick={handleCreateDemoUser}
-                  disabled={isLoading}
-                  className="flex-1 bg-slate-800 text-white py-2 px-4 rounded-lg hover:bg-slate-900 disabled:opacity-50"
-                >
-                  {isLoading ? 'Creating...' : 'Create User'}
-                </button>
-                <button
-                  onClick={() => setShowCreateUser(false)}
-                  className="flex-1 bg-gray-300 text-gray-700 py-2 px-4 rounded-lg hover:bg-gray-400"
-                >
-                  Cancel
-                </button>
-              </div>
-            </div>
-          </div>
-        )}
         
         <div className="text-center mt-4 lg:mt-6">
           <p className="text-white/70 text-xs">
