@@ -360,7 +360,7 @@ export const useAppStore = create<AppState>((set, get) => ({
       
       // Create a mock client with a temporary ID for UI purposes
       const mockClient: Client = {
-        id: Date.now(), // Temporary ID
+        id: -Date.now(), // Negative temporary ID to distinguish from real DB IDs
         name: clientData.name,
         businessName: clientData.businessName,
         email: clientData.email,
@@ -392,6 +392,16 @@ export const useAppStore = create<AppState>((set, get) => ({
 
   updateClient: async (id, updates) => {
     try {
+      // If it's a mock client (negative ID), only update locally
+      if (id < 0) {
+        set((state) => ({
+          clients: state.clients.map(client => 
+            client.id === id ? { ...client, ...updates } : client
+          )
+        }));
+        return;
+      }
+
       const dbUpdates: any = {};
       if (updates.name) dbUpdates.name = updates.name;
       if (updates.businessName) dbUpdates.business_name = updates.businessName;
@@ -427,6 +437,20 @@ export const useAppStore = create<AppState>((set, get) => ({
 
   deleteClient: async (id) => {
     try {
+      // If it's a mock client (negative ID), only delete locally
+      if (id < 0) {
+        set((state) => ({
+          clients: state.clients.filter(client => client.id !== id),
+          invoices: state.invoices.filter(invoice => invoice.clientId !== id),
+          payments: state.payments.filter(payment => payment.clientId !== id),
+          calendarEvents: state.calendarEvents.filter(event => event.clientId !== id),
+          components: state.components.filter(component => component.clientId !== id),
+          progressSteps: state.progressSteps.filter(step => step.clientId !== id),
+          chats: state.chats.filter(chat => chat.clientId !== id)
+        }));
+        return;
+      }
+
       await clientService.delete(id);
       set((state) => ({
         clients: state.clients.filter(client => client.id !== id),
