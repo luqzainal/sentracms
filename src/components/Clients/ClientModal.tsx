@@ -383,10 +383,16 @@ const ClientModal: React.FC<ClientModalProps> = ({ client, onClose, onSave }) =>
                     <span>No password set - field is empty</span>
                   </p>
                 )}
-                {formData.hasExistingCredentials && formData.password === '••••••••' && (
+                {formData.hasExistingCredentials && formData.password === '••••••••' && !formData.showPassword && (
                   <p className="text-xs text-green-600 mt-1 flex items-center space-x-1">
                     <Lock className="w-3 h-3" />
                     <span>Password is stored securely (click to update)</span>
+                  </p>
+                )}
+                {formData.hasExistingCredentials && formData.password === '••••••••' && formData.showPassword && (
+                  <p className="text-xs text-blue-600 mt-1 flex items-center space-x-1">
+                    <Eye className="w-3 h-3" />
+                    <span>Actual password hidden for security</span>
                   </p>
                 )}
                 {formData.password && formData.password !== '••••••••' && (
