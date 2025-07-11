@@ -94,7 +94,6 @@ const ClientModal: React.FC<ClientModalProps> = ({ client, onClose, onSave }) =>
         [name]: value
       };
       
-          role: 'Client Admin',
       if (name === 'email') {
         updated.username = value;
       }
