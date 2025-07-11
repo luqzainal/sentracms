@@ -432,15 +432,15 @@ const UserModal: React.FC<UserModalProps> = ({ user, onClose, onSave }) => {
                       type="text"
                       name="username"
                       value={portalAccess.username}
-                      onChange={handlePortalAccessChange}
+                     readOnly
                       className={`w-full px-4 py-3 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition-all duration-200 ${
-                        errors.portalUsername ? 'border-red-300 bg-red-50' : 'border-slate-300'
+                       errors.portalUsername ? 'border-red-300 bg-red-50' : 'border-slate-300 bg-slate-50'
                       }`}
                       placeholder="Enter portal username"
                     />
                     {errors.portalUsername && <p className="text-red-600 text-sm mt-1">{errors.portalUsername}</p>}
                     <p className="text-xs text-slate-500 mt-1">
-                      This will be used to log into the client portal
+                     This reflects the user's email address and will be used to log into the client portal
                     </p>
                   </div>
                   
