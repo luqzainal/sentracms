@@ -314,9 +314,8 @@ const ClientsPage: React.FC<ClientsPageProps> = ({ setActiveTab, onToggleSidebar
               className="px-3 lg:px-4 py-2 lg:py-3 border border-slate-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none min-w-[120px] lg:min-w-[140px] transition-all duration-200 text-sm lg:text-base"
             >
               <option value="all">All PICs</option>
-              {uniquePics.map((pic) => (
-                <option key={pic} value={pic}>{pic}</option>
-              ))}
+              <option value="Project Management">Project Management</option>
+              <option value="Marketing Automation">Marketing Automation</option>
             </select>
           </div>
         </div>

@@ -375,7 +375,8 @@ export const useAppStore = create<AppState>((set, get) => ({
         address: clientData.address || '',
         notes: clientData.notes || '',
         username: clientData.username || clientData.email,
-        password: clientData.password || ''
+        password: clientData.password || '',
+        pic: clientData.pic || 'Project Management'
       };
       
       set((state) => ({

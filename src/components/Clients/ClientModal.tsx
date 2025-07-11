@@ -256,26 +256,20 @@ const ClientModal: React.FC<ClientModalProps> = ({ client, onClose, onSave }) =>
 
               <div>
                 <label className="block text-sm font-medium text-slate-700 mb-2">
-                  PIC (Person in Charge)
+                  PIC (Person in Charge) - Department
                 </label>
-                <select
-                  name="pic"
-                  value={formData.pic}
-                  onChange={handleChange}
-                  className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none"
-                >
-                  <option value="">Select PIC</option>
-                  <option value="Nisha KB">Nisha KB</option>
-                  <option value="Ahmad Razak">Ahmad Razak</option>
-                  <option value="Siti Nurhaliza">Siti Nurhaliza</option>
-                  <option value="Muhammad Hakim">Muhammad Hakim</option>
-                  <option value="Fatimah Zahra">Fatimah Zahra</option>
-                  <option value="Azman Ibrahim">Azman Ibrahim</option>
-                  <option value="Nurul Aina">Nurul Aina</option>
-                  <option value="Hafiz Rahman">Hafiz Rahman</option>
-                  <option value="Zarina Mohd">Zarina Mohd</option>
-                  <option value="Iskandar Shah">Iskandar Shah</option>
-                </select>
+                <div className="relative">
+                  <select
+                    name="pic"
+                    value={formData.pic}
+                    onChange={handleChange}
+                    className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none"
+                  >
+                    <option value="">Select PIC</option>
+                    <option value="Project Management">Project Management</option>
+                    <option value="Marketing Automation">Marketing Automation</option>
+                  </select>
+                </div>
               </div>
             </div>
           </div>
