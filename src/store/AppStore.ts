@@ -743,6 +743,27 @@ export const useAppStore = create<AppState>((set, get) => ({
 
   addCalendarEvent: async (eventData) => {
     try {
+      // If it's a mock client (negative ID), only create locally
+      if (eventData.clientId < 0) {
+        const mockEvent: CalendarEvent = {
+          id: `event-${-Date.now()}`, // Negative timestamp for mock ID
+          clientId: eventData.clientId,
+          title: eventData.title,
+          startDate: eventData.startDate,
+          endDate: eventData.endDate,
+          startTime: eventData.startTime,
+          endTime: eventData.endTime,
+          description: eventData.description,
+          type: eventData.type
+        };
+        
+        set((state) => ({
+          calendarEvents: [...state.calendarEvents, mockEvent]
+        }));
+        
+        return;
+      }
+
       const dbEvent = {
         client_id: eventData.clientId,
         title: eventData.title,
