@@ -331,8 +331,30 @@ const transformDbTag = (dbTag: any): Tag => ({
 });
 
 export const useAppStore = create<AppState>((set, get) => ({
-  // Initial empty data
-  clients: [],
+  // Demo data for development
+  clients: [
+    {
+      id: 1,
+      name: 'Nik Salwani Bt.Nik Ab Rahman',
+      businessName: 'Ahmad Tech Solutions',
+      email: 'client@sentra.com',
+      phone: '+60 12-345 6789',
+      status: 'Complete',
+      packageName: 'Kuasa 360',
+      tags: ['VIP', 'Priority'],
+      totalSales: 15000,
+      totalCollection: 12000,
+      balance: 3000,
+      lastActivity: new Date().toISOString().split('T')[0],
+      invoiceCount: 2,
+      registeredAt: '2024-01-15T00:00:00Z',
+      company: 'Ahmad Tech Solutions',
+      address: 'Kuala Lumpur, Malaysia',
+      notes: 'Demo client for testing',
+      username: 'client@sentra.com',
+      password: 'password123'
+    }
+  ],
   invoices: [],
   payments: [],
   calendarEvents: [],
