@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { useEffect } from 'react';
 import { Users, DollarSign, TrendingUp, Calendar, ArrowUpRight, ArrowDownRight, MessageSquare, UserPlus, Filter, Database, CreditCard, Clock, BarChart3, Activity, Menu } from 'lucide-react';
 import { useAppStore } from '../../store/AppStore';
 
@@ -13,12 +14,21 @@ const Dashboard: React.FC<DashboardProps> = ({ setActiveTab, onToggleSidebar }) 
   const [customDateEnd, setCustomDateEnd] = useState('');
 
   const { 
-    clients, 
-    chats, 
+    clients,
+    chats,
+    loading,
+    fetchClients,
+    fetchChats,
     getTotalSales, 
     getTotalCollection, 
     getTotalBalance 
   } = useAppStore();
+
+  useEffect(() => {
+    // Fetch initial data
+    fetchClients();
+    fetchChats();
+  }, [fetchClients, fetchChats]);
 
   // Calculate metrics
   const totalSales = getTotalSales();
@@ -84,6 +94,19 @@ const Dashboard: React.FC<DashboardProps> = ({ setActiveTab, onToggleSidebar }) 
   const formatCurrency = (amount: number) => {
     return `RM ${amount.toLocaleString()}`;
   };
+
+  if (loading.clients || loading.chats) {
+    return (
+      <div className="p-4 lg:p-8 space-y-6 lg:space-y-8 bg-slate-50 min-h-screen">
+        <div className="flex items-center justify-center h-64">
+          <div className="text-center">
+            <div className="w-16 h-16 border-4 border-blue-600 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
+            <p className="text-slate-600">Loading dashboard data...</p>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   // Client completion rate - complete clients over total clients (excluding inactive) * 100
   const activeClients = clients.filter(c => c.status !== 'Inactive');
