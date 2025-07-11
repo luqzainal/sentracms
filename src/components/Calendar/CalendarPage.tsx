@@ -11,6 +11,7 @@ const CalendarPage: React.FC<CalendarPageProps> = ({ onToggleSidebar }) => {
   const [view, setView] = useState<'month' | 'week' | 'day'>('month');
   const [showNewEventModal, setShowNewEventModal] = useState(false);
   const [showEventDetailsModal, setShowEventDetailsModal] = useState(false);
+  const [showEditEventModal, setShowEditEventModal] = useState(false);
   const [selectedEvent, setSelectedEvent] = useState<any>(null);
   const [eventFormData, setEventFormData] = useState({
     title: '',
@@ -22,7 +23,7 @@ const CalendarPage: React.FC<CalendarPageProps> = ({ onToggleSidebar }) => {
     client: ''
   });
 
-  const { calendarEvents, clients, addCalendarEvent } = useAppStore();
+  const { calendarEvents, clients, addCalendarEvent, updateCalendarEvent, deleteCalendarEvent } = useAppStore();
 
   const monthNames = [
     'January', 'February', 'March', 'April', 'May', 'June',
@@ -53,6 +54,24 @@ const CalendarPage: React.FC<CalendarPageProps> = ({ onToggleSidebar }) => {
     setCurrentDate(newDate);
   };
 
+  const navigateWeek = (direction: 'prev' | 'next') => {
+    const newDate = new Date(currentDate);
+    newDate.setDate(currentDate.getDate() + (direction === 'next' ? 7 : -7));
+    setCurrentDate(newDate);
+  };
+
+  const navigateDay = (direction: 'prev' | 'next') => {
+    const newDate = new Date(currentDate);
+    newDate.setDate(currentDate.getDate() + (direction === 'next' ? 1 : -1));
+    setCurrentDate(newDate);
+  };
+
+  const handleNavigation = (direction: 'prev' | 'next') => {
+    if (view === 'month') navigateMonth(direction);
+    else if (view === 'week') navigateWeek(direction);
+    else if (view === 'day') navigateDay(direction);
+  };
+
   const getEventTypeColor = (type: string) => {
     switch (type) {
       case 'meeting':
@@ -76,6 +95,29 @@ const CalendarPage: React.FC<CalendarPageProps> = ({ onToggleSidebar }) => {
   const handleEventClick = (event: any) => {
     setSelectedEvent(event);
     setShowEventDetailsModal(true);
+  };
+
+  const handleEditEvent = () => {
+    if (selectedEvent) {
+      setEventFormData({
+        title: selectedEvent.title,
+        startDate: selectedEvent.date,
+        endDate: selectedEvent.date,
+        startTime: selectedEvent.time,
+        endTime: selectedEvent.time,
+        description: selectedEvent.description || '',
+        client: selectedEvent.client
+      });
+      setShowEventDetailsModal(false);
+      setShowEditEventModal(true);
+    }
+  };
+
+  const handleDeleteEvent = () => {
+    if (selectedEvent && confirm('Are you sure you want to delete this event?')) {
+      deleteCalendarEvent(selectedEvent.id);
+      setShowEventDetailsModal(false);
+    }
   };
 
   const renderCalendarDays = () => {
@@ -134,12 +176,142 @@ const CalendarPage: React.FC<CalendarPageProps> = ({ onToggleSidebar }) => {
     return days;
   };
 
+  const renderWeekView = () => {
+    const startOfWeek = new Date(currentDate);
+    const day = startOfWeek.getDay();
+    startOfWeek.setDate(currentDate.getDate() - day);
+
+    const weekDays = [];
+    for (let i = 0; i < 7; i++) {
+      const date = new Date(startOfWeek);
+      date.setDate(startOfWeek.getDate() + i);
+      weekDays.push(date);
+    }
+
+    return (
+      <div className="grid grid-cols-7 gap-0 border-l border-t border-slate-200">
+        {weekDays.map((date, index) => {
+          const isToday = today.toDateString() === date.toDateString();
+          const dateStr = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
+          const dayEvents = events.filter(event => event.date === dateStr);
+
+          return (
+            <div key={index} className={`min-h-32 p-2 border-b border-r border-slate-200 ${isToday ? 'bg-blue-50' : 'bg-white'}`}>
+              <div className={`text-sm font-medium mb-2 ${isToday ? 'text-blue-600' : 'text-slate-900'}`}>
+                <div className="text-xs text-slate-500">{['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'][index]}</div>
+                <div>{date.getDate()}</div>
+              </div>
+              <div className="space-y-1">
+                {dayEvents.map((event) => (
+                  <div
+                    key={event.id}
+                    className={`text-xs p-1 rounded border ${getEventTypeColor(event.type)} truncate cursor-pointer hover:opacity-80 transition-opacity`}
+                    title={`${event.title} - ${event.time}`}
+                    onClick={() => handleEventClick(event)}
+                  >
+                    {event.title}
+                  </div>
+                ))}
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    );
+  };
+
+  const renderDayView = () => {
+    const dateStr = `${currentDate.getFullYear()}-${String(currentDate.getMonth() + 1).padStart(2, '0')}-${String(currentDate.getDate()).padStart(2, '0')}`;
+    const dayEvents = events.filter(event => event.date === dateStr);
+    const isToday = today.toDateString() === currentDate.toDateString();
+
+    return (
+      <div className="bg-white rounded-lg border border-slate-200">
+        <div className={`p-4 border-b border-slate-200 ${isToday ? 'bg-blue-50' : 'bg-slate-50'}`}>
+          <h3 className={`text-lg font-semibold ${isToday ? 'text-blue-600' : 'text-slate-900'}`}>
+            {currentDate.toLocaleDateString('en-US', {
+              weekday: 'long',
+              year: 'numeric',
+              month: 'long',
+              day: 'numeric'
+            })}
+          </h3>
+        </div>
+        <div className="p-4">
+          {dayEvents.length > 0 ? (
+            <div className="space-y-3">
+              {dayEvents.map((event) => (
+                <div
+                  key={event.id}
+                  className={`p-3 rounded-lg border ${getEventTypeColor(event.type)} cursor-pointer hover:opacity-80 transition-opacity`}
+                  onClick={() => handleEventClick(event)}
+                >
+                  <div className="flex items-center justify-between">
+                    <h4 className="font-medium">{event.title}</h4>
+                    <span className="text-sm">{event.time}</span>
+                  </div>
+                  {event.description && (
+                    <p className="text-sm mt-1 opacity-75">{event.description}</p>
+                  )}
+                  <p className="text-xs mt-1 opacity-60">{event.client}</p>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <div className="text-center py-8 text-slate-500">
+              <CalendarIcon className="w-12 h-12 text-slate-300 mx-auto mb-3" />
+              <p>No events scheduled for this day</p>
+            </div>
+          )}
+        </div>
+      </div>
+    );
+  };
+
+  const getViewTitle = () => {
+    if (view === 'month') {
+      return `${monthNames[currentDate.getMonth()]} ${currentDate.getFullYear()}`;
+    } else if (view === 'week') {
+      const startOfWeek = new Date(currentDate);
+      const day = startOfWeek.getDay();
+      startOfWeek.setDate(currentDate.getDate() - day);
+      const endOfWeek = new Date(startOfWeek);
+      endOfWeek.setDate(startOfWeek.getDate() + 6);
+      
+      if (startOfWeek.getMonth() === endOfWeek.getMonth()) {
+        return `${monthNames[startOfWeek.getMonth()]} ${startOfWeek.getDate()}-${endOfWeek.getDate()}, ${startOfWeek.getFullYear()}`;
+      } else {
+        return `${monthNames[startOfWeek.getMonth()]} ${startOfWeek.getDate()} - ${monthNames[endOfWeek.getMonth()]} ${endOfWeek.getDate()}, ${startOfWeek.getFullYear()}`;
+      }
+    } else {
+      return currentDate.toLocaleDateString('en-US', {
+        weekday: 'long',
+        year: 'numeric',
+        month: 'long',
+        day: 'numeric'
+      });
+    }
+  };
+
   const handleNewEventClick = () => {
     setShowNewEventModal(true);
   };
 
   const handleCloseModal = () => {
     setShowNewEventModal(false);
+    setEventFormData({
+      title: '',
+      startDate: '',
+      endDate: '',
+      startTime: '',
+      endTime: '',
+      description: '',
+      client: ''
+    });
+  };
+
+  const handleCloseEditModal = () => {
+    setShowEditEventModal(false);
     setEventFormData({
       title: '',
       startDate: '',
@@ -159,7 +331,7 @@ const CalendarPage: React.FC<CalendarPageProps> = ({ onToggleSidebar }) => {
     }));
   };
 
-  const handleSubmitEvent = (e: React.FormEvent) => {
+  const handleSubmitEvent = (e: React.FormEvent, isEdit = false) => {
     e.preventDefault();
     
     // Validate that end date/time is after start date/time
@@ -174,7 +346,7 @@ const CalendarPage: React.FC<CalendarPageProps> = ({ onToggleSidebar }) => {
     // Find client ID
     const selectedClient = clients.find(c => c.businessName === eventFormData.client);
     
-    addCalendarEvent({
+    const eventData = {
       clientId: selectedClient?.id || 0,
       title: eventFormData.title,
       startDate: eventFormData.startDate,
@@ -183,13 +355,26 @@ const CalendarPage: React.FC<CalendarPageProps> = ({ onToggleSidebar }) => {
       endTime: eventFormData.endTime,
       description: eventFormData.description,
       type: 'meeting'
-    });
+    };
+
+    if (isEdit && selectedEvent) {
+      updateCalendarEvent(selectedEvent.id, eventData);
+      setShowEditEventModal(false);
+    } else {
+      addCalendarEvent(eventData);
+      setShowNewEventModal(false);
+    }
     
     // Close modal and reset form
     handleCloseModal();
     
     // Show success message
     alert('Event created successfully!');
+  };
+
+  const handleSubmitEditEvent = (e: React.FormEvent) => {
+    handleSubmitEvent(e, true);
+    handleCloseEditModal();
   };
 
   return (
@@ -222,16 +407,16 @@ const CalendarPage: React.FC<CalendarPageProps> = ({ onToggleSidebar }) => {
         <div className="flex flex-col lg:flex-row lg:items-center justify-between p-4 lg:p-6 border-b border-slate-200 space-y-4 lg:space-y-0">
           <div className="flex items-center space-x-2 lg:space-x-4">
             <button
-              onClick={() => navigateMonth('prev')}
+              onClick={() => handleNavigation('prev')}
               className="p-1.5 lg:p-2 hover:bg-slate-100 rounded-lg transition-colors"
             >
               <ChevronLeft className="w-5 h-5 text-slate-600" />
             </button>
-            <h2 className="text-lg lg:text-xl font-semibold text-slate-900">
-              {monthNames[currentDate.getMonth()]} {currentDate.getFullYear()}
+            <h2 className="text-lg lg:text-xl font-semibold text-slate-900 min-w-[200px] text-center">
+              {getViewTitle()}
             </h2>
             <button
-              onClick={() => navigateMonth('next')}
+              onClick={() => handleNavigation('next')}
               className="p-1.5 lg:p-2 hover:bg-slate-100 rounded-lg transition-colors"
             >
               <ChevronRight className="w-5 h-5 text-slate-600" />
@@ -267,7 +452,8 @@ const CalendarPage: React.FC<CalendarPageProps> = ({ onToggleSidebar }) => {
 
         {/* Calendar Content */}
         <div className="p-3 lg:p-6">
-          {/* Days of Week Header */}
+          {/* Days of Week Header - Only show for month and week views */}
+          {(view === 'month' || view === 'week') && (
           <div className="grid grid-cols-7 gap-0 mb-2 lg:mb-4">
             {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map((day) => (
               <div key={day} className="p-2 lg:p-3 text-center text-xs lg:text-sm font-medium text-slate-600 border-b border-slate-200">
@@ -276,11 +462,16 @@ const CalendarPage: React.FC<CalendarPageProps> = ({ onToggleSidebar }) => {
               </div>
             ))}
           </div>
+          )}
 
           {/* Calendar Grid */}
-          <div className="grid grid-cols-7 gap-0 border-l border-t border-slate-200">
-            {renderCalendarDays()}
-          </div>
+          {view === 'month' && (
+            <div className="grid grid-cols-7 gap-0 border-l border-t border-slate-200">
+              {renderCalendarDays()}
+            </div>
+          )}
+          {view === 'week' && renderWeekView()}
+          {view === 'day' && renderDayView()}
         </div>
       </div>
 
@@ -557,7 +748,11 @@ const CalendarPage: React.FC<CalendarPageProps> = ({ onToggleSidebar }) => {
               </div>
             </div>
             
-            <div className="flex justify-end p-6 border-t border-slate-200">
+            <div className="flex justify-between p-6 border-t border-slate-200">
+              <div className="flex space-x-3">
+                <button onClick={handleEditEvent} className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium">Edit</button>
+                <button onClick={handleDeleteEvent} className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors font-medium">Delete</button>
+              </div>
               <button
                 onClick={() => setShowEventDetailsModal(false)}
                 className="px-6 py-2 bg-slate-100 text-slate-700 rounded-lg hover:bg-slate-200 transition-colors font-medium"
@@ -565,6 +760,167 @@ const CalendarPage: React.FC<CalendarPageProps> = ({ onToggleSidebar }) => {
                 Close
               </button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* Edit Event Modal */}
+      {showEditEventModal && (
+        <div className="fixed inset-0 w-full h-full bg-black bg-opacity-60 flex items-center justify-center p-4 z-50 backdrop-blur-sm overflow-y-auto">
+          <div className="bg-white rounded-xl shadow-2xl w-full max-w-lg lg:max-w-2xl max-h-[90vh] overflow-y-auto my-8">
+            <div className="flex items-center justify-between p-4 lg:p-6 border-b border-slate-200">
+              <h2 className="text-lg lg:text-xl font-semibold text-slate-900">Edit Event</h2>
+              <button
+                onClick={handleCloseEditModal}
+                className="p-2 hover:bg-slate-100 rounded-lg transition-colors"
+              >
+                <X className="w-5 h-5 text-slate-500" />
+              </button>
+            </div>
+
+            <form onSubmit={handleSubmitEditEvent} className="p-4 lg:p-6 space-y-4 lg:space-y-6">
+              {/* Event Title */}
+              <div>
+                <label className="block text-sm lg:text-base font-medium text-slate-700 mb-2">
+                  Event Title *
+                </label>
+                <input
+                  type="text"
+                  name="title"
+                  value={eventFormData.title}
+                  onChange={handleFormChange}
+                  required
+                  className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none text-sm lg:text-base"
+                  placeholder="Enter event title"
+                />
+              </div>
+
+              {/* Client */}
+              <div>
+                <label className="block text-sm lg:text-base font-medium text-slate-700 mb-2">
+                  Client
+                </label>
+                <select
+                  name="client"
+                  value={eventFormData.client}
+                  onChange={handleFormChange}
+                  className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none text-sm lg:text-base"
+                >
+                  <option value="">Select Client</option>
+                  {clients.map(client => (
+                    <option key={client.id} value={client.businessName}>
+                      {client.businessName}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              {/* Start Date and Time */}
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm lg:text-base font-medium text-slate-700 mb-2">
+                    Start Date *
+                  </label>
+                  <div className="relative">
+                    <input
+                      type="date"
+                      name="startDate"
+                      value={eventFormData.startDate}
+                      onChange={handleFormChange}
+                      required
+                      className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none text-sm lg:text-base"
+                    />
+                    <CalendarIcon className="absolute right-3 top-1/2 transform -translate-y-1/2 text-slate-400 w-5 h-5 pointer-events-none" />
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-sm lg:text-base font-medium text-slate-700 mb-2">
+                    Start Time *
+                  </label>
+                  <div className="relative">
+                    <input
+                      type="time"
+                      name="startTime"
+                      value={eventFormData.startTime}
+                      onChange={handleFormChange}
+                      required
+                      className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none text-sm lg:text-base"
+                    />
+                    <Clock className="absolute right-3 top-1/2 transform -translate-y-1/2 text-slate-400 w-5 h-5 pointer-events-none" />
+                  </div>
+                </div>
+              </div>
+
+              {/* End Date and Time */}
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm lg:text-base font-medium text-slate-700 mb-2">
+                    End Date *
+                  </label>
+                  <div className="relative">
+                    <input
+                      type="date"
+                      name="endDate"
+                      value={eventFormData.endDate}
+                      onChange={handleFormChange}
+                      required
+                      className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none text-sm lg:text-base"
+                    />
+                    <CalendarIcon className="absolute right-3 top-1/2 transform -translate-y-1/2 text-slate-400 w-5 h-5 pointer-events-none" />
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-sm lg:text-base font-medium text-slate-700 mb-2">
+                    End Time *
+                  </label>
+                  <div className="relative">
+                    <input
+                      type="time"
+                      name="endTime"
+                      value={eventFormData.endTime}
+                      onChange={handleFormChange}
+                      required
+                      className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none text-sm lg:text-base"
+                    />
+                    <Clock className="absolute right-3 top-1/2 transform -translate-y-1/2 text-slate-400 w-5 h-5 pointer-events-none" />
+                  </div>
+                </div>
+              </div>
+
+              {/* Description */}
+              <div>
+                <label className="block text-sm lg:text-base font-medium text-slate-700 mb-2">
+                  Description
+                </label>
+                <textarea
+                  name="description"
+                  value={eventFormData.description}
+                  onChange={handleFormChange}
+                  rows={4}
+                  className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none resize-none text-sm lg:text-base"
+                  placeholder="Enter event description..."
+                />
+              </div>
+
+              {/* Submit Buttons */}
+              <div className="flex flex-col sm:flex-row justify-end space-y-2 sm:space-y-0 sm:space-x-3 pt-4 border-t border-slate-200">
+                <button
+                  type="button"
+                  onClick={handleCloseEditModal}
+                  className="px-4 py-2 text-slate-700 bg-slate-100 rounded-lg hover:bg-slate-200 transition-colors text-sm lg:text-base"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium text-sm lg:text-base"
+                >
+                  Update Event
+                </button>
+              </div>
+            </form>
           </div>
         </div>
       )}
