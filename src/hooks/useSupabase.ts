@@ -64,15 +64,32 @@ export const useSupabase = () => {
     try {
       // Bypass the users table query due to RLS infinite recursion
       // Use auth user data directly and set a default role
-      console.log('Setting user from auth data due to RLS issues');
-      
-      setUser({
-        id: authUser.id,
-        email: authUser.email || '',
-        name: authUser.email?.split('@')[0] || 'User',
-        role: 'Super Admin', // Default to Super Admin for demo purposes
-        permissions: ['all'] // Grant all permissions for demo
-      });
+      const { data: userProfile, error } = await supabase
+  .from('users')
+  .select('*')
+  .eq('id', authUser.id)
+  .single();
+
+if (error) {
+  console.error('Error fetching user profile:', error);
+  throw error;
+}
+
+if (userProfile) {
+  setUser({
+    id: userProfile.id,
+    email: userProfile.email,
+    name: userProfile.name,
+    role: userProfile.role,
+    clientId: userProfile.client_id,
+    permissions: userProfile.permissions
+  });
+} else {
+  // Handle case where user exists in auth.users but not in public.users
+  console.warn('User found in auth.users but no profile in public.users table:', authUser.id);
+  setUser(null); // Or set a default limited user
+}
+
     } catch (error) {
       console.error('Error in fetchUserProfile:', error);
       // Set a default user if there's an error
