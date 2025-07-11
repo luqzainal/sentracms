@@ -174,8 +174,12 @@ const ClientProfile: React.FC<ClientProfileProps> = ({ clientId, onBack, onEdit 
               <p className="text-slate-900">{client.status}</p>
             </div>
             <div>
-              <label className="text-sm font-medium text-slate-600">PIC:</label>
-              <p className="text-slate-900">{client.pic}</p>
+              <label className="text-sm font-medium text-slate-600">Project Management:</label>
+              <p className="text-slate-900">{client.projectManagement || 'Not assigned'}</p>
+            </div>
+            <div>
+              <label className="text-sm font-medium text-slate-600">Marketing Automation:</label>
+              <p className="text-slate-900">{client.marketingAutomation || 'Not assigned'}</p>
             </div>
             <div>
               <label className="text-sm font-medium text-slate-600">Registered At:</label>

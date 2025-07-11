@@ -13,7 +13,7 @@ interface ClientsPageProps {
 const ClientsPage: React.FC<ClientsPageProps> = ({ setActiveTab, onToggleSidebar }) => {
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
-  const [picFilter, setPicFilter] = useState('all');
+  const [projectManagementFilter, setProjectManagementFilter] = useState('all');
   const [showModal, setShowModal] = useState(false);
   const [selectedClient, setSelectedClient] = useState<any>(null);
   const [showProfile, setShowProfile] = useState(false);
@@ -84,11 +84,11 @@ const ClientsPage: React.FC<ClientsPageProps> = ({ setActiveTab, onToggleSidebar
     const matchesSearch = client.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
                          client.email.toLowerCase().includes(searchTerm.toLowerCase());
     const matchesStatus = statusFilter === 'all' || client.status.toLowerCase() === statusFilter.toLowerCase();
-    const matchesPic = picFilter === 'all' || client.pic === picFilter;
-    return matchesSearch && matchesStatus && matchesPic;
+    const matchesProjectManagement = projectManagementFilter === 'all' || client.projectManagement === projectManagementFilter;
+    return matchesSearch && matchesStatus && matchesProjectManagement;
   });
 
-  const uniquePics = [...new Set(clients.map(client => client.pic))];
+  const uniqueProjectManagers = [...new Set(clients.map(client => client.projectManagement).filter(Boolean))];
 
   const handleAddClient = () => {
     setSelectedClient(null);
@@ -309,13 +309,14 @@ const ClientsPage: React.FC<ClientsPageProps> = ({ setActiveTab, onToggleSidebar
           <div className="flex items-center space-x-2 lg:space-x-3">
             <Filter className="w-5 h-5 text-slate-400" />
             <select
-              value={picFilter}
-              onChange={(e) => setPicFilter(e.target.value)}
+              value={projectManagementFilter}
+              onChange={(e) => setProjectManagementFilter(e.target.value)}
               className="px-3 lg:px-4 py-2 lg:py-3 border border-slate-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none min-w-[120px] lg:min-w-[140px] transition-all duration-200 text-sm lg:text-base"
             >
-              <option value="all">All PICs</option>
-              <option value="Project Management">Project Management</option>
-              <option value="Marketing Automation">Marketing Automation</option>
+              <option value="all">All Project Managers</option>
+              {uniqueProjectManagers.map(pm => (
+                <option key={pm} value={pm}>{pm}</option>
+              ))}
             </select>
           </div>
         </div>
@@ -348,7 +349,8 @@ const ClientsPage: React.FC<ClientsPageProps> = ({ setActiveTab, onToggleSidebar
                         <div className="px-2 py-1">
                           <h4 className="font-medium text-slate-900 text-xs lg:text-sm">{client.businessName}</h4>
                           <p className="text-xs lg:text-sm text-slate-600 mt-1">{client.name}</p>
-                          <p className="text-xs text-slate-500 mt-1">PIC: {client.pic}</p>
+                          <p className="text-xs text-slate-500 mt-1">PM: {client.projectManagement}</p>
+                          <p className="text-xs text-slate-500">MA: {client.marketingAutomation}</p>
                         </div>
                       </div>
                     </td>

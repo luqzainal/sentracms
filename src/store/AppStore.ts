@@ -17,7 +17,8 @@ export interface Client {
   email: string;
   phone: string;
   status: 'Complete' | 'Pending' | 'Inactive';
-  pic: string;
+  projectManagement: string;
+  marketingAutomation: string;
   totalSales: number;
   totalCollection: number;
   balance: number;
@@ -202,7 +203,8 @@ const transformDbClient = (dbClient: any): Client => ({
   email: dbClient.email,
   phone: dbClient.phone || '',
   status: dbClient.status,
-  pic: dbClient.pic || '',
+  projectManagement: dbClient.project_management || '',
+  marketingAutomation: dbClient.marketing_automation || '',
   totalSales: parseFloat(dbClient.total_sales || 0),
   totalCollection: parseFloat(dbClient.total_collection || 0),
   balance: parseFloat(dbClient.balance || 0),
@@ -396,7 +398,8 @@ export const useAppStore = create<AppState>((set, get) => ({
       if (updates.email) dbUpdates.email = updates.email;
       if (updates.phone) dbUpdates.phone = updates.phone;
       if (updates.status) dbUpdates.status = updates.status;
-      if (updates.pic) dbUpdates.pic = updates.pic;
+      if (updates.projectManagement) dbUpdates.project_management = updates.projectManagement;
+      if (updates.marketingAutomation) dbUpdates.marketing_automation = updates.marketingAutomation;
       if (updates.totalSales !== undefined) dbUpdates.total_sales = updates.totalSales;
       if (updates.totalCollection !== undefined) dbUpdates.total_collection = updates.totalCollection;
       if (updates.balance !== undefined) dbUpdates.balance = updates.balance;
