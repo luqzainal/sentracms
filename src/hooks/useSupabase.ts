@@ -256,7 +256,7 @@ export const useSupabase = () => {
           .from('users')
           .insert({
             id: data.user.id,
-            email: userData.name,
+            email: email,
             name: userData.name,
             role: userData.role,
             client_id: userData.clientId,

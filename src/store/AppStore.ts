@@ -1410,15 +1410,16 @@ export const useAppStore = create<AppState>((set, get) => ({
         role: userData.role,
         status: userData.status,
         client_id: userData.clientId,
-        permissions: userData.permissions,
-        last_login: userData.lastLogin
+      // For demo purposes, generate a proper UUID-like ID
+      const newUser = {
+        id: crypto.randomUUID(),
+        ...userData,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString()
       };
       
-      const newUser = await userService.create(dbUser);
-      const transformedUser = transformDbUser(newUser);
-      
-      set((state) => ({
-        users: [...state.users, transformedUser]
+      set(state => ({
+        users: [...state.users, newUser]
       }));
     } catch (error) {
       console.error('Error adding user:', error);
