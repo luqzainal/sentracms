@@ -354,13 +354,17 @@ const ClientsPage: React.FC<ClientsPageProps> = ({ setActiveTab, onToggleSidebar
                 <th className="text-center py-3 lg:py-4 px-3 lg:px-6 font-semibold text-slate-900 text-xs lg:text-sm min-w-[100px] hidden md:table-cell">Total<br/>Sales</th>
                 <th className="text-center py-3 lg:py-4 px-3 lg:px-6 font-semibold text-slate-900 text-xs lg:text-sm min-w-[100px] hidden md:table-cell">Total<br/>Collection</th>
                 <th className="text-center py-3 lg:py-4 px-3 lg:px-6 font-semibold text-slate-900 text-xs lg:text-sm min-w-[100px] hidden lg:table-cell">Balance</th>
-                <th className="text-center py-3 lg:py-4 px-3 lg:px-6 font-semibold text-slate-900 text-xs lg:text-sm min-w-[80px] hidden lg:table-cell">Invoices</th>
+                <th className="text-center py-3 lg:py-4 px-3 lg:px-6 font-semibold text-slate-900 text-xs lg:text-sm min-w-[120px] hidden lg:table-cell">Tags</th>
                 <th className="text-center py-3 lg:py-4 px-3 lg:px-6 font-semibold text-slate-900 text-xs lg:text-sm min-w-[120px]">Actions</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-200">
               {filteredClients.map((client) => {
                 const progressStatus = getClientProgressStatus(client.id);
+                const tagObjects = client.tags ? client.tags.map(tagName => {
+                  const globalTag = tags.find(t => t.name === tagName);
+                  return globalTag || { name: tagName, color: '#3B82F6' };
+                }) : [];
                 return (
                   <tr key={client.id} className="hover:bg-slate-50 transition-colors duration-150 border-b border-slate-100">
                     <td className="py-3 lg:py-4 px-3 lg:px-6 text-center">
@@ -369,18 +373,6 @@ const ClientsPage: React.FC<ClientsPageProps> = ({ setActiveTab, onToggleSidebar
                           <h4 className="font-medium text-slate-900 text-xs lg:text-sm">{client.businessName}</h4>
                           <p className="text-xs lg:text-sm text-slate-600 mt-1">{client.name}</p>
                           <p className="text-xs text-slate-500 mt-1">Package: {client.packageName || 'Not assigned'}</p>
-                          {client.tags && client.tags.length > 0 && (
-                            <div className="flex flex-wrap gap-1 mt-1">
-                              {client.tags.slice(0, 2).map((tag, index) => (
-                                <span key={index} className="px-1.5 py-0.5 bg-blue-100 text-blue-700 text-xs rounded-full">
-                                  {tag}
-                                </span>
-                              ))}
-                              {client.tags.length > 2 && (
-                                <span className="text-xs text-slate-500">+{client.tags.length - 2}</span>
-                              )}
-                            </div>
-                          )}
                         </div>
                       </div>
                     </td>
@@ -440,7 +432,27 @@ const ClientsPage: React.FC<ClientsPageProps> = ({ setActiveTab, onToggleSidebar
                       </div>
                     </td>
                     <td className="py-3 lg:py-4 px-3 lg:px-6 text-center hidden lg:table-cell">
-                      <span className="font-medium text-slate-900 text-xs lg:text-sm">{client.invoiceCount}</span>
+                      <div className="flex flex-wrap gap-1 justify-center">
+                        {tagObjects.slice(0, 3).map((tag, index) => (
+                          <span 
+                            key={index} 
+                            className="px-2 py-1 text-xs rounded-full border"
+                            style={{ 
+                              backgroundColor: `${tag.color}20`, 
+                              color: tag.color, 
+                              borderColor: `${tag.color}40` 
+                            }}
+                          >
+                            {tag.name}
+                          </span>
+                        ))}
+                        {tagObjects.length > 3 && (
+                          <span className="text-xs text-slate-500">+{tagObjects.length - 3}</span>
+                        )}
+                        {tagObjects.length === 0 && (
+                          <span className="text-xs text-slate-400">No tags</span>
+                        )}
+                      </div>
                     </td>
                     <td className="py-3 lg:py-4 px-3 lg:px-6 text-center">
                       <div className="flex flex-col lg:flex-row items-center justify-center space-y-2 lg:space-y-0 lg:space-x-2 px-2 py-1">
