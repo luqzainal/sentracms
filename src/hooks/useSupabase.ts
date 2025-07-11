@@ -16,40 +16,82 @@ export const useSupabase = () => {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    let mounted = true;
+    
     // Get initial session
     const getInitialSession = async () => {
-      const { data: { session } } = await supabase.auth.getSession();
-      if (session?.user) {
-        await fetchUserProfile(session.user);
+      try {
+        const { data: { session } } = await supabase.auth.getSession();
+        if (mounted && session?.user) {
+          await fetchUserProfile(session.user);
+        }
+      } catch (error) {
+        console.error('Error getting initial session:', error);
+      } finally {
+        if (mounted) {
+          setLoading(false);
+        }
       }
-      setLoading(false);
     };
 
     getInitialSession();
 
     // Listen for auth changes
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
-      if (session?.user) {
-        await fetchUserProfile(session.user);
-      } else {
-        setUser(null);
+      if (mounted) {
+        try {
+          if (session?.user) {
+            await fetchUserProfile(session.user);
+          } else {
+            setUser(null);
+          }
+        } catch (error) {
+          console.error('Error in auth state change:', error);
+          setUser(null);
+        } finally {
+          setLoading(false);
+        }
       }
-      setLoading(false);
     });
 
-    return () => subscription.unsubscribe();
+    return () => {
+      mounted = false;
+      subscription.unsubscribe();
+    };
   }, []);
 
   const fetchUserProfile = async (authUser: User) => {
     try {
-      const { data: userProfile, error } = await supabase
+      // Add timeout to prevent hanging
+      const timeoutPromise = new Promise((_, reject) => 
+        setTimeout(() => reject(new Error('Request timeout')), 10000)
+      );
+      
+      const queryPromise = supabase
         .from('users')
         .select('id, email, name, role, client_id, permissions')
         .eq('id', authUser.id)
         .single();
+      
+      const { data: userProfile, error } = await Promise.race([
+        queryPromise,
+        timeoutPromise
+      ]) as any;
 
       if (error) {
-        console.error('Error fetching user profile:', error);
+        if (error.message === 'Request timeout') {
+          console.error('User profile fetch timed out');
+        } else {
+          console.error('Error fetching user profile:', error);
+        }
+        // Set a default user if profile fetch fails
+        setUser({
+          id: authUser.id,
+          email: authUser.email || '',
+          name: authUser.email?.split('@')[0] || 'User',
+          role: 'Team',
+          permissions: []
+        });
         return;
       }
 
@@ -65,6 +107,14 @@ export const useSupabase = () => {
       }
     } catch (error) {
       console.error('Error in fetchUserProfile:', error);
+      // Set a default user if there's an error
+      setUser({
+        id: authUser.id,
+        email: authUser.email || '',
+        name: authUser.email?.split('@')[0] || 'User',
+        role: 'Team',
+        permissions: []
+      });
     }
   };
 
