@@ -294,7 +294,17 @@ const ClientProgressTracker: React.FC<ClientProgressTrackerProps> = ({ clientId,
                       <div className="flex items-center space-x-2 flex-1 min-w-0">
                         <FileText className="w-4 h-4 text-blue-500 flex-shrink-0" />
                         <div className="min-w-0 flex-1">
-                          <p className="text-xs font-medium text-slate-900 truncate" title={file.name}>{file.name}</p>
+                          <button
+                            onClick={() => {
+                              // For demo purposes, show an alert. In a real app, this would download or open the file
+                              alert(`Opening ${file.name}...`);
+                              // In a real implementation, you would:
+                              // window.open(file.url, '_blank') or trigger download
+                            }}
+                            className="text-left w-full"
+                          >
+                            <p className="text-xs font-medium text-blue-600 hover:text-blue-800 truncate underline cursor-pointer" title={file.name}>{file.name}</p>
+                          </button>
                           <p className="text-xs text-slate-500">{file.size}</p>
                         </div>
                       </div>
