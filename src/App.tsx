@@ -27,7 +27,7 @@ function App() {
   };
 
   const renderContent = () => {
-    // If user is a client, show client dashboard
+    // If user is Client Admin or Client Team, show client dashboard
     if (user && (user.role === 'Client Admin' || user.role === 'Client Team')) {
       return (
         <ClientDashboard
@@ -37,7 +37,7 @@ function App() {
       );
     }
 
-    // Otherwise show admin dashboard
+    // Otherwise show admin/team dashboard with sidebar
     switch (activeTab) {
       case 'dashboard':
         return <Dashboard setActiveTab={setActiveTab} onToggleSidebar={toggleSidebar} />;
@@ -71,7 +71,8 @@ function App() {
     return <Login />;
   }
 
-  // If user is a client, don't show sidebar
+  
+  // If user is Client Admin or Client Team, show only the client dashboard (no sidebar)
   if (user && (user.role === 'Client Admin' || user.role === 'Client Team')) {
     return (
       <div className="min-h-screen bg-slate-100">
@@ -80,6 +81,7 @@ function App() {
     );
   }
 
+  // For Super Admin and Team users, show the full dashboard with sidebar
   return (
     <div className="flex h-screen bg-slate-100 overflow-hidden">
       <Sidebar 
