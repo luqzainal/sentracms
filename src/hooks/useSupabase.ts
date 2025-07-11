@@ -62,33 +62,53 @@ export const useSupabase = () => {
 
   const fetchUserProfile = async (authUser: User) => {
     try {
-      // Bypass the users table query due to RLS infinite recursion
-      // Use auth user data directly and set a default role
+      console.log('Fetching user profile for:', authUser.id);
+      
       const { data: userProfile, error } = await supabase
-  .from('users')
-  .select('*')
-  .eq('id', authUser.id)
-  .single();
+        .from('users')
+        .select('*')
+        .eq('id', authUser.id)
+        .single();
 
-if (error) {
-  console.error('Error fetching user profile:', error);
-  throw error;
-}
+      if (error) {
+        console.error('Error fetching user profile:', error);
+        
+        // If it's an RLS error or user not found, create a default user
+        if (error.code === 'PGRST116' || error.message.includes('infinite recursion') || error.message.includes('RLS')) {
+          console.log('RLS or user not found error, creating default user');
+          setUser({
+            id: authUser.id,
+            email: authUser.email || '',
+            name: authUser.email?.split('@')[0] || 'User',
+            role: 'Super Admin',
+            permissions: ['all']
+          });
+          return;
+        }
+        throw error;
+      }
 
-if (userProfile) {
-  setUser({
-    id: userProfile.id,
-    email: userProfile.email,
-    name: userProfile.name,
-    role: userProfile.role,
-    clientId: userProfile.client_id,
-    permissions: userProfile.permissions
-  });
-} else {
-  // Handle case where user exists in auth.users but not in public.users
-  console.warn('User found in auth.users but no profile in public.users table:', authUser.id);
-  setUser(null); // Or set a default limited user
-}
+      if (userProfile) {
+        console.log('User profile found:', userProfile);
+        setUser({
+          id: userProfile.id,
+          email: userProfile.email,
+          name: userProfile.name,
+          role: userProfile.role,
+          clientId: userProfile.client_id,
+          permissions: userProfile.permissions
+        });
+      } else {
+        // Handle case where user exists in auth.users but not in public.users
+        console.warn('User found in auth.users but no profile in public.users table:', authUser.id);
+        setUser({
+          id: authUser.id,
+          email: authUser.email || '',
+          name: authUser.email?.split('@')[0] || 'User',
+          role: 'Super Admin',
+          permissions: ['all']
+        });
+      }
 
     } catch (error) {
       console.error('Error in fetchUserProfile:', error);

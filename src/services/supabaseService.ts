@@ -314,9 +314,24 @@ export const calendarEventService = {
 // Chat services
 export const chatService = {
   async getAll() {
-    // Bypass due to RLS infinite recursion issue
-    console.log('Chat service bypassed due to RLS recursion');
-    return [];
+    try {
+      const { data, error } = await supabase
+        .from('chats')
+        .select(`
+          *,
+          messages:chat_messages(*)
+        `)
+        .order('last_message_at', { ascending: false });
+      
+      if (error) throw error;
+      return data || [];
+    } catch (error) {
+      console.error('Error in chatService.getAll:', error);
+      if (error.message && error.message.includes('infinite recursion')) {
+        console.error('RLS infinite recursion detected in chat service');
+      }
+      return [];
+    }
   },
 
   async getByClientId(clientId: number) {

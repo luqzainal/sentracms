@@ -331,13 +331,19 @@ export const useAppStore = create<AppState>((set, get) => ({
   fetchClients: async () => {
     set((state) => ({ loading: { ...state.loading, clients: true } }));
     try {
-      // Bypass client fetching due to RLS infinite recursion issue
-      // Set empty clients array to prevent loading indefinitely
-     const data = await clientService.getAll();
-const clients = data.map(transformDbClient);
-set({ clients });
+      console.log('Fetching clients...');
+      const data = await clientService.getAll();
+      console.log('Clients fetched successfully:', data.length);
+      const clients = data.map(transformDbClient);
+      set({ clients });
     } catch (error) {
       console.error('Error fetching clients:', error);
+      
+      // Check if it's an RLS infinite recursion error
+      if (error.message && error.message.includes('infinite recursion')) {
+        console.error('RLS infinite recursion detected - migration may not have been applied correctly');
+      }
+      
       // Set empty array on error to prevent infinite loading
       set({ clients: [] });
     } finally {
@@ -1004,22 +1010,20 @@ set({ clients });
   fetchChats: async () => {
     set((state) => ({ loading: { ...state.loading, chats: true } }));
     try {
-      // Bypass chat fetching due to RLS infinite recursion issue
-      // Set empty chats array to prevent loading indefinitely
-    // Note: chatService.getAll() is currently bypassed in supabaseService.ts as well.
-// You might need to re-enable it there first if you want to fetch real chat data.
-// For now, if you just want to remove the store bypass, you can put:
-// const data = await chatService.getAll(); // This will still return [] due to service bypass
-// const chats = data.map(transformDbChat);
-// set({ chats });
-// Or, if you want to truly re-enable, you'd need to modify src/services/supabaseService.ts first.
-// For the purpose of removing the *store* bypass, you can put the service call.
-const data = await chatService.getAll();
-const chats = data.map(transformDbChat);
-set({ chats });
+      console.log('Fetching chats...');
+      const data = await chatService.getAll();
+      console.log('Chats fetched successfully:', data.length);
+      const chats = data.map(transformDbChat);
+      set({ chats });
 
     } catch (error) {
       console.error('Error fetching chats:', error);
+      
+      // Check if it's an RLS infinite recursion error
+      if (error.message && error.message.includes('infinite recursion')) {
+        console.error('RLS infinite recursion detected in chats - migration may not have been applied correctly');
+      }
+      
       // Set empty array on error to prevent infinite loading
       set({ chats: [] });
     } finally {
