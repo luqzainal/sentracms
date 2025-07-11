@@ -105,7 +105,7 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ onToggleSidebar }) => {
       // Add new user
       addUser({
         ...userData,
-        lastLogin: 'Never'
+        lastLogin: null
       });
     }
     setShowUserModal(false);
