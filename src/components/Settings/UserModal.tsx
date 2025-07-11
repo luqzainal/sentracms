@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { X, User, Mail, Shield, Eye, EyeOff, Crown, Briefcase, UserCheck } from 'lucide-react';
+import { useAppStore } from '../../store/AppStore';
 
 interface User {
   id: string;
@@ -10,6 +11,7 @@ interface User {
   lastLogin: string;
   createdAt: string;
   permissions: string[];
+  clientId?: number;
 }
 
 interface UserModalProps {
@@ -19,10 +21,13 @@ interface UserModalProps {
 }
 
 const UserModal: React.FC<UserModalProps> = ({ user, onClose, onSave }) => {
+  const { clients } = useAppStore();
+  
   const [formData, setFormData] = useState({
     name: '',
     email: '',
     role: 'Team' as 'Super Admin' | 'Team' | 'Client Admin' | 'Client Team',
+    clientId: '',
     password: '',
     confirmPassword: '',
     showPassword: false,
@@ -37,6 +42,7 @@ const UserModal: React.FC<UserModalProps> = ({ user, onClose, onSave }) => {
         name: user.name,
         email: user.email,
         role: user.role,
+        clientId: user.clientId ? user.clientId.toString() : '',
         password: '',
         confirmPassword: '',
         showPassword: false,
@@ -48,6 +54,7 @@ const UserModal: React.FC<UserModalProps> = ({ user, onClose, onSave }) => {
         name: '',
         email: '',
         role: 'Team',
+        clientId: '',
         password: '',
         confirmPassword: '',
         showPassword: false,
@@ -62,6 +69,14 @@ const UserModal: React.FC<UserModalProps> = ({ user, onClose, onSave }) => {
       ...prev,
       [name]: value
     }));
+    
+    // Clear client selection when role changes to non-client roles
+    if (name === 'role' && !['Client Admin', 'Client Team'].includes(value)) {
+      setFormData(prev => ({
+        ...prev,
+        clientId: ''
+      }));
+    }
     
     // Clear error when user starts typing
     if (errors[name]) {
@@ -85,6 +100,10 @@ const UserModal: React.FC<UserModalProps> = ({ user, onClose, onSave }) => {
       newErrors.email = 'Email is invalid';
     }
 
+    // Validate client selection for client roles
+    if (['Client Admin', 'Client Team'].includes(formData.role) && !formData.clientId) {
+      newErrors.clientId = 'Client selection is required for this role';
+    }
     if (!user) { // Only validate password for new users
       if (!formData.password) {
         newErrors.password = 'Password is required';
@@ -125,6 +144,10 @@ const UserModal: React.FC<UserModalProps> = ({ user, onClose, onSave }) => {
       permissions
     };
 
+    // Include clientId for client roles
+    if (['Client Admin', 'Client Team'].includes(formData.role) && formData.clientId) {
+      (userData as any).clientId = parseInt(formData.clientId);
+    }
     // Only include password if it's provided
     if (formData.password) {
       (userData as any).password = formData.password;
@@ -176,6 +199,7 @@ const UserModal: React.FC<UserModalProps> = ({ user, onClose, onSave }) => {
     }
   };
 
+  const isClientRole = ['Client Admin', 'Client Team'].includes(formData.role);
   return (
     <div className="fixed inset-0 w-full h-full bg-black bg-opacity-60 flex items-center justify-center p-4 z-50 backdrop-blur-sm">
       <div className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl max-h-[90vh] overflow-y-auto">
@@ -264,6 +288,36 @@ const UserModal: React.FC<UserModalProps> = ({ user, onClose, onSave }) => {
                 </div>
               </div>
             </div>
+              {/* Client Selection - Only show for Client Admin and Client Team roles */}
+              {isClientRole && (
+                <div>
+                  <label className="block text-sm font-medium text-slate-700 mb-2">
+                    Associated Client *
+                  </label>
+                  <div className="relative">
+                    <Briefcase className="absolute left-3 top-1/2 transform -translate-y-1/2 text-slate-400 w-5 h-5" />
+                    <select
+                      name="clientId"
+                      value={formData.clientId}
+                      onChange={handleChange}
+                      className={`w-full pl-10 pr-4 py-3 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none appearance-none transition-all duration-200 ${
+                        errors.clientId ? 'border-red-300 bg-red-50' : 'border-slate-300'
+                      }`}
+                    >
+                      <option value="">Select Client</option>
+                      {clients.map(client => (
+                        <option key={client.id} value={client.id}>
+                          {client.businessName} ({client.name})
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                  {errors.clientId && <p className="text-red-600 text-sm mt-1">{errors.clientId}</p>}
+                  <p className="text-xs text-slate-500 mt-1">
+                    This user will only have access to the selected client's data
+                  </p>
+                </div>
+              )}
 
             {/* Role Description */}
             <div className="bg-slate-50 rounded-lg p-4 border border-slate-200">
@@ -272,6 +326,11 @@ const UserModal: React.FC<UserModalProps> = ({ user, onClose, onSave }) => {
                 <div>
                   <h4 className="font-medium text-slate-900">{formData.role} Permissions</h4>
                   <p className="text-sm text-slate-600 mt-1">{getRoleDescription(formData.role)}</p>
+                  {isClientRole && formData.clientId && (
+                    <p className="text-sm text-blue-600 mt-2">
+                      <strong>Client Access:</strong> {clients.find(c => c.id.toString() === formData.clientId)?.businessName}
+                    </p>
+                  )}
                 </div>
               </div>
             </div>

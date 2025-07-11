@@ -107,6 +107,7 @@ export interface User {
   lastLogin: string;
   createdAt: string;
   permissions: string[];
+  clientId?: number; // Optional client ID for Client Admin and Client Team roles
 }
 
 interface AppState {
@@ -748,7 +749,8 @@ export const useAppStore = create<AppState>((set, get) => ({
       status: 'Active',
       lastLogin: '2025-01-15 08:20:00',
       createdAt: '2025-01-10 14:30:00',
-      permissions: ['client_dashboard', 'client_profile', 'client_messages']
+      permissions: ['client_dashboard', 'client_profile', 'client_messages', 'client_admin'],
+      clientId: 1
     },
     {
       id: '5',
@@ -758,7 +760,8 @@ export const useAppStore = create<AppState>((set, get) => ({
       status: 'Active',
       lastLogin: '2025-01-14 12:10:00',
       createdAt: '2025-01-12 16:00:00',
-      permissions: ['client_dashboard', 'client_profile', 'client_messages']
+      permissions: ['client_dashboard', 'client_profile', 'client_messages'],
+      clientId: 2
     }
   ],
 
