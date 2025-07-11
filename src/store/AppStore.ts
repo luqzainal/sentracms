@@ -1410,6 +1410,7 @@ export const useAppStore = create<AppState>((set, get) => ({
         role: userData.role,
         status: userData.status,
         client_id: userData.clientId,
+      }
       // For demo purposes, generate a proper UUID-like ID
       const newUser = {
         id: crypto.randomUUID(),
