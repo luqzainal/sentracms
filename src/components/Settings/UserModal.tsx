@@ -222,7 +222,7 @@ const UserModal: React.FC<UserModalProps> = ({ user, onClose, onSave }) => {
       confirmPortalPassword: password
     }));
   };
-  const getPermissionsByRole = (role: string) => {
+
   const handleResetPassword = () => {
     setPortalAccess(prev => ({
       ...prev,
@@ -231,6 +231,8 @@ const UserModal: React.FC<UserModalProps> = ({ user, onClose, onSave }) => {
       hasStoredPassword: false
     }));
   };
+
+  const getPermissionsByRole = (role: string) => {
     switch (role) {
       case 'Super Admin':
         return ['all'];
