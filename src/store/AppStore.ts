@@ -492,9 +492,10 @@ export const useAppStore = create<AppState>((set, get) => ({
       } else {
         // Fetch all invoices for all clients
         const { clients } = get();
+        const realClients = clients.filter(client => client.id > 0); // Exclude mock clients
         const allInvoices: Invoice[] = [];
         
-        for (const client of clients) {
+        for (const client of realClients) {
           const data = await invoiceService.getByClientId(client.id);
           const invoices = data.map(transformDbInvoice);
           allInvoices.push(...invoices);
@@ -685,9 +686,10 @@ export const useAppStore = create<AppState>((set, get) => ({
       } else {
         // Fetch all payments for all clients
         const { clients } = get();
+        const realClients = clients.filter(client => client.id > 0); // Exclude mock clients
         const allPayments: Payment[] = [];
         
-        for (const client of clients) {
+        for (const client of realClients) {
           const data = await paymentService.getByClientId(client.id);
           const payments = data.map(transformDbPayment);
           allPayments.push(...payments);
@@ -1020,9 +1022,10 @@ export const useAppStore = create<AppState>((set, get) => ({
       } else {
         // Fetch all components for all clients
         const { clients } = get();
+        const realClients = clients.filter(client => client.id > 0); // Exclude mock clients
         const allComponents: Component[] = [];
         
-        for (const client of clients) {
+        for (const client of realClients) {
           const data = await componentService.getByClientId(client.id);
           const components = data.map(transformDbComponent);
           allComponents.push(...components);
@@ -1209,9 +1212,10 @@ export const useAppStore = create<AppState>((set, get) => ({
       } else {
         // Fetch all progress steps for all clients
         const { clients } = get();
+        const realClients = clients.filter(client => client.id > 0); // Exclude mock clients
         const allSteps: ProgressStep[] = [];
         
-        for (const client of clients) {
+        for (const client of realClients) {
           const data = await progressStepService.getByClientId(client.id);
           const steps = data.map(transformDbProgressStep);
           allSteps.push(...steps);
