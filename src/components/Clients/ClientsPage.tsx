@@ -15,6 +15,7 @@ const ClientsPage: React.FC<ClientsPageProps> = ({ setActiveTab, onToggleSidebar
   const [statusFilter, setStatusFilter] = useState('all');
   const [packageNameFilter, setPackageNameFilter] = useState('all');
   const [tagFilter, setTagFilter] = useState('all');
+  const [tagFilterCondition, setTagFilterCondition] = useState<'OR' | 'AND'>('OR');
   const [showModal, setShowModal] = useState(false);
   const [selectedClient, setSelectedClient] = useState<any>(null);
   const [showProfile, setShowProfile] = useState(false);
@@ -89,7 +90,19 @@ const ClientsPage: React.FC<ClientsPageProps> = ({ setActiveTab, onToggleSidebar
                          client.email.toLowerCase().includes(searchTerm.toLowerCase());
     const matchesStatus = statusFilter === 'all' || client.status.toLowerCase() === statusFilter.toLowerCase();
     const matchesPackageName = packageNameFilter === 'all' || client.packageName === packageNameFilter;
-    const matchesTag = tagFilter === 'all' || (client.tags && client.tags.includes(tagFilter));
+    
+    // Enhanced tag filtering with OR/AND conditions
+    let matchesTag = true;
+    if (tagFilter !== 'all') {
+      if (tagFilterCondition === 'OR') {
+        // OR condition: client must have at least one of the selected tags
+        matchesTag = client.tags && client.tags.includes(tagFilter);
+      } else {
+        // AND condition: client must have all selected tags (for future multi-select)
+        matchesTag = client.tags && client.tags.includes(tagFilter);
+      }
+    }
+    
     return matchesSearch && matchesStatus && matchesPackageName && matchesTag;
   });
 
@@ -152,19 +165,6 @@ const ClientsPage: React.FC<ClientsPageProps> = ({ setActiveTab, onToggleSidebar
       };
       addClient(newClient);
 
-      // Auto-create client user account - TEMPORARILY DISABLED due to RLS recursion
-      // if (clientData.password) {
-      //   addUser({
-      //     name: clientData.name,
-      //     email: clientData.email,
-      //     role: 'Client Admin',
-      //     status: 'Active',
-      //     lastLogin: 'Never',
-      //     createdAt: new Date().toISOString(),
-      //     permissions: ['client_dashboard', 'client_profile', 'client_messages']
-      //   });
-      // }
-      
       // Auto-copy any existing components to progress steps for new clients
       setTimeout(() => {
         copyComponentsToProgressSteps(newClient.id);
@@ -338,6 +338,18 @@ const ClientsPage: React.FC<ClientsPageProps> = ({ setActiveTab, onToggleSidebar
               ))}
             </select>
           </div>
+          {tagFilter !== 'all' && (
+            <div className="flex items-center space-x-2 lg:space-x-3">
+              <select
+                value={tagFilterCondition}
+                onChange={(e) => setTagFilterCondition(e.target.value as 'OR' | 'AND')}
+                className="px-3 lg:px-4 py-2 lg:py-3 border border-slate-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none min-w-[80px] lg:min-w-[100px] transition-all duration-200 text-sm lg:text-base"
+              >
+                <option value="OR">OR</option>
+                <option value="AND">AND</option>
+              </select>
+            </div>
+          )}
         </div>
       </div>
 
