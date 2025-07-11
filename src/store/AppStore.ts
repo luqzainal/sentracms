@@ -1044,6 +1044,16 @@ export const useAppStore = create<AppState>((set, get) => ({
 
   updateProgressStep: async (id, updates) => {
     try {
+      // If it's a mock progress step (starts with 'step-' and has negative timestamp), only update locally
+      if (id.startsWith('step-') && id.includes('-')) {
+        set((state) => ({
+          progressSteps: state.progressSteps.map(step => 
+            step.id === id ? { ...step, ...updates } : step
+          )
+        }));
+        return;
+      }
+
       const dbUpdates: any = {};
       if (updates.title) dbUpdates.title = updates.title;
       if (updates.description) dbUpdates.description = updates.description;
