@@ -1,24 +1,32 @@
 import React, { useState } from 'react';
 import { Eye, EyeOff, Mail, Lock, Shield } from 'lucide-react';
+import { useSupabase } from '../../hooks/useSupabase';
 
-interface LoginProps {
-  onLogin: (email: string, password: string) => void;
-}
 
-const Login: React.FC<LoginProps> = ({ onLogin }) => {
+const Login: React.FC = () => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState('');
+
+  const { signIn } = useSupabase();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
+    setError('');
     
-    // Simulate API call
-    await new Promise(resolve => setTimeout(resolve, 1000));
+    try {
+      const { error } = await signIn(email, password);
+      
+      if (error) {
+        setError(error.message || 'Login failed. Please check your credentials.');
+      }
+    } catch (err) {
+      setError('An unexpected error occurred. Please try again.');
+    }
     
-    onLogin(email, password);
     setIsLoading(false);
   };
 
@@ -52,6 +60,13 @@ const Login: React.FC<LoginProps> = ({ onLogin }) => {
                 />
             </div>
           </div>
+
+          {/* Error Message */}
+          {error && (
+            <div className="p-3 bg-red-50 border border-red-200 rounded-lg">
+              <p className="text-red-700 text-sm">{error}</p>
+            </div>
+          )}
 
           {/* Form section */}
           <div className="px-4 lg:px-8 py-6 lg:py-8" style={{ backgroundColor: '#eded21' }}>
@@ -125,7 +140,7 @@ const Login: React.FC<LoginProps> = ({ onLogin }) => {
             <div className="mt-4 lg:mt-6 p-3 bg-slate-50 rounded-lg border border-slate-200">
               <p className="text-xs lg:text-sm text-slate-600 text-center">
                 <span className="font-medium">Demo:</span> admin@sentra.com / password123
-              </p>
+              <span className="font-medium">Demo:</span> Use any existing user credentials from the database
             </div>
           </div>
         </div>

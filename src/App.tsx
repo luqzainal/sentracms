@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { useSupabase } from './hooks/useSupabase';
 import Login from './components/Auth/Login';
 import Sidebar from './components/Layout/Sidebar';
 import Dashboard from './components/Dashboard/Dashboard';
@@ -9,19 +10,13 @@ import ReportsPage from './components/Reports/ReportsPage';
 import SettingsPage from './components/Settings/SettingsPage';
 
 function App() {
-  const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const { user, loading, signOut, isAuthenticated } = useSupabase();
   const [activeTab, setActiveTab] = useState('dashboard');
   const [sidebarOpen, setSidebarOpen] = useState(false);
 
-  const handleLogin = (email: string, password: string) => {
-    // Simple authentication - check against Malaysian demo credentials
-    if (email && password) {
-      setIsAuthenticated(true);
-    }
-  };
 
   const handleLogout = () => {
-    setIsAuthenticated(false);
+    signOut();
     setActiveTab('dashboard');
     setSidebarOpen(false);
   };
@@ -49,8 +44,18 @@ function App() {
     }
   };
 
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-slate-100 flex items-center justify-center">
+        <div className="text-center">
+          <div className="w-16 h-16 border-4 border-blue-600 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
+          <p className="text-slate-600">Loading...</p>
+        </div>
+      </div>
+    );
+  }
   if (!isAuthenticated) {
-    return <Login onLogin={handleLogin} />;
+    return <Login />;
   }
 
   return (
