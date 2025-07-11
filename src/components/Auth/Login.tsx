@@ -140,7 +140,10 @@ const Login: React.FC = () => {
             <div className="mt-4 lg:mt-6 p-3 bg-slate-50 rounded-lg border border-slate-200">
               <p className="text-xs lg:text-sm text-slate-600 text-center">
                 <span className="font-medium">Demo:</span> admin@sentra.com / password123
-              <span className="font-medium">Demo:</span> Use any existing user credentials from the database
+              </p>
+              <p className="text-xs lg:text-sm text-slate-600 text-center">
+                <span className="font-medium">Demo:</span> Use any existing user credentials from the database
+              </p>
             </div>
           </div>
         </div>
