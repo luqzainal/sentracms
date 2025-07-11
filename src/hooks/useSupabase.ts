@@ -48,26 +48,13 @@ export const useSupabase = () => {
         if (mounted && session?.user) {
           await fetchUserProfile(session.user);
         } else if (mounted) {
-          // No session, set default user for demo
-          setUser({
-            id: 'demo-user',
-            email: 'admin@sentra.com',
-            name: 'Demo User',
-            role: 'Super Admin',
-            permissions: ['all']
-          });
+          // No session, user needs to log in
+          setUser(null);
         }
       } catch (error) {
         console.error('Error getting initial session:', error);
         if (mounted) {
-          // Set fallback user on error
-          setUser({
-            id: 'fallback-user',
-            email: 'admin@sentra.com',
-            name: 'Fallback User',
-            role: 'Super Admin',
-            permissions: ['all']
-          });
+          setUser(null);
         }
       } finally {
         if (timeoutId) {
@@ -112,12 +99,17 @@ export const useSupabase = () => {
     // Prevent infinite fetch attempts
     if (fetchAttempts >= maxFetchAttempts) {
       console.warn('Max fetch attempts reached, using fallback user');
+      // Determine role based on email for demo purposes
+      const role = authUser.email === 'client@sentra.com' ? 'Client Admin' : 'Super Admin';
+      const clientId = authUser.email === 'client@sentra.com' ? 1 : undefined;
+      
       setUser({
         id: authUser.id,
         email: authUser.email || '',
-        name: authUser.email?.split('@')[0] || 'User',
-        role: 'Super Admin',
-        permissions: ['all']
+        name: authUser.email === 'client@sentra.com' ? 'Nik Salwani Bt.Nik Ab Rahman' : authUser.email?.split('@')[0] || 'User',
+        role: role,
+        clientId: clientId,
+        permissions: role === 'Client Admin' ? ['client_dashboard', 'client_profile', 'client_messages'] : ['all']
       });
       return;
     }
@@ -146,12 +138,18 @@ export const useSupabase = () => {
         // If it's an RLS error or user not found, create a default user
         if (error.code === 'PGRST116' || error.message?.includes('infinite recursion') || error.message?.includes('RLS') || error.message?.includes('timeout')) {
           console.log('RLS or user not found error, creating default user');
+          
+          // Determine role based on email for demo purposes
+          const role = authUser.email === 'client@sentra.com' ? 'Client Admin' : 'Super Admin';
+          const clientId = authUser.email === 'client@sentra.com' ? 1 : undefined;
+          
           setUser({
             id: authUser.id,
             email: authUser.email || '',
-            name: authUser.email?.split('@')[0] || 'User',
-            role: 'Super Admin',
-            permissions: ['all']
+            name: authUser.email === 'client@sentra.com' ? 'Nik Salwani Bt.Nik Ab Rahman' : authUser.email?.split('@')[0] || 'User',
+            role: role,
+            clientId: clientId,
+            permissions: role === 'Client Admin' ? ['client_dashboard', 'client_profile', 'client_messages'] : ['all']
           });
           setFetchAttempts(0); // Reset attempts on successful fallback
           return;
@@ -173,13 +171,18 @@ export const useSupabase = () => {
       } else {
         // Handle case where user exists in auth.users but not in public.users
         console.warn('User found in auth.users but no profile in public.users table:', authUser.id);
+        
+        // Determine role based on email for demo purposes
+        const role = authUser.email === 'client@sentra.com' ? 'Client Admin' : 'Super Admin';
+        const clientId = authUser.email === 'client@sentra.com' ? 1 : undefined;
+        
         setUser({
           id: authUser.id,
           email: authUser.email || '',
-          name: authUser.email?.split('@')[0] || 'User',
-          role: 'Super Admin',
-          clientId: undefined,
-          permissions: ['all']
+          name: authUser.email === 'client@sentra.com' ? 'Nik Salwani Bt.Nik Ab Rahman' : authUser.email?.split('@')[0] || 'User',
+          role: role,
+          clientId: clientId,
+          permissions: role === 'Client Admin' ? ['client_dashboard', 'client_profile', 'client_messages'] : ['all']
         });
         setFetchAttempts(0); // Reset attempts
       }
@@ -190,14 +193,17 @@ export const useSupabase = () => {
       } else {
         console.error('Error in fetchUserProfile:', error);
       }
-      // Set a default user if there's an error
+      // Set a default user based on email if there's an error
+      const role = authUser.email === 'client@sentra.com' ? 'Client Admin' : 'Super Admin';
+      const clientId = authUser.email === 'client@sentra.com' ? 1 : undefined;
+      
       setUser({
         id: authUser.id,
         email: authUser.email || '',
-        name: authUser.email?.split('@')[0] || 'User',
-        role: 'Super Admin',
-        clientId: undefined,
-        permissions: ['all']
+        name: authUser.email === 'client@sentra.com' ? 'Nik Salwani Bt.Nik Ab Rahman' : authUser.email?.split('@')[0] || 'User',
+        role: role,
+        clientId: clientId,
+        permissions: role === 'Client Admin' ? ['client_dashboard', 'client_profile', 'client_messages'] : ['all']
       });
       setFetchAttempts(0); // Reset attempts
     }
