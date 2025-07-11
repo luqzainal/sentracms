@@ -652,6 +652,49 @@ export const useAppStore = create<AppState>((set, get) => ({
 
   addPayment: async (paymentData) => {
     try {
+      // If it's a mock client (negative ID), only create locally
+      if (paymentData.clientId < 0) {
+        const mockPayment: Payment = {
+          id: `PAY-${-Date.now()}`, // Negative timestamp for mock ID
+          clientId: paymentData.clientId,
+          invoiceId: paymentData.invoiceId,
+          amount: paymentData.amount,
+          paymentSource: paymentData.paymentSource,
+          status: paymentData.status,
+          paidAt: paymentData.paidAt || new Date().toISOString()
+        };
+        
+        set((state) => ({
+          payments: [...state.payments, mockPayment]
+        }));
+
+        // Update invoice and client totals locally
+        const { updateInvoice, updateClient, getClientById, invoices } = get();
+        const invoice = invoices.find(inv => inv.id === paymentData.invoiceId);
+        
+        if (invoice) {
+          const newPaid = invoice.paid + paymentData.amount;
+          const newDue = Math.max(0, invoice.amount - newPaid);
+          const newStatus = newDue === 0 ? 'Paid' : newPaid > 0 ? 'Partial' : 'Pending';
+          
+          await updateInvoice(paymentData.invoiceId, {
+            paid: newPaid,
+            due: newDue,
+            status: newStatus as 'Paid' | 'Partial' | 'Pending' | 'Overdue'
+          });
+
+          const client = getClientById(paymentData.clientId);
+          if (client) {
+            await updateClient(paymentData.clientId, {
+              totalCollection: client.totalCollection + paymentData.amount,
+              balance: Math.max(0, client.balance - paymentData.amount)
+            });
+          }
+        }
+        
+        return;
+      }
+
       const dbPayment = {
         client_id: paymentData.clientId,
         invoice_id: paymentData.invoiceId,
