@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Plus, Search, Filter, Trash2, Menu } from 'lucide-react';
 import ClientModal from './ClientModal';
 import ClientProfile from './ClientProfile';
@@ -23,12 +23,21 @@ const ClientsPage: React.FC<ClientsPageProps> = ({ setActiveTab, onToggleSidebar
 
   const { 
     clients, 
+    loading,
+    fetchClients,
+    fetchProgressSteps,
     progressSteps, 
     addClient, 
     updateClient, 
     deleteClient,
     addUser
   } = useAppStore();
+
+  useEffect(() => {
+    // Fetch initial data
+    fetchClients();
+    fetchProgressSteps();
+  }, [fetchClients, fetchProgressSteps]);
 
   // Helper function to check if a step is overdue
   const isStepOverdue = (step: any) => {
@@ -179,6 +188,19 @@ const ClientsPage: React.FC<ClientsPageProps> = ({ setActiveTab, onToggleSidebar
         clientId={progressClientId}
         onBack={handleBackFromProgress}
       />
+    );
+  }
+
+  if (loading.clients) {
+    return (
+      <div className="p-4 lg:p-8 space-y-6 lg:space-y-8">
+        <div className="flex items-center justify-center h-64">
+          <div className="text-center">
+            <div className="w-16 h-16 border-4 border-blue-600 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
+            <p className="text-slate-600">Loading clients...</p>
+          </div>
+        </div>
+      </div>
     );
   }
 

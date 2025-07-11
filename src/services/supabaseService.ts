@@ -90,6 +90,15 @@ export const invoiceService = {
     
     if (error) throw error;
     return data;
+  },
+
+  async delete(id: string) {
+    const { error } = await supabase
+      .from('invoices')
+      .delete()
+      .eq('id', id);
+    
+    if (error) throw error;
   }
 };
 
@@ -115,6 +124,27 @@ export const paymentService = {
     
     if (error) throw error;
     return data;
+  },
+
+  async update(id: string, updates: any) {
+    const { data, error } = await supabase
+      .from('payments')
+      .update(updates)
+      .eq('id', id)
+      .select()
+      .single();
+    
+    if (error) throw error;
+    return data;
+  },
+
+  async delete(id: string) {
+    const { error } = await supabase
+      .from('payments')
+      .delete()
+      .eq('id', id);
+    
+    if (error) throw error;
   }
 };
 
@@ -135,6 +165,18 @@ export const componentService = {
     const { data, error } = await supabase
       .from('components')
       .insert(component)
+      .select()
+      .single();
+    
+    if (error) throw error;
+    return data;
+  },
+
+  async update(id: string, updates: any) {
+    const { data, error } = await supabase
+      .from('components')
+      .update(updates)
+      .eq('id', id)
       .select()
       .single();
     

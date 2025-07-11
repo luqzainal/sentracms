@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { useEffect } from 'react';
 import { Plus, Search, Edit, Trash2, Shield, Users, Key, Eye, EyeOff, UserCheck, UserX, Crown, Briefcase, User, Menu, ExternalLink } from 'lucide-react';
 import UserModal from './UserModal';
 import ClientPortalDashboard from '../ClientPortal/ClientPortalDashboard';
@@ -18,7 +19,19 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ onToggleSidebar }) => {
   const [showClientPortal, setShowClientPortal] = useState(false);
   const [selectedClientUser, setSelectedClientUser] = useState<any>(null);
 
-  const { users, addUser, updateUser, deleteUser } = useAppStore();
+  const { 
+    users, 
+    loading,
+    fetchUsers,
+    addUser, 
+    updateUser, 
+    deleteUser 
+  } = useAppStore();
+
+  useEffect(() => {
+    // Fetch initial data
+    fetchUsers();
+  }, [fetchUsers]);
 
   const getRoleIcon = (role: string) => {
     switch (role) {
@@ -123,6 +136,19 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ onToggleSidebar }) => {
         user={selectedClientUser}
         onBack={handleBackFromClientPortal}
       />
+    );
+  }
+
+  if (loading.users) {
+    return (
+      <div className="p-4 lg:p-8 space-y-6 lg:space-y-8">
+        <div className="flex items-center justify-center h-64">
+          <div className="text-center">
+            <div className="w-16 h-16 border-4 border-blue-600 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
+            <p className="text-slate-600">Loading users...</p>
+          </div>
+        </div>
+      </div>
     );
   }
 
