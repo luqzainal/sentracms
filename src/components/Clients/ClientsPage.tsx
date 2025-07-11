@@ -30,7 +30,8 @@ const ClientsPage: React.FC<ClientsPageProps> = ({ setActiveTab, onToggleSidebar
     addClient, 
     updateClient, 
     deleteClient,
-    addUser
+    addUser,
+    copyComponentsToProgressSteps
   } = useAppStore();
 
   useEffect(() => {
@@ -145,18 +146,18 @@ const ClientsPage: React.FC<ClientsPageProps> = ({ setActiveTab, onToggleSidebar
       };
       addClient(newClient);
 
-      // Auto-create client user account
-      if (clientData.password) {
-        addUser({
-          name: clientData.name,
-          email: clientData.email,
-          role: 'Client Admin',
-          status: 'Active',
-          lastLogin: 'Never',
-          createdAt: new Date().toISOString(),
-          permissions: ['client_dashboard', 'client_profile', 'client_messages']
-        });
-      }
+      // Auto-create client user account - TEMPORARILY DISABLED due to RLS recursion
+      // if (clientData.password) {
+      //   addUser({
+      //     name: clientData.name,
+      //     email: clientData.email,
+      //     role: 'Client Admin',
+      //     status: 'Active',
+      //     lastLogin: 'Never',
+      //     createdAt: new Date().toISOString(),
+      //     permissions: ['client_dashboard', 'client_profile', 'client_messages']
+      //   });
+      // }
       
       // Auto-copy any existing components to progress steps for new clients
       setTimeout(() => {
