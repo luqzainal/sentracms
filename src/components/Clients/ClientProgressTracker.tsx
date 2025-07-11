@@ -45,35 +45,9 @@ const ClientProgressTracker: React.FC<ClientProgressTrackerProps> = ({ clientId,
   } = useAppStore();
 
   const client = getClientById(parseInt(clientId));
-  const [attachedFiles, setAttachedFiles] = useState([
-    {
-      id: '1',
-      name: 'project_requirements.pdf',
-      size: '2.4 MB',
-      uploadDate: '2025-01-15T10:30:00'
-    },
-    {
-      id: '2',
-      name: 'design_mockups.zip',
-      size: '15.7 MB',
-      uploadDate: '2025-01-14T14:20:00'
-    }
-  ]);
+  const [attachedFiles, setAttachedFiles] = useState([]);
 
-  const [websiteLinks, setWebsiteLinks] = useState([
-    {
-      id: '1',
-      title: 'Client Website',
-      url: 'https://client-website.com',
-      timestamp: '2025-01-15T11:00:00'
-    },
-    {
-      id: '2',
-      title: 'Project Documentation',
-      url: 'https://docs.google.com/project-docs',
-      timestamp: '2025-01-14T13:30:00'
-    }
-  ]);
+  const [websiteLinks, setWebsiteLinks] = useState([]);
 
   const progressSteps = getProgressStepsByClientId(parseInt(clientId));
 
@@ -394,13 +368,6 @@ const ClientProgressTracker: React.FC<ClientProgressTrackerProps> = ({ clientId,
                 <p className="text-xs sm:text-sm text-slate-600">{completedSteps} of {totalSteps} steps completed</p>
               </div>
               <div className="flex flex-col sm:flex-row items-start sm:items-center space-y-2 sm:space-y-0 sm:space-x-4">
-                <button
-                  onClick={() => setShowAddStep(true)}
-                  className="bg-green-600 text-white px-3 sm:px-4 py-2 rounded-lg flex items-center space-x-1 sm:space-x-2 hover:bg-green-700 transition-all duration-200 font-medium shadow-sm text-sm whitespace-nowrap"
-                >
-                  <Plus className="w-3 h-3 sm:w-4 sm:h-4" />
-                  <span>Add Step</span>
-                </button>
                 <div className="text-left sm:text-right">
                   <div className="text-2xl sm:text-3xl font-bold text-blue-600">{progressPercentage}%</div>
                   <div className="text-xs sm:text-sm text-slate-500">Complete</div>
