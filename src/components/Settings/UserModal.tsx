@@ -38,6 +38,16 @@ const UserModal: React.FC<UserModalProps> = ({ user, onClose, onSave }) => {
     showConfirmPortalPassword: false,
     hasStoredPassword: false
   });
+
+  const [dashboardAccess, setDashboardAccess] = useState({
+    username: '',
+    dashboardPassword: '',
+    confirmDashboardPassword: '',
+    showDashboardPassword: false,
+    showConfirmDashboardPassword: false,
+    hasStoredPassword: false
+  });
+
   const [errors, setErrors] = useState<{ [key: string]: string }>({});
 
   useEffect(() => {
@@ -60,6 +70,18 @@ const UserModal: React.FC<UserModalProps> = ({ user, onClose, onSave }) => {
           hasStoredPassword: true // Assume existing users have stored passwords
         });
       }
+      
+      // Initialize dashboard access for Team users
+      if (user.role === 'Team') {
+        setDashboardAccess({
+          username: user.email, // Default to email as username
+          dashboardPassword: '',
+          confirmDashboardPassword: '',
+          showDashboardPassword: false,
+          showConfirmDashboardPassword: false,
+          hasStoredPassword: true // Assume existing users have stored passwords
+        });
+      }
     } else {
       // Reset form for new user
       setFormData({
@@ -75,6 +97,15 @@ const UserModal: React.FC<UserModalProps> = ({ user, onClose, onSave }) => {
         confirmPortalPassword: '',
         showPortalPassword: false,
         showConfirmPortalPassword: false,
+        hasStoredPassword: false
+      });
+      
+      setDashboardAccess({
+        username: '',
+        dashboardPassword: '',
+        confirmDashboardPassword: '',
+        showDashboardPassword: false,
+        showConfirmDashboardPassword: false,
         hasStoredPassword: false
       });
     }
@@ -115,6 +146,14 @@ const UserModal: React.FC<UserModalProps> = ({ user, onClose, onSave }) => {
       }));
     }
     
+    // Update dashboard username when email changes for Team users
+    if (name === 'email' && formData.role === 'Team') {
+      setDashboardAccess(prev => ({
+        ...prev,
+        username: value
+      }));
+    }
+    
     // Clear error when user starts typing
     if (errors[name]) {
       setErrors(prev => ({
@@ -139,6 +178,23 @@ const UserModal: React.FC<UserModalProps> = ({ user, onClose, onSave }) => {
       }));
     }
   };
+
+  const handleDashboardAccessChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const { name, value, type, checked } = e.target;
+    setDashboardAccess(prev => ({
+      ...prev,
+      [name]: type === 'checkbox' ? checked : value
+    }));
+    
+    // Clear error when user starts typing
+    if (errors[name]) {
+      setErrors(prev => ({
+        ...prev,
+        [name]: ''
+      }));
+    }
+  };
+
   const validateForm = () => {
     const newErrors: { [key: string]: string } = {};
 
@@ -174,6 +230,26 @@ const UserModal: React.FC<UserModalProps> = ({ user, onClose, onSave }) => {
         newErrors.portalPassword = 'Portal password is required for new client users';
       }
     }
+
+    // Validate dashboard access for Team users
+    if (formData.role === 'Team') {
+      if (!dashboardAccess.username.trim()) {
+        newErrors.dashboardUsername = 'Dashboard username is required';
+      }
+      
+      if (dashboardAccess.dashboardPassword) {
+        if (dashboardAccess.dashboardPassword.length < 6) {
+          newErrors.dashboardPassword = 'Dashboard password must be at least 6 characters';
+        }
+        if (dashboardAccess.dashboardPassword !== dashboardAccess.confirmDashboardPassword) {
+          newErrors.confirmDashboardPassword = 'Dashboard passwords do not match';
+        }
+      } else if (!user) {
+        // Require dashboard password for new Team users
+        newErrors.dashboardPassword = 'Dashboard password is required for new Team users';
+      }
+    }
+
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
   };
@@ -207,6 +283,16 @@ const UserModal: React.FC<UserModalProps> = ({ user, onClose, onSave }) => {
         hasStoredPassword: portalAccess.hasStoredPassword || !!portalAccess.portalPassword
       };
     }
+    
+    // Include dashboard access data for Team users
+    if (formData.role === 'Team') {
+      (userData as any).dashboardAccess = {
+        username: dashboardAccess.username,
+        password: dashboardAccess.dashboardPassword || undefined,
+        hasStoredPassword: dashboardAccess.hasStoredPassword || !!dashboardAccess.dashboardPassword
+      };
+    }
+    
     onSave(userData);
   };
 
@@ -223,11 +309,33 @@ const UserModal: React.FC<UserModalProps> = ({ user, onClose, onSave }) => {
     }));
   };
 
+  const handleGenerateDashboardPassword = () => {
+    const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789!@#$%^&*';
+    let password = '';
+    for (let i = 0; i < 12; i++) {
+      password += chars.charAt(Math.floor(Math.random() * chars.length));
+    }
+    setDashboardAccess(prev => ({
+      ...prev,
+      dashboardPassword: password,
+      confirmDashboardPassword: password
+    }));
+  };
+
   const handleResetPassword = () => {
     setPortalAccess(prev => ({
       ...prev,
       portalPassword: '',
       confirmPortalPassword: '',
+      hasStoredPassword: false
+    }));
+  };
+
+  const handleResetDashboardPassword = () => {
+    setDashboardAccess(prev => ({
+      ...prev,
+      dashboardPassword: '',
+      confirmDashboardPassword: '',
       hasStoredPassword: false
     }));
   };
@@ -528,15 +636,6 @@ const UserModal: React.FC<UserModalProps> = ({ user, onClose, onSave }) => {
                     >
                       Generate Secure Password
                     </button>
-                    {user && portalAccess.hasStoredPassword && (
-                      <button
-                        type="button"
-                        onClick={handleResetPassword}
-                        className="px-4 py-2 bg-orange-600 text-white rounded-lg hover:bg-orange-700 transition-colors text-sm font-medium"
-                      >
-                        Clear & Reset
-                      </button>
-                    )}
                   </div>
                   
                   <div className="bg-yellow-50 rounded-lg p-3 border border-yellow-200">
@@ -548,6 +647,135 @@ const UserModal: React.FC<UserModalProps> = ({ user, onClose, onSave }) => {
               </div>
             </div>
           )}
+
+          {/* Dashboard Access - Only show for Team role */}
+          {formData.role === 'Team' && (
+            <div className="space-y-4">
+              <h3 className="text-lg font-medium text-slate-900">Dashboard Access</h3>
+              
+              <div className="bg-blue-50 rounded-lg p-4 border border-blue-200">
+                <p className="text-xs text-slate-600">
+                  Team users automatically have access to the dashboard with separate login credentials
+                </p>
+              </div>
+              
+              <div className="space-y-4 pl-4 border-l-2 border-blue-200">
+                  <div>
+                    <label className="block text-sm font-medium text-slate-700 mb-2">
+                      Dashboard Username *
+                    </label>
+                    <input
+                      type="text"
+                      name="username"
+                      value={dashboardAccess.username}
+                     readOnly
+                      className={`w-full px-4 py-3 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition-all duration-200 ${
+                       errors.dashboardUsername ? 'border-red-300 bg-red-50' : 'border-slate-300 bg-slate-50'
+                      }`}
+                      placeholder="Enter dashboard username"
+                    />
+                    {errors.dashboardUsername && <p className="text-red-600 text-sm mt-1">{errors.dashboardUsername}</p>}
+                    <p className="text-xs text-slate-500 mt-1">
+                     This reflects the user's email address and will be used to log into the dashboard
+                    </p>
+                  </div>
+                  
+                  {/* Password Status Display */}
+                  {user && dashboardAccess.hasStoredPassword && !dashboardAccess.dashboardPassword && (
+                    <div className="bg-green-50 rounded-lg p-3 border border-green-200">
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center space-x-2">
+                          <div className="w-2 h-2 bg-green-500 rounded-full"></div>
+                          <span className="text-sm font-medium text-green-800">Dashboard password is set</span>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={handleResetDashboardPassword}
+                          className="px-3 py-1 bg-orange-600 text-white rounded-lg hover:bg-orange-700 transition-colors text-sm font-medium"
+                        >
+                          Reset Password
+                        </button>
+                      </div>
+                      <p className="text-xs text-green-700 mt-1">
+                        User can log into the dashboard with their existing password
+                      </p>
+                    </div>
+                  )}
+                  
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-sm font-medium text-slate-700 mb-2">
+                        Dashboard Password {(!user || !dashboardAccess.hasStoredPassword) && '*'}
+                      </label>
+                      <div className="relative">
+                        <input
+                          type={dashboardAccess.showDashboardPassword ? 'text' : 'password'}
+                          name="dashboardPassword"
+                          value={dashboardAccess.dashboardPassword}
+                          onChange={handleDashboardAccessChange}
+                          className={`w-full px-4 pr-12 py-3 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition-all duration-200 ${
+                            errors.dashboardPassword ? 'border-red-300 bg-red-50' : 'border-slate-300'
+                          }`}
+                          placeholder={user && dashboardAccess.hasStoredPassword ? "Leave blank to keep current" : "Enter dashboard password"}
+                        />
+                        <button
+                          type="button"
+                          onClick={() => setDashboardAccess(prev => ({ ...prev, showDashboardPassword: !prev.showDashboardPassword }))}
+                          className="absolute right-3 top-1/2 transform -translate-y-1/2 text-slate-400 hover:text-slate-600 transition-colors"
+                        >
+                          {dashboardAccess.showDashboardPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
+                        </button>
+                      </div>
+                      {errors.dashboardPassword && <p className="text-red-600 text-sm mt-1">{errors.dashboardPassword}</p>}
+                    </div>
+
+                    <div>
+                      <label className="block text-sm font-medium text-slate-700 mb-2">
+                        Confirm Dashboard Password {(!user || !dashboardAccess.hasStoredPassword) && '*'}
+                      </label>
+                      <div className="relative">
+                        <input
+                          type={dashboardAccess.showConfirmDashboardPassword ? 'text' : 'password'}
+                          name="confirmDashboardPassword"
+                          value={dashboardAccess.confirmDashboardPassword}
+                          onChange={handleDashboardAccessChange}
+                          className={`w-full px-4 pr-12 py-3 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition-all duration-200 ${
+                            errors.confirmDashboardPassword ? 'border-red-300 bg-red-50' : 'border-slate-300'
+                          }`}
+                          placeholder="Confirm dashboard password"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => setDashboardAccess(prev => ({ ...prev, showConfirmDashboardPassword: !prev.showConfirmDashboardPassword }))}
+                          className="absolute right-3 top-1/2 transform -translate-y-1/2 text-slate-400 hover:text-slate-600 transition-colors"
+                        >
+                          {dashboardAccess.showConfirmDashboardPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
+                        </button>
+                      </div>
+                      {errors.confirmDashboardPassword && <p className="text-red-600 text-sm mt-1">{errors.confirmDashboardPassword}</p>}
+                    </div>
+                  </div>
+                  
+                  <div className="flex items-center space-x-3">
+                    <button
+                      type="button"
+                      onClick={handleGenerateDashboardPassword}
+                      className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors text-sm font-medium"
+                    >
+                      Generate Secure Password
+                    </button>
+                  </div>
+                  
+                  <div className="bg-yellow-50 rounded-lg p-3 border border-yellow-200">
+                    <p className="text-xs text-yellow-800">
+                      <strong>Note:</strong> Dashboard credentials are separate from system login credentials. 
+                      Team members will use these credentials to access their dashboard.
+                    </p>
+                  </div>
+              </div>
+            </div>
+          )}
+
           {/* Actions */}
           <div className="flex justify-end space-x-3 pt-4 border-t border-slate-200">
             <button
