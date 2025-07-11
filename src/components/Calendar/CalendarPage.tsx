@@ -193,7 +193,8 @@ const CalendarPage: React.FC<CalendarPageProps> = ({ onToggleSidebar }) => {
   };
 
   return (
-    <div className="p-4 lg:p-6 space-y-4 lg:space-y-6 relative">
+    <>
+      <div className="p-4 lg:p-6 space-y-4 lg:space-y-6 relative">
       <div className="flex items-center justify-between flex-wrap gap-4">
         <div className="flex items-center space-x-4">
           <button
@@ -476,7 +477,8 @@ const CalendarPage: React.FC<CalendarPageProps> = ({ onToggleSidebar }) => {
           </div>
         </div>
       )}
-    </div>
+      </div>
+
       {/* Event Details Modal */}
       {showEventDetailsModal && selectedEvent && (
         <div className="fixed inset-0 w-full h-full bg-black bg-opacity-60 flex items-center justify-center p-4 z-50 backdrop-blur-sm">
@@ -566,6 +568,7 @@ const CalendarPage: React.FC<CalendarPageProps> = ({ onToggleSidebar }) => {
           </div>
         </div>
       )}
+    </>
   );
 };
 
