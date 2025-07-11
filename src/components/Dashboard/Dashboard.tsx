@@ -365,8 +365,19 @@ const Dashboard: React.FC<DashboardProps> = ({ setActiveTab, onToggleSidebar }) 
                   <div className="flex-1">
                     <h4 className="font-semibold text-slate-900 text-sm lg:text-base truncate">{client.businessName}</h4>
                     <p className="text-xs lg:text-sm text-slate-500 truncate">{client.email}</p>
-                    <p className="text-xs text-slate-500 truncate">PM: {client.projectManagement || 'Not assigned'}</p>
-                    <p className="text-xs text-slate-500 truncate">MA: {client.marketingAutomation || 'Not assigned'}</p>
+                    <p className="text-xs text-slate-500 truncate">Package: {client.packageName || 'Not assigned'}</p>
+                    {client.tags && client.tags.length > 0 && (
+                      <div className="flex flex-wrap gap-1 mt-1">
+                        {client.tags.slice(0, 2).map((tag, index) => (
+                          <span key={index} className="px-1.5 py-0.5 bg-blue-100 text-blue-700 text-xs rounded-full">
+                            {tag}
+                          </span>
+                        ))}
+                        {client.tags.length > 2 && (
+                          <span className="text-xs text-slate-500">+{client.tags.length - 2}</span>
+                        )}
+                      </div>
+                    )}
                   </div>
                   <div className="flex items-center space-x-2 lg:space-x-3 ml-2">
                     <div className="flex items-center space-x-2 lg:space-x-3">

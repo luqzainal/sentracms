@@ -17,8 +17,8 @@ export interface Client {
   email: string;
   phone: string;
   status: 'Complete' | 'Pending' | 'Inactive';
-  projectManagement: string;
-  marketingAutomation: string;
+  packageName: string;
+  tags: string[];
   totalSales: number;
   totalCollection: number;
   balance: number;
@@ -203,8 +203,8 @@ const transformDbClient = (dbClient: any): Client => ({
   email: dbClient.email,
   phone: dbClient.phone || '',
   status: dbClient.status,
-  projectManagement: dbClient.project_management || '',
-  marketingAutomation: dbClient.marketing_automation || '',
+  packageName: dbClient.package_name || '',
+  tags: dbClient.tags || [],
   totalSales: parseFloat(dbClient.total_sales || 0),
   totalCollection: parseFloat(dbClient.total_collection || 0),
   balance: parseFloat(dbClient.balance || 0),
@@ -366,7 +366,8 @@ export const useAppStore = create<AppState>((set, get) => ({
         email: clientData.email,
         phone: clientData.phone || '',
         status: clientData.status,
-        pic: clientData.pic || '',
+        packageName: clientData.packageName || '',
+        tags: clientData.tags || [],
         totalSales: clientData.totalSales || 0,
         totalCollection: clientData.totalCollection || 0,
         balance: clientData.balance || 0,
@@ -377,8 +378,7 @@ export const useAppStore = create<AppState>((set, get) => ({
         address: clientData.address || '',
         notes: clientData.notes || '',
         username: clientData.username || clientData.email,
-        password: clientData.password || '',
-        pic: clientData.pic || 'Project Management'
+        password: clientData.password || ''
       };
       
       set((state) => ({
@@ -408,8 +408,8 @@ export const useAppStore = create<AppState>((set, get) => ({
       if (updates.email) dbUpdates.email = updates.email;
       if (updates.phone) dbUpdates.phone = updates.phone;
       if (updates.status) dbUpdates.status = updates.status;
-      if (updates.projectManagement) dbUpdates.project_management = updates.projectManagement;
-      if (updates.marketingAutomation) dbUpdates.marketing_automation = updates.marketingAutomation;
+      if (updates.packageName) dbUpdates.package_name = updates.packageName;
+      if (updates.tags) dbUpdates.tags = updates.tags;
       if (updates.totalSales !== undefined) dbUpdates.total_sales = updates.totalSales;
       if (updates.totalCollection !== undefined) dbUpdates.total_collection = updates.totalCollection;
       if (updates.balance !== undefined) dbUpdates.balance = updates.balance;

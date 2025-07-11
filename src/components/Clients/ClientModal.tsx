@@ -17,8 +17,9 @@ const ClientModal: React.FC<ClientModalProps> = ({ client, onClose, onSave }) =>
     email: '',
     phone: '',
     status: 'Complete',
-    projectManagement: '',
-    marketingAutomation: '',
+    packageName: '',
+    tags: [] as string[],
+    newTag: '',
     username: '',
     password: '',
     hasExistingCredentials: false,
@@ -39,8 +40,9 @@ const ClientModal: React.FC<ClientModalProps> = ({ client, onClose, onSave }) =>
         email: client.email || '',
         phone: client.phone || '',
         status: client.status || 'Complete',
-        projectManagement: client.projectManagement || '',
-        marketingAutomation: client.marketingAutomation || '',
+        packageName: client.packageName || '',
+        tags: client.tags || [],
+        newTag: '',
         username: client.username || '',
         password: hasPassword ? '••••••••' : '',
         hasExistingCredentials: hasPassword,
@@ -55,8 +57,9 @@ const ClientModal: React.FC<ClientModalProps> = ({ client, onClose, onSave }) =>
         email: 'ahmad.abdullah@gmail.com',
         phone: '+60 12-345 6789',
         status: 'Complete',
-        projectManagement: '',
-        marketingAutomation: '',
+        packageName: 'Kuasa 360',
+        tags: [],
+        newTag: '',
         username: 'ahmad.abdullah@gmail.com',
         password: '',
         hasExistingCredentials: false,
@@ -156,6 +159,29 @@ const ClientModal: React.FC<ClientModalProps> = ({ client, onClose, onSave }) =>
     }
   };
 
+  const handleAddTag = () => {
+    if (formData.newTag.trim() && !formData.tags.includes(formData.newTag.trim())) {
+      setFormData(prev => ({
+        ...prev,
+        tags: [...prev.tags, prev.newTag.trim()],
+        newTag: ''
+      }));
+    }
+  };
+
+  const handleRemoveTag = (tagToRemove: string) => {
+    setFormData(prev => ({
+      ...prev,
+      tags: prev.tags.filter(tag => tag !== tagToRemove)
+    }));
+  };
+
+  const handleTagKeyPress = (e: React.KeyboardEvent) => {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      handleAddTag();
+    }
+  };
   return (
     <div className="fixed inset-0 w-full h-full bg-black bg-opacity-60 flex items-center justify-center p-4 z-50 backdrop-blur-sm">
       <div className="bg-white rounded-xl shadow-2xl w-full max-w-2xl max-h-[90vh] overflow-y-auto">
@@ -265,43 +291,60 @@ const ClientModal: React.FC<ClientModalProps> = ({ client, onClose, onSave }) =>
 
               <div>
                 <label className="block text-sm font-medium text-slate-700 mb-2">
-                  Project Management
+                  Package Name
                 </label>
-                <div className="relative">
-                  <select
-                    name="projectManagement"
-                    value={formData.projectManagement}
+                <input
+                    type="text"
+                    name="packageName"
+                    value={formData.packageName}
                     onChange={handleChange}
                     className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none"
-                  >
-                    <option value="">Select Team Member</option>
-                    {teamUsers.map(user => (
-                      <option key={user.id} value={user.name}>
-                        {user.name}
-                      </option>
-                    ))}
-                  </select>
-                </div>
+                    placeholder="Enter package name (e.g., Kuasa 360)"
+                  />
               </div>
 
               <div>
                 <label className="block text-sm font-medium text-slate-700 mb-2">
-                  Marketing Automation
+                  Tags
                 </label>
-                <div className="relative">
-                  <select
-                    name="marketingAutomation"
-                    value={formData.marketingAutomation}
+                <div className="space-y-3">
+                  <div className="flex space-x-2">
+                    <input
+                    type="text"
+                    value={formData.newTag}
                     onChange={handleChange}
-                    className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none"
+                    onKeyPress={handleTagKeyPress}
+                    name="newTag"
+                    className="flex-1 px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none"
+                    placeholder="Add a tag (e.g., VIP, Premium, New)"
+                  />
+                  <button
+                    type="button"
+                    onClick={handleAddTag}
+                    className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
                   >
-                    <option value="">Select Team Member</option>
-                    {teamUsers.map(user => (
-                      <option key={user.id} value={user.name}>
-                        {user.name}
-                      </option>
-                    ))}
-                  </select>
+                    Add
+                  </button>
+                  </div>
+                  {formData.tags.length > 0 && (
+                    <div className="flex flex-wrap gap-2">
+                      {formData.tags.map((tag, index) => (
+                        <span
+                          key={index}
+                          className="inline-flex items-center px-3 py-1 bg-blue-100 text-blue-800 text-sm rounded-full"
+                        >
+                          {tag}
+                          <button
+                            type="button"
+                            onClick={() => handleRemoveTag(tag)}
+                            className="ml-2 text-blue-600 hover:text-blue-800"
+                          >
+                            ×
+                          </button>
+                        </span>
+                      ))}
+                    </div>
+                  )}
                 </div>
               </div>
             </div>

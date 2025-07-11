@@ -184,12 +184,22 @@ const ClientProfile: React.FC<ClientProfileProps> = ({ clientId, onBack, onEdit 
               <p className="text-slate-900">{client.status}</p>
             </div>
             <div>
-              <label className="text-sm font-medium text-slate-600">Project Management:</label>
-              <p className="text-slate-900">{client.projectManagement || 'Not assigned'}</p>
+              <label className="text-sm font-medium text-slate-600">Package Name:</label>
+              <p className="text-slate-900">{client.packageName || 'Not assigned'}</p>
             </div>
             <div>
-              <label className="text-sm font-medium text-slate-600">Marketing Automation:</label>
-              <p className="text-slate-900">{client.marketingAutomation || 'Not assigned'}</p>
+              <label className="text-sm font-medium text-slate-600">Tags:</label>
+              {client.tags && client.tags.length > 0 ? (
+                <div className="flex flex-wrap gap-2 mt-1">
+                  {client.tags.map((tag, index) => (
+                    <span key={index} className="px-2 py-1 bg-blue-100 text-blue-800 text-sm rounded-full">
+                      {tag}
+                    </span>
+                  ))}
+                </div>
+              ) : (
+                <p className="text-slate-900">No tags assigned</p>
+              )}
             </div>
             <div>
               <label className="text-sm font-medium text-slate-600">Registered At:</label>

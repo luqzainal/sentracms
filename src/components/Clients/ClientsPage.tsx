@@ -13,7 +13,8 @@ interface ClientsPageProps {
 const ClientsPage: React.FC<ClientsPageProps> = ({ setActiveTab, onToggleSidebar }) => {
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
-  const [projectManagementFilter, setProjectManagementFilter] = useState('all');
+  const [packageNameFilter, setPackageNameFilter] = useState('all');
+  const [tagFilter, setTagFilter] = useState('all');
   const [showModal, setShowModal] = useState(false);
   const [selectedClient, setSelectedClient] = useState<any>(null);
   const [showProfile, setShowProfile] = useState(false);
@@ -84,11 +85,13 @@ const ClientsPage: React.FC<ClientsPageProps> = ({ setActiveTab, onToggleSidebar
     const matchesSearch = client.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
                          client.email.toLowerCase().includes(searchTerm.toLowerCase());
     const matchesStatus = statusFilter === 'all' || client.status.toLowerCase() === statusFilter.toLowerCase();
-    const matchesProjectManagement = projectManagementFilter === 'all' || client.projectManagement === projectManagementFilter;
-    return matchesSearch && matchesStatus && matchesProjectManagement;
+    const matchesPackageName = packageNameFilter === 'all' || client.packageName === packageNameFilter;
+    const matchesTag = tagFilter === 'all' || (client.tags && client.tags.includes(tagFilter));
+    return matchesSearch && matchesStatus && matchesPackageName && matchesTag;
   });
 
-  const uniqueProjectManagers = [...new Set(clients.map(client => client.projectManagement).filter(Boolean))];
+  const uniquePackageNames = [...new Set(clients.map(client => client.packageName).filter(Boolean))];
+  const uniqueTags = [...new Set(clients.flatMap(client => client.tags || []).filter(Boolean))];
 
   const handleAddClient = () => {
     setSelectedClient(null);
@@ -309,13 +312,26 @@ const ClientsPage: React.FC<ClientsPageProps> = ({ setActiveTab, onToggleSidebar
           <div className="flex items-center space-x-2 lg:space-x-3">
             <Filter className="w-5 h-5 text-slate-400" />
             <select
-              value={projectManagementFilter}
-              onChange={(e) => setProjectManagementFilter(e.target.value)}
+              value={packageNameFilter}
+              onChange={(e) => setPackageNameFilter(e.target.value)}
               className="px-3 lg:px-4 py-2 lg:py-3 border border-slate-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none min-w-[120px] lg:min-w-[140px] transition-all duration-200 text-sm lg:text-base"
             >
-              <option value="all">All Project Managers</option>
-              {uniqueProjectManagers.map(pm => (
-                <option key={pm} value={pm}>{pm}</option>
+              <option value="all">All Packages</option>
+              {uniquePackageNames.map(packageName => (
+                <option key={packageName} value={packageName}>{packageName}</option>
+              ))}
+            </select>
+          </div>
+          <div className="flex items-center space-x-2 lg:space-x-3">
+            <Filter className="w-5 h-5 text-slate-400" />
+            <select
+              value={tagFilter}
+              onChange={(e) => setTagFilter(e.target.value)}
+              className="px-3 lg:px-4 py-2 lg:py-3 border border-slate-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none min-w-[120px] lg:min-w-[140px] transition-all duration-200 text-sm lg:text-base"
+            >
+              <option value="all">All Tags</option>
+              {uniqueTags.map(tag => (
+                <option key={tag} value={tag}>{tag}</option>
               ))}
             </select>
           </div>
@@ -349,8 +365,19 @@ const ClientsPage: React.FC<ClientsPageProps> = ({ setActiveTab, onToggleSidebar
                         <div className="px-2 py-1">
                           <h4 className="font-medium text-slate-900 text-xs lg:text-sm">{client.businessName}</h4>
                           <p className="text-xs lg:text-sm text-slate-600 mt-1">{client.name}</p>
-                          <p className="text-xs text-slate-500 mt-1">PM: {client.projectManagement}</p>
-                          <p className="text-xs text-slate-500">MA: {client.marketingAutomation}</p>
+                          <p className="text-xs text-slate-500 mt-1">Package: {client.packageName || 'Not assigned'}</p>
+                          {client.tags && client.tags.length > 0 && (
+                            <div className="flex flex-wrap gap-1 mt-1">
+                              {client.tags.slice(0, 2).map((tag, index) => (
+                                <span key={index} className="px-1.5 py-0.5 bg-blue-100 text-blue-700 text-xs rounded-full">
+                                  {tag}
+                                </span>
+                              ))}
+                              {client.tags.length > 2 && (
+                                <span className="text-xs text-slate-500">+{client.tags.length - 2}</span>
+                              )}
+                            </div>
+                          )}
                         </div>
                       </div>
                     </td>
