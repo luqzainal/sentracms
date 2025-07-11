@@ -99,7 +99,7 @@ const AddComponentModal: React.FC<AddComponentModalProps> = ({ onClose, onSave }
               <textarea
                 value={bulkText}
                 onChange={(e) => setBulkText(e.target.value)}
-                placeholder="Paste your component names here, one per line:&#10;&#10;Akses 12 Month Sistem Kuasa&#10;Akses 12 Month Sistem Telah AI&#10;Executive Kuasa Workshop&#10;..."
+                placeholder="Paste your component names here, one per line..."
                 className="w-full h-32 px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none resize-none"
               />
               <div className="flex items-center justify-between mt-3">
