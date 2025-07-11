@@ -1,29 +1,25 @@
 import React, { useState } from 'react';
 import { Eye, EyeOff, Mail, Lock, Shield } from 'lucide-react';
-import { useSupabase } from '../../hooks/useSupabase';
+          client_id: null, 
 import { supabase } from '../../lib/supabase';
-
-
+          status: 'Active',
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString()
+        }]);
 const Login: React.FC = () => {
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
-  const [showPassword, setShowPassword] = useState(false);
+      if (insertError) {
+        console.error('Profile insert error:', insertError);
+        throw new Error(`Failed to create user profile: ${insertError.message}`);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
-
-  const { signIn } = useSupabase();
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setIsLoading(true);
-    setError('');
-    
-    try {
-      const { error } = await signIn(email, password);
-      
-      if (error) {
-        setError(error.message || 'Login failed. Please check your credentials.');
-      }
+      console.log('User profile created successfully!');
+      alert('Demo user created successfully!\n\nYou can now log in with:\nEmail: admin@sentra.com\nPassword: password123');
+      console.log('Creating demo user with Supabase Auth...');
+      if (signUpError) {
+        console.error('Sign up error:', signUpError);
+      console.error('Error creating demo user:', error);
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
+      setCreateUserError(`Failed to create demo user: ${errorMessage}`);
     } catch (err) {
       setError('An unexpected error occurred. Please try again.');
     }
@@ -147,17 +143,17 @@ const Login: React.FC = () => {
               </p>
             </div>
           </div>
+      if (!data.user) {
         </div>
-
-        {/* Footer */}
+        throw new Error('No user data returned from sign up');
         <div className="text-center mt-4 lg:mt-6">
           <p className="text-white/70 text-xs">
+      console.log('Auth user created:', data.user.id);
+      // Now create the user profile in our users table
             © 2025 mysentree. All rights reserved.
-          </p>
-        </div>
-      </div>
+      const { error: insertError } = await supabase
+        .insert([{
     </div>
-  );
-};
+          id: data.user.id,
 
 export default Login;
