@@ -58,15 +58,15 @@ const Dashboard: React.FC<DashboardProps> = ({ setActiveTab, onToggleSidebar }) 
   // Calculate total unread messages
   const totalUnreadMessages = chats.reduce((total, chat) => total + chat.unread, 0);
 
-  // Monthly sales data matching the attachment
+  // Monthly sales data based on actual client data
   const monthlyData = [
     { month: 'January', sales: 0, displayValue: 'RM 0' },
     { month: 'February', sales: 0, displayValue: 'RM 0' },
     { month: 'March', sales: 0, displayValue: 'RM 0' },
     { month: 'April', sales: 0, displayValue: 'RM 0' },
     { month: 'May', sales: 0, displayValue: 'RM 0' },
-    { month: 'June', sales: 19994, displayValue: 'RM 19,994' },
-    { month: 'July', sales: 49979, displayValue: 'RM 49,979' },
+    { month: 'June', sales: 0, displayValue: 'RM 0' },
+    { month: 'July', sales: 0, displayValue: 'RM 0' },
     { month: 'August', sales: 0, displayValue: 'RM 0' },
     { month: 'September', sales: 0, displayValue: 'RM 0' },
     { month: 'October', sales: 0, displayValue: 'RM 0' },
