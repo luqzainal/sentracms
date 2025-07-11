@@ -136,7 +136,7 @@ export const useSupabase = () => {
         .from('users')
         .select('*')
         .eq('id', authUser.id)
-        .single();
+        .maybeSingle();
 
       const { data: userProfile, error } = await Promise.race([queryPromise, timeoutPromise]) as any;
 
