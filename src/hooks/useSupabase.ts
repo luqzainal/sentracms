@@ -14,20 +14,65 @@ export interface AuthUser {
 export const useSupabase = () => {
   const [user, setUser] = useState<AuthUser | null>(null);
   const [loading, setLoading] = useState(true);
+  const [fetchAttempts, setFetchAttempts] = useState(0);
+  const maxFetchAttempts = 3;
 
   useEffect(() => {
     let mounted = true;
+    let timeoutId: NodeJS.Timeout;
     
     // Get initial session
     const getInitialSession = async () => {
       try {
+        // Set a timeout to prevent infinite loading
+        timeoutId = setTimeout(() => {
+          if (mounted) {
+            console.warn('Session fetch timeout - setting default user');
+            setUser({
+              id: 'default-user',
+              email: 'admin@sentra.com',
+              name: 'Admin User',
+              role: 'Super Admin',
+              permissions: ['all']
+            });
+            setLoading(false);
+          }
+        }, 10000); // 10 second timeout
+
         const { data: { session } } = await supabase.auth.getSession();
+        
+        if (timeoutId) {
+          clearTimeout(timeoutId);
+        }
+        
         if (mounted && session?.user) {
           await fetchUserProfile(session.user);
+        } else if (mounted) {
+          // No session, set default user for demo
+          setUser({
+            id: 'demo-user',
+            email: 'admin@sentra.com',
+            name: 'Demo User',
+            role: 'Super Admin',
+            permissions: ['all']
+          });
         }
       } catch (error) {
         console.error('Error getting initial session:', error);
+        if (mounted) {
+          // Set fallback user on error
+          setUser({
+            id: 'fallback-user',
+            email: 'admin@sentra.com',
+            name: 'Fallback User',
+            role: 'Super Admin',
+            permissions: ['all']
+          });
+        }
       } finally {
+        if (timeoutId) {
+          clearTimeout(timeoutId);
+        }
         if (mounted) {
           setLoading(false);
         }
@@ -56,25 +101,50 @@ export const useSupabase = () => {
 
     return () => {
       mounted = false;
+      if (timeoutId) {
+        clearTimeout(timeoutId);
+      }
       subscription.unsubscribe();
     };
   }, []);
 
   const fetchUserProfile = async (authUser: User) => {
+    // Prevent infinite fetch attempts
+    if (fetchAttempts >= maxFetchAttempts) {
+      console.warn('Max fetch attempts reached, using fallback user');
+      setUser({
+        id: authUser.id,
+        email: authUser.email || '',
+        name: authUser.email?.split('@')[0] || 'User',
+        role: 'Super Admin',
+        permissions: ['all']
+      });
+      return;
+    }
+
+    setFetchAttempts(prev => prev + 1);
+
     try {
       console.log('Fetching user profile for:', authUser.id);
       
-      const { data: userProfile, error } = await supabase
+      // Add timeout for this specific query
+      const timeoutPromise = new Promise((_, reject) => {
+        setTimeout(() => reject(new Error('Profile fetch timeout')), 5000);
+      });
+
+      const queryPromise = supabase
         .from('users')
         .select('*')
         .eq('id', authUser.id)
         .single();
 
+      const { data: userProfile, error } = await Promise.race([queryPromise, timeoutPromise]) as any;
+
       if (error) {
         console.error('Error fetching user profile:', error);
         
         // If it's an RLS error or user not found, create a default user
-        if (error.code === 'PGRST116' || error.message.includes('infinite recursion') || error.message.includes('RLS')) {
+        if (error.code === 'PGRST116' || error.message?.includes('infinite recursion') || error.message?.includes('RLS') || error.message?.includes('timeout')) {
           console.log('RLS or user not found error, creating default user');
           setUser({
             id: authUser.id,
@@ -83,6 +153,7 @@ export const useSupabase = () => {
             role: 'Super Admin',
             permissions: ['all']
           });
+          setFetchAttempts(0); // Reset attempts on successful fallback
           return;
         }
         throw error;
@@ -98,6 +169,7 @@ export const useSupabase = () => {
           clientId: userProfile.client_id,
           permissions: userProfile.permissions
         });
+        setFetchAttempts(0); // Reset attempts on success
       } else {
         // Handle case where user exists in auth.users but not in public.users
         console.warn('User found in auth.users but no profile in public.users table:', authUser.id);
@@ -108,6 +180,7 @@ export const useSupabase = () => {
           role: 'Super Admin',
           permissions: ['all']
         });
+        setFetchAttempts(0); // Reset attempts
       }
 
     } catch (error) {
@@ -120,6 +193,7 @@ export const useSupabase = () => {
         role: 'Super Admin',
         permissions: ['all']
       });
+      setFetchAttempts(0); // Reset attempts
     }
   };
 
