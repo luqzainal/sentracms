@@ -34,16 +34,15 @@ const ClientModal: React.FC<ClientModalProps> = ({ client, onClose, onSave }) =>
     fetchTags();
     
     if (client) {
-      // For existing clients, show dots if they have a password
-      const hasPassword = !!(client.password || client.storedPassword);
+      setFormData({
+        name: client.name || '',
         businessName: client.businessName || '',
         email: client.email || '',
         phone: client.phone || '',
         status: client.status || 'Complete',
-        packageName: client.packageName || '',
         tags: client.tags || [],
         newTag: '',
-        username: client.username || '',
+      });
     } else {
       // Set default values for new client
       setFormData({
