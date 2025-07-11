@@ -838,6 +838,39 @@ export const useAppStore = create<AppState>((set, get) => ({
 
   addComponent: async (componentData) => {
     try {
+      // If it's a mock client (negative ID), only create locally
+      if (componentData.clientId < 0) {
+        const mockComponent: Component = {
+          id: `comp-${-Date.now()}`, // Negative timestamp for mock ID
+          clientId: componentData.clientId,
+          name: componentData.name,
+          price: componentData.price,
+          active: componentData.active
+        };
+        
+        set((state) => ({
+          components: [...state.components, mockComponent]
+        }));
+
+        // Auto-create local progress step for this component
+        const mockProgressStep: ProgressStep = {
+          id: `step-${-Date.now()}`, // Negative timestamp for mock ID
+          clientId: componentData.clientId,
+          title: componentData.name,
+          description: `Complete setup and configuration for ${componentData.name}`,
+          deadline: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(), // 7 days from now
+          completed: false,
+          important: false,
+          comments: []
+        };
+        
+        set((state) => ({
+          progressSteps: [...state.progressSteps, mockProgressStep]
+        }));
+        
+        return;
+      }
+
       const dbComponent = {
         client_id: componentData.clientId,
         name: componentData.name,
@@ -967,6 +1000,26 @@ export const useAppStore = create<AppState>((set, get) => ({
 
   addProgressStep: async (stepData) => {
     try {
+      // If it's a mock client (negative ID), only create locally
+      if (stepData.clientId < 0) {
+        const mockStep: ProgressStep = {
+          id: `step-${-Date.now()}`, // Negative timestamp for mock ID
+          clientId: stepData.clientId,
+          title: stepData.title,
+          description: stepData.description,
+          deadline: stepData.deadline,
+          completed: stepData.completed,
+          important: stepData.important,
+          comments: stepData.comments || []
+        };
+        
+        set((state) => ({
+          progressSteps: [...state.progressSteps, mockStep]
+        }));
+        
+        return;
+      }
+
       const dbStep = {
         client_id: stepData.clientId,
         title: stepData.title,
