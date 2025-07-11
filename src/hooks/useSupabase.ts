@@ -178,6 +178,7 @@ export const useSupabase = () => {
           email: authUser.email || '',
           name: authUser.email?.split('@')[0] || 'User',
           role: 'Super Admin',
+          clientId: undefined,
           permissions: ['all']
         });
         setFetchAttempts(0); // Reset attempts
@@ -195,6 +196,7 @@ export const useSupabase = () => {
         email: authUser.email || '',
         name: authUser.email?.split('@')[0] || 'User',
         role: 'Super Admin',
+        clientId: undefined,
         permissions: ['all']
       });
       setFetchAttempts(0); // Reset attempts

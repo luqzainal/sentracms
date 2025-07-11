@@ -8,6 +8,7 @@ import CalendarPage from './components/Calendar/CalendarPage';
 import ChatPage from './components/Chat/ChatPage';
 import ReportsPage from './components/Reports/ReportsPage';
 import SettingsPage from './components/Settings/SettingsPage';
+import ClientDashboard from './components/ClientPortal/ClientDashboard';
 
 function App() {
   const { user, loading, signOut, isAuthenticated } = useSupabase();
@@ -26,6 +27,17 @@ function App() {
   };
 
   const renderContent = () => {
+    // If user is a client, show client dashboard
+    if (user && (user.role === 'Client Admin' || user.role === 'Client Team')) {
+      return (
+        <ClientDashboard
+          user={user}
+          onBack={handleLogout}
+        />
+      );
+    }
+
+    // Otherwise show admin dashboard
     switch (activeTab) {
       case 'dashboard':
         return <Dashboard setActiveTab={setActiveTab} onToggleSidebar={toggleSidebar} />;
@@ -57,6 +69,15 @@ function App() {
   }
   if (!isAuthenticated) {
     return <Login />;
+  }
+
+  // If user is a client, don't show sidebar
+  if (user && (user.role === 'Client Admin' || user.role === 'Client Team')) {
+    return (
+      <div className="min-h-screen bg-slate-100">
+        {renderContent()}
+      </div>
+    );
   }
 
   return (
