@@ -347,6 +347,51 @@ export const chatService = {
   }
 };
 
+// Tag services
+export const tagService = {
+  async getAll() {
+    const { data, error } = await supabase
+      .from('tags')
+      .select('*')
+      .order('name', { ascending: true });
+    
+    if (error) throw error;
+    return data;
+  },
+
+  async create(tag: any) {
+    const { data, error } = await supabase
+      .from('tags')
+      .insert(tag)
+      .select()
+      .single();
+    
+    if (error) throw error;
+    return data;
+  },
+
+  async update(id: string, updates: any) {
+    const { data, error } = await supabase
+      .from('tags')
+      .update(updates)
+      .eq('id', id)
+      .select()
+      .single();
+    
+    if (error) throw error;
+    return data;
+  },
+
+  async delete(id: string) {
+    const { error } = await supabase
+      .from('tags')
+      .delete()
+      .eq('id', id);
+    
+    if (error) throw error;
+  }
+};
+
 // User services
 export const userService = {
   async getAll() {

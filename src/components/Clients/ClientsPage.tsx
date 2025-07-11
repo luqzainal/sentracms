@@ -25,7 +25,9 @@ const ClientsPage: React.FC<ClientsPageProps> = ({ setActiveTab, onToggleSidebar
   const { 
     clients, 
     loading,
+    tags,
     fetchClients,
+    fetchTags,
     fetchProgressSteps,
     progressSteps, 
     addClient, 
@@ -38,8 +40,9 @@ const ClientsPage: React.FC<ClientsPageProps> = ({ setActiveTab, onToggleSidebar
   useEffect(() => {
     // Fetch initial data
     fetchClients();
+    fetchTags();
     fetchProgressSteps();
-  }, [fetchClients, fetchProgressSteps]);
+  }, [fetchClients, fetchTags, fetchProgressSteps]);
 
   // Helper function to check if a step is overdue
   const isStepOverdue = (step: any) => {
@@ -91,7 +94,7 @@ const ClientsPage: React.FC<ClientsPageProps> = ({ setActiveTab, onToggleSidebar
   });
 
   const uniquePackageNames = [...new Set(clients.map(client => client.packageName).filter(Boolean))];
-  const uniqueTags = [...new Set(clients.flatMap(client => client.tags || []).filter(Boolean))];
+  const uniqueTags = tags.map(tag => tag.name);
 
   const handleAddClient = () => {
     setSelectedClient(null);

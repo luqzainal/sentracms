@@ -7,7 +7,8 @@ import {
   progressStepService, 
   calendarEventService, 
   chatService, 
-  userService 
+  userService,
+  tagService
 } from '../services/supabaseService';
 
 export interface Client {
@@ -121,6 +122,14 @@ export interface User {
   clientId?: number;
 }
 
+export interface Tag {
+  id: string;
+  name: string;
+  color: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
 interface AppState {
   // Data
   clients: Client[];
@@ -131,6 +140,7 @@ interface AppState {
   progressSteps: ProgressStep[];
   chats: Chat[];
   users: User[];
+  tags: Tag[];
   
   // Loading states
   loading: {
@@ -142,6 +152,7 @@ interface AppState {
     progressSteps: boolean;
     chats: boolean;
     users: boolean;
+    tags: boolean;
   };
   
   // Actions
@@ -182,6 +193,11 @@ interface AppState {
   addUser: (user: Omit<User, 'id'>) => Promise<void>;
   updateUser: (id: string, user: Partial<User>) => Promise<void>;
   deleteUser: (id: string) => Promise<void>;
+  
+  fetchTags: () => Promise<void>;
+  addTag: (tag: Omit<Tag, 'id' | 'createdAt' | 'updatedAt'>) => Promise<void>;
+  updateTag: (id: string, tag: Partial<Tag>) => Promise<void>;
+  deleteTag: (id: string) => Promise<void>;
   
   // Computed values
   getTotalSales: () => number;
@@ -306,6 +322,14 @@ const transformDbUser = (dbUser: any): User => ({
   clientId: dbUser.client_id
 });
 
+const transformDbTag = (dbTag: any): Tag => ({
+  id: dbTag.id,
+  name: dbTag.name,
+  color: dbTag.color,
+  createdAt: dbTag.created_at,
+  updatedAt: dbTag.updated_at
+});
+
 export const useAppStore = create<AppState>((set, get) => ({
   // Initial empty data
   clients: [],
@@ -316,6 +340,7 @@ export const useAppStore = create<AppState>((set, get) => ({
   progressSteps: [],
   chats: [],
   users: [],
+  tags: [],
   
   // Loading states
   loading: {
@@ -327,6 +352,7 @@ export const useAppStore = create<AppState>((set, get) => ({
     progressSteps: false,
     chats: false,
     users: false,
+    tags: false,
   },
 
   // Client actions
@@ -1433,6 +1459,71 @@ export const useAppStore = create<AppState>((set, get) => ({
       }));
     } catch (error) {
       console.error('Error deleting user:', error);
+      throw error;
+    }
+  },
+
+  // Tag actions
+  fetchTags: async () => {
+    set((state) => ({ loading: { ...state.loading, tags: true } }));
+    try {
+      const data = await tagService.getAll();
+      const tags = data.map(transformDbTag);
+      set({ tags });
+    } catch (error) {
+      console.error('Error fetching tags:', error);
+    } finally {
+      set((state) => ({ loading: { ...state.loading, tags: false } }));
+    }
+  },
+
+  addTag: async (tagData) => {
+    try {
+      const dbTag = {
+        name: tagData.name,
+        color: tagData.color
+      };
+      
+      const newTag = await tagService.create(dbTag);
+      const transformedTag = transformDbTag(newTag);
+      
+      set((state) => ({
+        tags: [...state.tags, transformedTag]
+      }));
+    } catch (error) {
+      console.error('Error adding tag:', error);
+      throw error;
+    }
+  },
+
+  updateTag: async (id, updates) => {
+    try {
+      const dbUpdates: any = {};
+      if (updates.name) dbUpdates.name = updates.name;
+      if (updates.color) dbUpdates.color = updates.color;
+
+      const updatedTag = await tagService.update(id, dbUpdates);
+      const transformedTag = transformDbTag(updatedTag);
+      
+      set((state) => ({
+        tags: state.tags.map(tag => 
+          tag.id === id ? transformedTag : tag
+        )
+      }));
+    } catch (error) {
+      console.error('Error updating tag:', error);
+      throw error;
+    }
+  },
+
+  deleteTag: async (id) => {
+    try {
+      await tagService.delete(id);
+      set((state) => ({
+        tags: state.tags.filter(tag => tag.id !== id)
+      }));
+    } catch (error) {
+      console.error('Error deleting tag:', error);
       throw error;
     }
   },

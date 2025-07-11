@@ -16,9 +16,11 @@ const Dashboard: React.FC<DashboardProps> = ({ setActiveTab, onToggleSidebar }) 
   const { 
     clients,
     chats,
+    tags,
     loading,
     fetchClients,
     fetchChats,
+    fetchTags,
     getTotalSales, 
     getTotalCollection, 
     getTotalBalance 
@@ -28,7 +30,8 @@ const Dashboard: React.FC<DashboardProps> = ({ setActiveTab, onToggleSidebar }) 
     // Fetch initial data
     fetchClients();
     fetchChats();
-  }, [fetchClients, fetchChats]);
+    fetchTags();
+  }, [fetchClients, fetchChats, fetchTags]);
 
   // Calculate metrics
   const totalSales = getTotalSales();

@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { X, User, Mail, Phone, Building, DollarSign, Lock, RefreshCw, Eye, EyeOff } from 'lucide-react';
+import { X, User, Mail, Phone, Building, DollarSign, Lock, RefreshCw, Eye, EyeOff, Plus, Trash2, Palette } from 'lucide-react';
 import { useAppStore } from '../../store/AppStore';
 
 interface ClientModalProps {
@@ -9,7 +9,7 @@ interface ClientModalProps {
 }
 
 const ClientModal: React.FC<ClientModalProps> = ({ client, onClose, onSave }) => {
-  const { users } = useAppStore();
+  const { users, tags, fetchTags, addTag, deleteTag } = useAppStore();
   
   const [formData, setFormData] = useState({
     name: '',
@@ -26,11 +26,18 @@ const ClientModal: React.FC<ClientModalProps> = ({ client, onClose, onSave }) =>
     showPassword: false,
     storedPassword: '' // Store the actual password for existing clients
   });
+  
+  const [showTagManager, setShowTagManager] = useState(false);
+  const [newTagName, setNewTagName] = useState('');
+  const [newTagColor, setNewTagColor] = useState('#3B82F6');
 
   // Filter users to get only Team role users
   const teamUsers = users.filter(user => user.role === 'Team');
 
   useEffect(() => {
+    // Fetch tags when component mounts
+    fetchTags();
+    
     if (client) {
       // For existing clients, show dots if they have a password
       const hasPassword = !!(client.password || client.storedPassword);
@@ -67,7 +74,7 @@ const ClientModal: React.FC<ClientModalProps> = ({ client, onClose, onSave }) =>
         storedPassword: ''
       });
     }
-  }, [client]);
+  }, [client, fetchTags]);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -159,13 +166,47 @@ const ClientModal: React.FC<ClientModalProps> = ({ client, onClose, onSave }) =>
     }
   };
 
-  const handleAddTag = () => {
+  const handleAddExistingTag = (tagName: string) => {
+    if (!formData.tags.includes(tagName)) {
+      setFormData(prev => ({
+        ...prev,
+        tags: [...prev.tags, tagName]
+      }));
+    }
+  };
+
+  const handleAddNewTag = () => {
     if (formData.newTag.trim() && !formData.tags.includes(formData.newTag.trim())) {
       setFormData(prev => ({
         ...prev,
         tags: [...prev.tags, prev.newTag.trim()],
         newTag: ''
       }));
+    }
+  };
+
+  const handleCreateGlobalTag = async () => {
+    if (newTagName.trim()) {
+      try {
+        await addTag({
+          name: newTagName.trim(),
+          color: newTagColor
+        });
+        setNewTagName('');
+        setNewTagColor('#3B82F6');
+      } catch (error) {
+        alert('Error creating tag. It might already exist.');
+      }
+    }
+  };
+
+  const handleDeleteGlobalTag = async (tagId: string) => {
+    if (confirm('Are you sure you want to delete this tag? It will be removed from all clients.')) {
+      try {
+        await deleteTag(tagId);
+      } catch (error) {
+        alert('Error deleting tag.');
+      }
     }
   };
 
@@ -179,9 +220,12 @@ const ClientModal: React.FC<ClientModalProps> = ({ client, onClose, onSave }) =>
   const handleTagKeyPress = (e: React.KeyboardEvent) => {
     if (e.key === 'Enter') {
       e.preventDefault();
-      handleAddTag();
+      handleAddNewTag();
     }
   };
+
+  const availableTags = tags.filter(tag => !formData.tags.includes(tag.name));
+
   return (
     <div className="fixed inset-0 w-full h-full bg-black bg-opacity-60 flex items-center justify-center p-4 z-50 backdrop-blur-sm">
       <div className="bg-white rounded-xl shadow-2xl w-full max-w-2xl max-h-[90vh] overflow-y-auto">
@@ -307,8 +351,32 @@ const ClientModal: React.FC<ClientModalProps> = ({ client, onClose, onSave }) =>
                 <label className="block text-sm font-medium text-slate-700 mb-2">
                   Tags
                 </label>
-                <div className="space-y-3">
-                  <div className="flex space-x-2">
+                <div className="space-y-4">
+                  {/* Existing Tags Selection */}
+                  {availableTags.length > 0 && (
+                    <div>
+                      <p className="text-xs text-slate-600 mb-2">Select from existing tags:</p>
+                      <div className="flex flex-wrap gap-2 max-h-20 overflow-y-auto">
+                        {availableTags.map((tag) => (
+                          <button
+                            key={tag.id}
+                            type="button"
+                            onClick={() => handleAddExistingTag(tag.name)}
+                            className="inline-flex items-center px-2 py-1 text-xs rounded-full border border-slate-300 hover:bg-slate-50 transition-colors"
+                            style={{ borderColor: tag.color, color: tag.color }}
+                          >
+                            <span className="w-2 h-2 rounded-full mr-1" style={{ backgroundColor: tag.color }}></span>
+                            {tag.name}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                  
+                  {/* Add New Tag */}
+                  <div>
+                    <p className="text-xs text-slate-600 mb-2">Or create a new tag:</p>
+                    <div className="flex space-x-2">
                     <input
                     type="text"
                     value={formData.newTag}
@@ -316,22 +384,39 @@ const ClientModal: React.FC<ClientModalProps> = ({ client, onClose, onSave }) =>
                     onKeyPress={handleTagKeyPress}
                     name="newTag"
                     className="flex-1 px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none"
-                    placeholder="Add a tag (e.g., VIP, Premium, New)"
+                      placeholder="Enter new tag name"
                   />
                   <button
                     type="button"
-                    onClick={handleAddTag}
+                      onClick={handleAddNewTag}
                     className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
                   >
                     Add
                   </button>
                   </div>
+                  </div>
+                  
+                  {/* Tag Manager Button */}
+                  <div className="flex justify-between items-center">
+                    <button
+                      type="button"
+                      onClick={() => setShowTagManager(true)}
+                      className="text-sm text-blue-600 hover:text-blue-700 flex items-center space-x-1"
+                    >
+                      <Palette className="w-4 h-4" />
+                      <span>Manage Global Tags</span>
+                    </button>
+                  </div>
+                  
+                  {/* Selected Tags */}
                   {formData.tags.length > 0 && (
+                    <div>
+                      <p className="text-xs text-slate-600 mb-2">Selected tags:</p>
                     <div className="flex flex-wrap gap-2">
                       {formData.tags.map((tag, index) => (
                         <span
                           key={index}
-                          className="inline-flex items-center px-3 py-1 bg-blue-100 text-blue-800 text-sm rounded-full"
+                          className="inline-flex items-center px-3 py-1 bg-blue-100 text-blue-800 text-sm rounded-full border"
                         >
                           {tag}
                           <button
@@ -343,6 +428,7 @@ const ClientModal: React.FC<ClientModalProps> = ({ client, onClose, onSave }) =>
                           </button>
                         </span>
                       ))}
+                    </div>
                     </div>
                   )}
                 </div>
@@ -465,6 +551,83 @@ const ClientModal: React.FC<ClientModalProps> = ({ client, onClose, onSave }) =>
             </button>
           </div>
         </form>
+        
+        {/* Tag Manager Modal */}
+        {showTagManager && (
+          <div className="fixed inset-0 w-full h-full bg-black bg-opacity-60 flex items-center justify-center p-4 z-50 backdrop-blur-sm">
+            <div className="bg-white rounded-xl shadow-2xl w-full max-w-md max-h-[80vh] overflow-y-auto">
+              <div className="flex items-center justify-between p-6 border-b border-slate-200">
+                <h3 className="text-lg font-semibold text-slate-900">Manage Global Tags</h3>
+                <button
+                  onClick={() => setShowTagManager(false)}
+                  className="p-2 hover:bg-slate-100 rounded-lg transition-colors"
+                >
+                  <X className="w-5 h-5 text-slate-500" />
+                </button>
+              </div>
+              
+              <div className="p-6 space-y-6">
+                {/* Create New Global Tag */}
+                <div>
+                  <h4 className="text-sm font-medium text-slate-700 mb-3">Create New Global Tag</h4>
+                  <div className="space-y-3">
+                    <input
+                      type="text"
+                      value={newTagName}
+                      onChange={(e) => setNewTagName(e.target.value)}
+                      placeholder="Tag name"
+                      className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none"
+                    />
+                    <div className="flex items-center space-x-3">
+                      <label className="text-sm text-slate-600">Color:</label>
+                      <input
+                        type="color"
+                        value={newTagColor}
+                        onChange={(e) => setNewTagColor(e.target.value)}
+                        className="w-8 h-8 border border-slate-300 rounded cursor-pointer"
+                      />
+                      <button
+                        type="button"
+                        onClick={handleCreateGlobalTag}
+                        disabled={!newTagName.trim()}
+                        className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                      >
+                        Create
+                      </button>
+                    </div>
+                  </div>
+                </div>
+                
+                {/* Existing Global Tags */}
+                <div>
+                  <h4 className="text-sm font-medium text-slate-700 mb-3">Existing Global Tags</h4>
+                  <div className="space-y-2 max-h-60 overflow-y-auto">
+                    {tags.map((tag) => (
+                      <div key={tag.id} className="flex items-center justify-between p-3 border border-slate-200 rounded-lg">
+                        <div className="flex items-center space-x-3">
+                          <span 
+                            className="w-4 h-4 rounded-full" 
+                            style={{ backgroundColor: tag.color }}
+                          ></span>
+                          <span className="text-slate-900">{tag.name}</span>
+                        </div>
+                        <button
+                          onClick={() => handleDeleteGlobalTag(tag.id)}
+                          className="p-1 text-red-500 hover:text-red-700 transition-colors"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+                      </div>
+                    ))}
+                    {tags.length === 0 && (
+                      <p className="text-slate-500 text-center py-4">No global tags created yet</p>
+                    )}
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );
