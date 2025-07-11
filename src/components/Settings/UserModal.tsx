@@ -72,7 +72,7 @@ const UserModal: React.FC<UserModalProps> = ({ user, onClose, onSave }) => {
       }
       
       // Initialize dashboard access for Team users
-      if (user.role === 'Team') {
+      if (user && (user.role === 'Team' || user.role === 'Super Admin')) {
         setDashboardAccess({
           username: user.email, // Default to email as username
           dashboardPassword: '',
@@ -147,7 +147,7 @@ const UserModal: React.FC<UserModalProps> = ({ user, onClose, onSave }) => {
     }
     
     // Update dashboard username when email changes for Team users
-    if (name === 'email' && formData.role === 'Team') {
+    if (name === 'email' && (formData.role === 'Team' || formData.role === 'Super Admin')) {
       setDashboardAccess(prev => ({
         ...prev,
         username: value
@@ -231,8 +231,8 @@ const UserModal: React.FC<UserModalProps> = ({ user, onClose, onSave }) => {
       }
     }
 
-    // Validate dashboard access for Team users
-    if (formData.role === 'Team') {
+    // Validate dashboard access for Team and Super Admin users
+    if (formData.role === 'Team' || formData.role === 'Super Admin') {
       if (!dashboardAccess.username.trim()) {
         newErrors.dashboardUsername = 'Dashboard username is required';
       }
@@ -245,8 +245,8 @@ const UserModal: React.FC<UserModalProps> = ({ user, onClose, onSave }) => {
           newErrors.confirmDashboardPassword = 'Dashboard passwords do not match';
         }
       } else if (!user) {
-        // Require dashboard password for new Team users
-        newErrors.dashboardPassword = 'Dashboard password is required for new Team users';
+        // Require dashboard password for new Team and Super Admin users
+        newErrors.dashboardPassword = 'Dashboard password is required for new users';
       }
     }
 
@@ -285,7 +285,7 @@ const UserModal: React.FC<UserModalProps> = ({ user, onClose, onSave }) => {
     }
     
     // Include dashboard access data for Team users
-    if (formData.role === 'Team') {
+    if (formData.role === 'Team' || formData.role === 'Super Admin') {
       (userData as any).dashboardAccess = {
         username: dashboardAccess.username,
         password: dashboardAccess.dashboardPassword || undefined,
@@ -648,14 +648,14 @@ const UserModal: React.FC<UserModalProps> = ({ user, onClose, onSave }) => {
             </div>
           )}
 
-          {/* Dashboard Access - Only show for Team role */}
-          {formData.role === 'Team' && (
+          {/* Dashboard Access - Show for Team and Super Admin roles */}
+          {(formData.role === 'Team' || formData.role === 'Super Admin') && (
             <div className="space-y-4">
               <h3 className="text-lg font-medium text-slate-900">Dashboard Access</h3>
               
               <div className="bg-blue-50 rounded-lg p-4 border border-blue-200">
                 <p className="text-xs text-slate-600">
-                  Team users automatically have access to the dashboard with separate login credentials
+                  {formData.role === 'Super Admin' ? 'Super Admin users' : 'Team users'} automatically have access to the dashboard with separate login credentials
                 </p>
               </div>
               
@@ -769,7 +769,7 @@ const UserModal: React.FC<UserModalProps> = ({ user, onClose, onSave }) => {
                   <div className="bg-yellow-50 rounded-lg p-3 border border-yellow-200">
                     <p className="text-xs text-yellow-800">
                       <strong>Note:</strong> Dashboard credentials are separate from system login credentials. 
-                      Team members will use these credentials to access their dashboard.
+                      {formData.role === 'Super Admin' ? 'Super Admin users' : 'Team members'} will use these credentials to access their dashboard.
                     </p>
                   </div>
               </div>
