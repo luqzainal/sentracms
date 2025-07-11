@@ -184,7 +184,11 @@ export const useSupabase = () => {
       }
 
     } catch (error) {
-      console.error('Error in fetchUserProfile:', error);
+      if (error instanceof Error && error.message === 'Profile fetch timeout') {
+        console.warn('Profile fetch timeout - using fallback user:', error.message);
+      } else {
+        console.error('Error in fetchUserProfile:', error);
+      }
       // Set a default user if there's an error
       setUser({
         id: authUser.id,
