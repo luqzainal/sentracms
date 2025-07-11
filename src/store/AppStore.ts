@@ -568,6 +568,16 @@ export const useAppStore = create<AppState>((set, get) => ({
 
   updateInvoice: async (id, updates) => {
     try {
+      // If it's a mock invoice (starts with 'INV-' and has negative timestamp), only update locally
+      if (id.startsWith('INV-') && id.includes('-')) {
+        set((state) => ({
+          invoices: state.invoices.map(invoice => 
+            invoice.id === id ? { ...invoice, ...updates } : invoice
+          )
+        }));
+        return;
+      }
+
       const dbUpdates: any = {};
       if (updates.packageName) dbUpdates.package_name = updates.packageName;
       if (updates.amount !== undefined) dbUpdates.amount = updates.amount;
@@ -591,6 +601,30 @@ export const useAppStore = create<AppState>((set, get) => ({
 
   deleteInvoice: async (id) => {
     try {
+      // If it's a mock invoice (starts with 'INV-' and has negative timestamp), only delete locally
+      if (id.startsWith('INV-') && id.includes('-')) {
+        const { invoices, updateClient, getClientById } = get();
+        const invoice = invoices.find(inv => inv.id === id);
+        
+        if (invoice) {
+          // Update client totals before deleting
+          const client = getClientById(invoice.clientId);
+          if (client) {
+            await updateClient(invoice.clientId, {
+              invoiceCount: Math.max(0, client.invoiceCount - 1),
+              totalSales: Math.max(0, client.totalSales - invoice.amount),
+              balance: Math.max(0, client.balance - invoice.due)
+            });
+          }
+        }
+
+        set((state) => ({
+          invoices: state.invoices.filter(invoice => invoice.id !== id),
+          payments: state.payments.filter(payment => payment.invoiceId !== id)
+        }));
+        return;
+      }
+
       const { invoices, updateClient, getClientById } = get();
       const invoice = invoices.find(inv => inv.id === id);
       
@@ -742,6 +776,16 @@ export const useAppStore = create<AppState>((set, get) => ({
 
   updatePayment: async (id, updates) => {
     try {
+      // If it's a mock payment (starts with 'PAY-' and has negative timestamp), only update locally
+      if (id.startsWith('PAY-') && id.includes('-')) {
+        set((state) => ({
+          payments: state.payments.map(payment => 
+            payment.id === id ? { ...payment, ...updates } : payment
+          )
+        }));
+        return;
+      }
+
       const dbUpdates: any = {};
       if (updates.amount !== undefined) dbUpdates.amount = updates.amount;
       if (updates.paymentSource) dbUpdates.payment_source = updates.paymentSource;
@@ -764,6 +808,41 @@ export const useAppStore = create<AppState>((set, get) => ({
 
   deletePayment: async (id) => {
     try {
+      // If it's a mock payment (starts with 'PAY-' and has negative timestamp), only delete locally
+      if (id.startsWith('PAY-') && id.includes('-')) {
+        const { payments, updateInvoice, updateClient, getClientById, invoices } = get();
+        const payment = payments.find(p => p.id === id);
+        
+        if (payment) {
+          // Revert invoice and client totals
+          const invoice = invoices.find(inv => inv.id === payment.invoiceId);
+          if (invoice) {
+            const newPaid = Math.max(0, invoice.paid - payment.amount);
+            const newDue = invoice.amount - newPaid;
+            const newStatus = newDue === 0 ? 'Paid' : newPaid > 0 ? 'Partial' : 'Pending';
+            
+            await updateInvoice(payment.invoiceId, {
+              paid: newPaid,
+              due: newDue,
+              status: newStatus as 'Paid' | 'Partial' | 'Pending' | 'Overdue'
+            });
+
+            const client = getClientById(payment.clientId);
+            if (client) {
+              await updateClient(payment.clientId, {
+                totalCollection: Math.max(0, client.totalCollection - payment.amount),
+                balance: client.balance + payment.amount
+              });
+            }
+          }
+        }
+
+        set((state) => ({
+          payments: state.payments.filter(payment => payment.id !== id)
+        }));
+        return;
+      }
+
       const { payments, updateInvoice, updateClient, getClientById, invoices } = get();
       const payment = payments.find(p => p.id === id);
       
@@ -999,6 +1078,16 @@ export const useAppStore = create<AppState>((set, get) => ({
 
   updateComponent: async (id, updates) => {
     try {
+      // If it's a mock component (starts with 'comp-' and has negative timestamp), only update locally
+      if (id.startsWith('comp-') && id.includes('-')) {
+        set((state) => ({
+          components: state.components.map(component => 
+            component.id === id ? { ...component, ...updates } : component
+          )
+        }));
+        return;
+      }
+
       const dbUpdates: any = {};
       if (updates.name) dbUpdates.name = updates.name;
       if (updates.price) dbUpdates.price = updates.price;
@@ -1020,6 +1109,14 @@ export const useAppStore = create<AppState>((set, get) => ({
 
   deleteComponent: async (id) => {
     try {
+      // If it's a mock component (starts with 'comp-' and has negative timestamp), only delete locally
+      if (id.startsWith('comp-') && id.includes('-')) {
+        set((state) => ({
+          components: state.components.filter(component => component.id !== id)
+        }));
+        return;
+      }
+
       await componentService.delete(id);
       set((state) => ({
         components: state.components.filter(component => component.id !== id)
@@ -1182,6 +1279,14 @@ export const useAppStore = create<AppState>((set, get) => ({
 
   deleteProgressStep: async (id) => {
     try {
+      // If it's a mock progress step (starts with 'step-' and has negative timestamp), only delete locally
+      if (id.startsWith('step-') && id.includes('-')) {
+        set((state) => ({
+          progressSteps: state.progressSteps.filter(step => step.id !== id)
+        }));
+        return;
+      }
+
       await progressStepService.delete(id);
       set((state) => ({
         progressSteps: state.progressSteps.filter(step => step.id !== id)
