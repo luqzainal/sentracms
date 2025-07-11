@@ -333,8 +333,9 @@ export const useAppStore = create<AppState>((set, get) => ({
     try {
       // Bypass client fetching due to RLS infinite recursion issue
       // Set empty clients array to prevent loading indefinitely
-      console.log('Bypassing client fetch due to RLS recursion issue');
-      set({ clients: [] });
+     const data = await clientService.getAll();
+const clients = data.map(transformDbClient);
+set({ clients });
     } catch (error) {
       console.error('Error fetching clients:', error);
       // Set empty array on error to prevent infinite loading
@@ -1005,8 +1006,18 @@ export const useAppStore = create<AppState>((set, get) => ({
     try {
       // Bypass chat fetching due to RLS infinite recursion issue
       // Set empty chats array to prevent loading indefinitely
-      console.log('Bypassing chat fetch due to RLS recursion issue');
-      set({ chats: [] });
+    // Note: chatService.getAll() is currently bypassed in supabaseService.ts as well.
+// You might need to re-enable it there first if you want to fetch real chat data.
+// For now, if you just want to remove the store bypass, you can put:
+// const data = await chatService.getAll(); // This will still return [] due to service bypass
+// const chats = data.map(transformDbChat);
+// set({ chats });
+// Or, if you want to truly re-enable, you'd need to modify src/services/supabaseService.ts first.
+// For the purpose of removing the *store* bypass, you can put the service call.
+const data = await chatService.getAll();
+const chats = data.map(transformDbChat);
+set({ chats });
+
     } catch (error) {
       console.error('Error fetching chats:', error);
       // Set empty array on error to prevent infinite loading
