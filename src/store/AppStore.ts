@@ -502,6 +502,37 @@ export const useAppStore = create<AppState>((set, get) => ({
 
   addInvoice: async (invoiceData) => {
     try {
+      // If it's a mock client (negative ID), only create locally
+      if (invoiceData.clientId < 0) {
+        const mockInvoice: Invoice = {
+          id: `INV-${-Date.now()}`, // Negative timestamp for mock ID
+          clientId: invoiceData.clientId,
+          packageName: invoiceData.packageName,
+          amount: invoiceData.amount,
+          paid: invoiceData.paid || 0,
+          due: invoiceData.due,
+          status: invoiceData.status,
+          createdAt: invoiceData.createdAt || new Date().toISOString()
+        };
+        
+        set((state) => ({
+          invoices: [...state.invoices, mockInvoice]
+        }));
+
+        // Update client totals locally
+        const { updateClient, getClientById } = get();
+        const client = getClientById(invoiceData.clientId);
+        if (client) {
+          await updateClient(invoiceData.clientId, {
+            invoiceCount: client.invoiceCount + 1,
+            totalSales: client.totalSales + invoiceData.amount,
+            balance: client.balance + invoiceData.amount
+          });
+        }
+        
+        return;
+      }
+
       const dbInvoice = {
         client_id: invoiceData.clientId,
         package_name: invoiceData.packageName,
