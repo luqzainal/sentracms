@@ -10,6 +10,8 @@ const CalendarPage: React.FC<CalendarPageProps> = ({ onToggleSidebar }) => {
   const [currentDate, setCurrentDate] = useState(new Date());
   const [view, setView] = useState<'month' | 'week' | 'day'>('month');
   const [showNewEventModal, setShowNewEventModal] = useState(false);
+  const [showEventDetailsModal, setShowEventDetailsModal] = useState(false);
+  const [selectedEvent, setSelectedEvent] = useState<any>(null);
   const [eventFormData, setEventFormData] = useState({
     title: '',
     startDate: '',
@@ -71,6 +73,11 @@ const CalendarPage: React.FC<CalendarPageProps> = ({ onToggleSidebar }) => {
     return events.filter(event => event.date === dateStr);
   };
 
+  const handleEventClick = (event: any) => {
+    setSelectedEvent(event);
+    setShowEventDetailsModal(true);
+  };
+
   const renderCalendarDays = () => {
     const days = [];
     const totalCells = 42; // 6 weeks * 7 days
@@ -102,8 +109,9 @@ const CalendarPage: React.FC<CalendarPageProps> = ({ onToggleSidebar }) => {
             {dayEvents.map((event) => (
               <div
                 key={event.id}
-                className={`text-xs p-1 rounded border ${getEventTypeColor(event.type)} truncate`}
+                className={`text-xs p-1 rounded border ${getEventTypeColor(event.type)} truncate cursor-pointer hover:opacity-80 transition-opacity`}
                 title={`${event.title} - ${event.time}`}
+                onClick={() => handleEventClick(event)}
               >
                 {event.title}
               </div>
@@ -469,6 +477,95 @@ const CalendarPage: React.FC<CalendarPageProps> = ({ onToggleSidebar }) => {
         </div>
       )}
     </div>
+      {/* Event Details Modal */}
+      {showEventDetailsModal && selectedEvent && (
+        <div className="fixed inset-0 w-full h-full bg-black bg-opacity-60 flex items-center justify-center p-4 z-50 backdrop-blur-sm">
+          <div className="bg-white rounded-xl shadow-2xl w-full max-w-md">
+            <div className="flex items-center justify-between p-6 border-b border-slate-200">
+              <h3 className="text-xl font-semibold text-slate-900">Event Details</h3>
+              <button
+                onClick={() => setShowEventDetailsModal(false)}
+                className="p-2 hover:bg-slate-100 rounded-lg transition-colors"
+              >
+                <X className="w-5 h-5 text-slate-500" />
+              </button>
+            </div>
+            
+            <div className="p-6 space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-1">
+                  Title
+                </label>
+                <p className="text-slate-900 font-medium">{selectedEvent.title}</p>
+              </div>
+              
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-1">
+                  Date
+                </label>
+                <div className="flex items-center space-x-1 text-slate-900">
+                  <CalendarIcon className="w-4 h-4 text-slate-500" />
+                  <span>{new Date(selectedEvent.date).toLocaleDateString('en-US', {
+                    weekday: 'long',
+                    year: 'numeric',
+                    month: 'long',
+                    day: 'numeric'
+                  })}</span>
+                </div>
+              </div>
+              
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-1">
+                  Time
+                </label>
+                <div className="flex items-center space-x-1 text-slate-900">
+                  <Clock className="w-4 h-4 text-slate-500" />
+                  <span>{selectedEvent.time}</span>
+                </div>
+              </div>
+              
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-1">
+                  Client
+                </label>
+                <div className="flex items-center space-x-1 text-slate-900">
+                  <Users className="w-4 h-4 text-slate-500" />
+                  <span>{selectedEvent.client}</span>
+                </div>
+              </div>
+              
+              {selectedEvent.description && (
+                <div>
+                  <label className="block text-sm font-medium text-slate-700 mb-1">
+                    Description
+                  </label>
+                  <p className="text-slate-900 bg-slate-50 p-3 rounded-lg border border-slate-200">
+                    {selectedEvent.description}
+                  </p>
+                </div>
+              )}
+              
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-1">
+                  Event Type
+                </label>
+                <span className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-medium border ${getEventTypeColor(selectedEvent.type)}`}>
+                  {selectedEvent.type.charAt(0).toUpperCase() + selectedEvent.type.slice(1)}
+                </span>
+              </div>
+            </div>
+            
+            <div className="flex justify-end p-6 border-t border-slate-200">
+              <button
+                onClick={() => setShowEventDetailsModal(false)}
+                className="px-6 py-2 bg-slate-100 text-slate-700 rounded-lg hover:bg-slate-200 transition-colors font-medium"
+              >
+                Close
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
   );
 };
 
