@@ -126,6 +126,7 @@ const ClientProfile: React.FC<ClientProfileProps> = ({ clientId, onBack, onEdit 
 
   const handleDeleteComponent = (componentId: string) => {
     if (confirm('Are you sure you want to delete this component?')) {
+      // Delete only the specific component by its ID
       deleteComponent(componentId);
     }
   };
@@ -229,7 +230,10 @@ const ClientProfile: React.FC<ClientProfileProps> = ({ clientId, onBack, onEdit 
                   </div>
                   <div className="flex items-center space-x-2">
                     <button 
-                      onClick={() => handleDeleteComponent(component.id)}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleDeleteComponent(component.id);
+                      }}
                       className="p-1 text-red-500 hover:text-red-700 transition-colors"
                     >
                       <Trash2 className="w-4 h-4" />
