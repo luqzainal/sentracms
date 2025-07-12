@@ -352,7 +352,7 @@ export const useAppStore = create<AppState>((set, get) => ({
   ],
 
   progressSteps: [
-
+   ],
   calendarEvents: [
     {
       id: 'event-001',
