@@ -77,7 +77,7 @@ const Login: React.FC = () => {
       }}
     >
       {/* Main login container */}
-      <div className="relative z-10 w-full max-w-sm lg:max-w-md">        
+      <div className="relative z-10 w-full max-w-sm lg:max-w-md ml-8 lg:ml-16">        
         {/* Login card */}
         <div className="rounded-2xl shadow-2xl border border-red-500 overflow-hidden backdrop-blur-sm" style={{ backgroundColor: 'rgba(255, 255, 255, 0.95)' }}>
           {/* Header with brand colors */}
