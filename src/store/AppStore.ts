@@ -924,8 +924,24 @@ export const useAppStore = create<AppState>((set, get) => ({
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
     };
+    
+    // Create corresponding progress step for this component
+    const newProgressStep: ProgressStep = {
+      id: `step-${Date.now()}-comp`,
+      clientId: componentData.clientId,
+      title: componentData.name,
+      description: `Complete the ${componentData.name} component`,
+      deadline: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(), // 30 days from now
+      completed: false,
+      important: false,
+      comments: [],
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+    };
+    
     set((state) => ({
       components: [...state.components, newComponent],
+      progressSteps: [...state.progressSteps, newProgressStep],
     }));
   },
 
@@ -938,8 +954,24 @@ export const useAppStore = create<AppState>((set, get) => ({
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
     }));
+    
+    // Create corresponding progress steps for all components
+    const newProgressSteps: ProgressStep[] = componentsData.map((componentData, index) => ({
+      id: `step-${Date.now()}-comp-${index}`,
+      clientId: componentData.clientId,
+      title: componentData.name,
+      description: `Complete the ${componentData.name} component`,
+      deadline: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(), // 30 days from now
+      completed: false,
+      important: false,
+      comments: [],
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+    }));
+    
     set((state) => ({
       components: [...state.components, ...newComponents],
+      progressSteps: [...state.progressSteps, ...newProgressSteps],
     }));
   },
   updateComponent: (id, updates) => {
