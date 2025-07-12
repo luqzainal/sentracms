@@ -189,6 +189,7 @@ interface AppState {
   getPaymentsByClientId: (clientId: number) => Payment[];
 
   addComponent: (component: Omit<Component, 'id' | 'createdAt' | 'updatedAt'>) => void;
+  addComponents: (components: Omit<Component, 'id' | 'createdAt' | 'updatedAt'>[]) => void;
   updateComponent: (id: string, updates: Partial<Component>) => void;
   deleteComponent: (id: string) => void;
   getComponentsByClientId: (clientId: number) => Component[];
@@ -868,6 +869,8 @@ export const useAppStore = create<AppState>((set, get) => ({
     const newComponent: Component = {
       ...componentData,
       id: `comp-${Date.now()}`,
+      price: componentData.price || 'RM 0',
+      active: componentData.active !== undefined ? componentData.active : true,
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
     };
@@ -876,6 +879,19 @@ export const useAppStore = create<AppState>((set, get) => ({
     }));
   },
 
+  addComponents: (componentsData) => {
+    const newComponents: Component[] = componentsData.map((componentData, index) => ({
+      ...componentData,
+      id: `comp-${Date.now()}-${index}`,
+      price: componentData.price || 'RM 0',
+      active: componentData.active !== undefined ? componentData.active : true,
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+    }));
+    set((state) => ({
+      components: [...state.components, ...newComponents],
+    }));
+  },
   updateComponent: (id, updates) => {
     set((state) => ({
       components: state.components.map((component) =>

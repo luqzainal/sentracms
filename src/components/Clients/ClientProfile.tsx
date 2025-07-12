@@ -24,6 +24,7 @@ const ClientProfile: React.FC<ClientProfileProps> = ({ clientId, onBack, onEdit 
     addInvoice, 
     addPayment, 
     addComponent, 
+    addComponents,
     updateClient, 
     addCalendarEvent,
     getComponentsByInvoiceId 
@@ -77,12 +78,24 @@ const ClientProfile: React.FC<ClientProfileProps> = ({ clientId, onBack, onEdit 
   };
 
   const handleSaveComponent = (componentData: Partial<Component>) => {
-    if (showComponentModal) {
-      addComponent({
-        ...componentData,
-        clientId: client.id,
-        invoiceId: showComponentModal,
-      } as Component);
+    if (showComponentModal && componentData) {
+      // Check if componentData is an array (bulk add) or single component
+      if (Array.isArray(componentData)) {
+        // Bulk add components
+        const componentsWithClientAndInvoice = componentData.map(comp => ({
+          ...comp,
+          clientId: client.id,
+          invoiceId: showComponentModal,
+        }));
+        addComponents(componentsWithClientAndInvoice);
+      } else {
+        // Single component add
+        addComponent({
+          ...componentData,
+          clientId: client.id,
+          invoiceId: showComponentModal,
+        } as Component);
+      }
       setShowComponentModal(null);
     }
   };
