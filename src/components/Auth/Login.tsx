@@ -70,7 +70,7 @@ const Login: React.FC = () => {
       className="min-h-screen flex items-center justify-center p-4 lg:p-8"
       style={{
         backgroundImage: "url('/src/assets/Picture1 (1) copy copy copy.png')",
-        backgroundSize: 'cover',
+        backgroundSize: 'contain',
         backgroundPosition: 'center',
         backgroundRepeat: 'no-repeat',
         backgroundColor: '#f8fafc' // fallback color
