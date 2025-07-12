@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { ArrowLeft, Plus, Check, Edit, Trash2, Calendar, Clock, User, MessageCircle, Star, X, Upload, Link, FileText, Trash, Paperclip } from 'lucide-react';
 import { useAppStore } from '../../store/AppStore';
+import { useSupabase } from '../../hooks/useSupabase';
 
 interface ClientProgressTrackerProps {
   clientId: string;
@@ -14,6 +15,7 @@ interface ProgressStepWithHierarchy extends ProgressStep {
 }
 
 const ClientProgressTracker: React.FC<ClientProgressTrackerProps> = ({ clientId, onBack }) => {
+  const { user } = useSupabase();
   const [showAddStep, setShowAddStep] = useState(false);
   const [showEditStep, setShowEditStep] = useState(false);
   const [editingStepId, setEditingStepId] = useState<string | null>(null);
@@ -492,12 +494,14 @@ const ClientProgressTracker: React.FC<ClientProgressTrackerProps> = ({ clientId,
             >
               <Edit className="w-3 h-3 sm:w-4 sm:h-4" />
             </button>
-            <button 
-              onClick={() => handleDeleteStep(step.id)}
-              className="p-1 sm:p-1.5 text-red-500 hover:text-red-700 hover:bg-red-50 rounded-lg transition-all duration-200 border border-transparent hover:border-red-200"
-            >
-              <Trash2 className="w-3 h-3 sm:w-4 sm:h-4" />
-            </button>
+            {user && user.role !== 'Client Admin' && user.role !== 'Client Team' && (
+              <button 
+                onClick={() => handleDeleteStep(step.id)}
+                className="p-1 sm:p-1.5 text-red-500 hover:text-red-700 hover:bg-red-50 rounded-lg transition-all duration-200 border border-transparent hover:border-red-200"
+              >
+                <Trash2 className="w-3 h-3 sm:w-4 sm:h-4" />
+              </button>
+            )}
           </div>
         </div>
       </div>
