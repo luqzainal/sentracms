@@ -84,7 +84,7 @@ const Login: React.FC = () => {
           <div className="px-4 lg:px-8 py-6 lg:py-8 text-center" style={{ backgroundColor: 'rgba(255, 255, 255, 0.98)' }}>
             <div className="flex justify-center">
                 <img 
-                  src="/src/assets/AiChatbot (14).png" 
+                  src="/src/assets/AiChatbot (15).png" 
                   alt="Sentra Logo" 
                   className="w-full h-auto max-w-[200px] lg:max-w-xs"
                 />
