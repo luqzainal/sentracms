@@ -84,7 +84,7 @@ const Login: React.FC = () => {
       {/* Main login container */}
       <div className="relative z-10 w-full max-w-sm lg:max-w-md">        
         {/* Login card */}
-        <div className="rounded-2xl shadow-2xl border border-slate-200/20 overflow-hidden" style={{ backgroundColor: '#eded21' }}>
+        <div className="rounded-2xl shadow-2xl border border-red-500 overflow-hidden" style={{ backgroundColor: '#eded21' }}>
           {/* Header with brand colors */}
           <div className="bg-white px-4 lg:px-8 py-6 lg:py-8 text-center">
             <div className="flex justify-center">
