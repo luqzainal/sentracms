@@ -342,7 +342,6 @@ const ClientProfile: React.FC<ClientProfileProps> = ({ clientId, onBack, onEdit 
                         <Plus className="w-4 h-4" />
                         <span>Add Component</span>
                       </button>
-                    </div>
 
                     {/* Components List */}
                     <div className="space-y-2">
