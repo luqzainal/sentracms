@@ -760,13 +760,28 @@ export const useAppStore = create<AppState>((set, get) => ({
         client.id === invoiceData.clientId
           ? {
               ...client,
+              packageName: invoiceData.packageName, // Update client's package name
               totalSales: client.totalSales + invoiceData.amount,
               balance: client.balance + invoiceData.amount,
               invoiceCount: client.invoiceCount + 1,
+              // Auto-assign the package tag to the client
+              tags: client.tags && client.tags.includes(invoiceData.packageName) 
+                ? client.tags 
+                : [...(client.tags || []), invoiceData.packageName],
               updatedAt: new Date().toISOString(),
             }
           : client
       ),
+      // Auto-create tag with package name if it doesn't exist
+      tags: state.tags.some(tag => tag.name === invoiceData.packageName) 
+        ? state.tags 
+        : [...state.tags, {
+            id: `tag-${Date.now()}`,
+            name: invoiceData.packageName,
+            color: '#3B82F6', // Default blue color
+            createdAt: new Date().toISOString(),
+            updatedAt: new Date().toISOString(),
+          }]
     }));
   },
 
