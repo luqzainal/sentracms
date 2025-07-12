@@ -37,7 +37,7 @@ const Login: React.FC = () => {
     <div 
       className="min-h-screen flex items-center justify-center p-4 lg:p-8 bg-cover bg-center bg-no-repeat relative"
       style={{ 
-        backgroundImage: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%), url(/src/assets/Picture1.png)',
+        backgroundImage: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%), url(/src/assets/Picture1 (1).png)',
         backgroundBlendMode: 'overlay'
       }}
     >
