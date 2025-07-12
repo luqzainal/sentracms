@@ -478,8 +478,11 @@ const CalendarPage: React.FC<CalendarPageProps> = ({ onToggleSidebar }) => {
       {/* Upcoming Events */}
       <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-4 lg:p-6">
         <h3 className="text-base lg:text-lg font-semibold text-slate-900 mb-3 lg:mb-4">Upcoming Events</h3>
-        <div className="space-y-2 lg:space-y-3">
-          {events.map((event) => (
+        <div className="space-y-2 lg:space-y-3"> 
+          {events
+            .filter(event => new Date(event.date) >= new Date(new Date().setHours(0, 0, 0, 0))) // Filter events from today onwards
+            .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime()) // Sort by date
+            .map((event) => (
             <div key={event.id} className="flex items-center space-x-3 lg:space-x-4 p-3 bg-slate-50 rounded-lg">
               <div className={`w-3 h-3 rounded-full ${
                 event.type === 'meeting' ? 'bg-blue-500' :
@@ -502,7 +505,13 @@ const CalendarPage: React.FC<CalendarPageProps> = ({ onToggleSidebar }) => {
                 </div>
               </div>
             </div>
-          ))}
+          ))} 
+          {events.filter(event => new Date(event.date) >= new Date(new Date().setHours(0, 0, 0, 0))).length === 0 && (
+            <div className="text-center py-6 lg:py-8">
+              <CalendarIcon className="w-8 h-8 lg:w-12 lg:h-12 text-slate-400 mx-auto mb-2 lg:mb-3" />
+              <p className="text-slate-500 font-medium text-sm lg:text-base">No upcoming events scheduled</p>
+            </div>
+          )}
         </div>
       </div>
 
