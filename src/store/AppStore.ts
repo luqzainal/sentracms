@@ -969,9 +969,45 @@ export const useAppStore = create<AppState>((set, get) => ({
   },
 
   deleteProgressStep: (id) => {
-    set((state) => ({
-      progressSteps: state.progressSteps.filter((step) => step.id !== id),
-    }));
+    const state = get();
+    const stepToDelete = state.progressSteps.find(step => step.id === id);
+    
+    if (stepToDelete) {
+      // Check if this is a package step (contains "- Package Setup")
+      const isPackageStep = stepToDelete.title.includes(' - Package Setup');
+      
+      if (isPackageStep) {
+        // Extract package name from title (remove " - Package Setup")
+        const packageName = stepToDelete.title.replace(' - Package Setup', '');
+        
+        // Find all component steps that belong to this package
+        const packageComponentSteps = state.progressSteps.filter(step => 
+          step.clientId === stepToDelete.clientId && 
+          !step.title.includes(' - Package Setup') && // Not another package step
+          state.components.some(comp => 
+            comp.clientId === stepToDelete.clientId && 
+            comp.name === step.title &&
+            state.invoices.some(inv => 
+              inv.clientId === stepToDelete.clientId && 
+              inv.packageName === packageName &&
+              comp.invoiceId === inv.id
+            )
+          )
+        );
+        
+        // Delete package step and all its component steps
+        const stepIdsToDelete = [id, ...packageComponentSteps.map(step => step.id)];
+        
+        set((state) => ({
+          progressSteps: state.progressSteps.filter((step) => !stepIdsToDelete.includes(step.id)),
+        }));
+      } else {
+        // Regular step deletion
+        set((state) => ({
+          progressSteps: state.progressSteps.filter((step) => step.id !== id),
+        }));
+      }
+    }
   },
 
   getProgressStepsByClientId: (clientId) => {
