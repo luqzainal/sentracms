@@ -146,41 +146,6 @@ const Login: React.FC = () => {
               </div>
               
               <div className="space-y-2">
-                <div className="bg-white rounded-md p-2 border border-amber-300">
-                  <p className="text-xs lg:text-sm text-amber-700">
-                    <span className="font-medium text-blue-600">Super Admin:</span> admin@sentra.com / password123
-                  </p>
-                  <p className="text-xs text-amber-600">Full system access & user management</p>
-                </div>
-                
-                <div className="bg-white rounded-md p-2 border border-amber-300">
-                  <p className="text-xs lg:text-sm text-amber-700">
-                    <span className="font-medium text-green-600">Client Admin:</span> client@sentra.com / password123
-                  </p>
-                  <p className="text-xs text-amber-600">Client portal access & project management</p>
-                </div>
-              </div>
-              
-              <div className="mt-3 p-2 bg-red-50 rounded border border-red-200">
-                <p className="text-xs text-red-700 text-center">
-                  <span className="font-medium">⚠️ Important:</span> These demo users must be created in your Supabase Auth panel first.
-                </p>
-                <p className="text-xs text-red-600 text-center mt-1">
-                  Go to Supabase Dashboard → Authentication → Users → Add User
-                </p>
-              </div>
-              
-              <p className="text-xs lg:text-sm text-amber-700 text-center mt-2">
-                <span className="font-medium">Alternative:</span> Use existing user credentials from your Supabase Auth users table
-              </p>
-            </div>
-          </div>
-        </div>
-        
-        <div className="text-center mt-4 lg:mt-6">
-          <p className="text-white/70 text-xs">
-            © 2025 mysentree. All rights reserved.
-          </p>
         </div>
       </div>
     </div>
