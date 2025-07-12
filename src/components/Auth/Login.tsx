@@ -17,33 +17,35 @@ const Login: React.FC = () => {
     setError('');
     console.log('Login.tsx: handleSubmit called with email:', email);
 
-    try {
-      // Check for demo credentials first
-      if ((email === 'admin@sentra.com' && password === 'password123') ||
-          (email === 'client@sentra.com' && password === 'password123') ||
-          (email === 'team@sentra.com' && password === 'password123')) {
-        
-        console.log('Login.tsx: Demo credentials detected, creating mock user');
-        // Create a mock user session for demo purposes
-        const mockUser = {
-          id: email === 'client@sentra.com' ? 'client-user-id' : 
-              email === 'team@sentra.com' ? 'team-user-id' : 'admin-user-id',
-          email: email,
-          name: email === 'client@sentra.com' ? 'Nik Salwani Bt.Nik Ab Rahman' : 
-                email === 'team@sentra.com' ? 'Team Member' : 'Admin User',
-          role: email === 'client@sentra.com' ? 'Client Admin' as const : 
-                email === 'team@sentra.com' ? 'Team' as const : 'Super Admin' as const,
-          permissions: email === 'client@sentra.com' ? ['client_dashboard', 'client_profile', 'client_messages'] : ['all'],
-          clientId: email === 'client@sentra.com' ? 1 : undefined
-        };
-        
-        // Set demo user directly
-        console.log('Demo login successful for:', email);
-        console.log('Login.tsx: Setting demo user:', mockUser);
-        setDemoUser(mockUser);
-        return;
-      }
+    // Check for demo credentials first and handle them synchronously
+    if ((email === 'admin@sentra.com' && password === 'password123') ||
+        (email === 'client@sentra.com' && password === 'password123') ||
+        (email === 'team@sentra.com' && password === 'password123')) {
+      
+      console.log('Login.tsx: Demo credentials detected, creating mock user');
+      // Create a mock user session for demo purposes
+      const mockUser = {
+        id: email === 'client@sentra.com' ? 'client-user-id' : 
+            email === 'team@sentra.com' ? 'team-user-id' : 'admin-user-id',
+        email: email,
+        name: email === 'client@sentra.com' ? 'Nik Salwani Bt.Nik Ab Rahman' : 
+              email === 'team@sentra.com' ? 'Team Member' : 'Admin User',
+        role: email === 'client@sentra.com' ? 'Client Admin' as const : 
+              email === 'team@sentra.com' ? 'Team' as const : 'Super Admin' as const,
+        permissions: email === 'client@sentra.com' ? ['client_dashboard', 'client_profile', 'client_messages'] : ['all'],
+        clientId: email === 'client@sentra.com' ? 1 : undefined
+      };
+      
+      // Set demo user directly and exit immediately
+      console.log('Demo login successful for:', email);
+      console.log('Login.tsx: Setting demo user:', mockUser);
+      setDemoUser(mockUser);
+      setIsLoading(false);
+      return; // Exit immediately to avoid async operations
+    }
 
+    // Handle non-demo credentials with Supabase
+    try {
       // Try Supabase authentication if not demo credentials
       console.log('Login.tsx: Attempting signIn with Supabase hook');
       const { data, error } = await signIn(email, password);
