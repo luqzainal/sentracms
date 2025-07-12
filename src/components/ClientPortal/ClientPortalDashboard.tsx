@@ -332,7 +332,7 @@ const ClientPortalDashboard: React.FC<ClientPortalDashboardProps> = ({ user, onB
             </div>
           </div>
           <button className="bg-red-100 text-red-700 px-4 py-2 rounded-lg text-sm font-medium hover:bg-red-200 transition-colors">
-            Log Keluar
+            Logout
           </button>
         </div>
       </div>
@@ -351,7 +351,7 @@ const ClientPortalDashboard: React.FC<ClientPortalDashboardProps> = ({ user, onB
                 <CheckCircle className="w-6 h-6 text-blue-600" />
               </div>
               <h3 className="font-semibold text-slate-900 mb-2">Progress Tracking</h3>
-              <p className="text-sm text-slate-600 mb-3">Lihat perjalanan onboarding anda</p>
+              <p className="text-sm text-slate-600 mb-3">View your onboarding journey</p>
               <div className="w-full bg-slate-200 rounded-full h-2 mb-2">
                 <div
                   className="bg-blue-500 h-2 rounded-full transition-all duration-300"
@@ -372,7 +372,7 @@ const ClientPortalDashboard: React.FC<ClientPortalDashboardProps> = ({ user, onB
                 <Package className="w-6 h-6 text-green-600" />
               </div>
               <h3 className="font-semibold text-slate-900 mb-2">Package Component</h3>
-              <p className="text-sm text-slate-600 mb-3">Senarai modul yang anda ada akses</p>
+              <p className="text-sm text-slate-600 mb-3">List of modules you have access to</p>
               <div className="text-lg font-bold text-green-600">{components.length}</div>
               <p className="text-xs text-slate-500">Active Components</p>
             </div>
@@ -388,7 +388,7 @@ const ClientPortalDashboard: React.FC<ClientPortalDashboardProps> = ({ user, onB
                 <DollarSign className="w-6 h-6 text-purple-600" />
               </div>
               <h3 className="font-semibold text-slate-900 mb-2">My Billing</h3>
-              <p className="text-sm text-slate-600 mb-3">Semak invois & status bayaran</p>
+              <p className="text-sm text-slate-600 mb-3">Check your invoices & payment status</p>
               <div className="text-lg font-bold text-purple-600">RM {dueAmount.toLocaleString()}</div>
               <p className="text-xs text-slate-500">Outstanding</p>
             </div>
@@ -404,7 +404,7 @@ const ClientPortalDashboard: React.FC<ClientPortalDashboardProps> = ({ user, onB
                 <Eye className="w-6 h-6 text-orange-600" />
               </div>
               <h3 className="font-semibold text-slate-900 mb-2">View Appointments</h3>
-              <p className="text-sm text-slate-600 mb-3">Lihat sesi perjumpaan anda</p>
+              <p className="text-sm text-slate-600 mb-3">View your scheduled appointments</p>
               <div className="flex items-center justify-center text-orange-600">
                 <Eye className="w-4 h-4 mr-1" />
                 <span className="text-sm font-medium">View Appointments</span>
@@ -422,7 +422,7 @@ const ClientPortalDashboard: React.FC<ClientPortalDashboardProps> = ({ user, onB
                 <HelpCircle className="w-6 h-6 text-red-600" />
               </div>
               <h3 className="font-semibold text-slate-900 mb-2">Need Help?</h3>
-              <p className="text-sm text-slate-600">Hubungi kami untuk bantuan</p>
+              <p className="text-sm text-slate-600">Contact us for assistance</p>
             </div>
             
             <div className="space-y-3">
