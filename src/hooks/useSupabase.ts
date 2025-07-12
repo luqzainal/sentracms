@@ -139,6 +139,7 @@ export const useSupabase = () => {
     setUser(demoUser);
     setLoading(false);
     console.log('useSupabase: Demo user set to', demoUser);
+    console.log('useSupabase: isAuthenticated after setDemoUser:', !!demoUser);
   };
 
   console.log('useSupabase: Current state - User:', user, 'Loading:', loading, 'isAuthenticated:', !!user);

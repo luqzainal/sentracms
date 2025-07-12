@@ -64,6 +64,7 @@ function App() {
   };
 
   if (loading) {
+    console.log('App.tsx: Loading state is true, showing loading spinner.');
     return (
       <div className="min-h-screen bg-slate-100 flex items-center justify-center">
         <div className="text-center">
@@ -77,7 +78,7 @@ function App() {
   // This is the critical part. If isAuthenticated is false, it should render Login.
   // If it becomes true, it should proceed to render the main app content.
   if (!isAuthenticated) {
-    console.log('App.tsx: Rendering Login component because isAuthenticated is false.');
+    console.log('App.tsx: isAuthenticated is false, rendering Login component.');
     return <Login />;
   }
 

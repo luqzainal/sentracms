@@ -38,9 +38,6 @@ const Login: React.FC = () => {
       console.log('Login.tsx: Demo credentials detected, setting mock user synchronously');
       setDemoUser(mockUser); // Directly set the demo user
       setIsLoading(false); // Reset loading state immediately
-      return; // Exit the function immediately after scheduling the update
-    }
-
     // Handle non-demo credentials with Supabase (simulated)
     try {
       console.log('Login.tsx: Attempting signIn with Supabase hook');
