@@ -1,12 +1,14 @@
 import React, { useState } from 'react';
 import { X, Upload, DollarSign, CreditCard, Calendar } from 'lucide-react';
+import { Invoice } from '../../store/AppStore';
 
 interface AddPaymentModalProps {
   onClose: () => void;
   onSave: (paymentData: any) => void;
+  selectedInvoice?: Invoice;
 }
 
-const AddPaymentModal: React.FC<AddPaymentModalProps> = ({ onClose, onSave }) => {
+const AddPaymentModal: React.FC<AddPaymentModalProps> = ({ onClose, onSave, selectedInvoice }) => {
   const [formData, setFormData] = useState({
     receiptFile: null as File | null,
     amount: '',

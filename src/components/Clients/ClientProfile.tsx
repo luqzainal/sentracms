@@ -56,6 +56,7 @@ const ClientProfile: React.FC<ClientProfileProps> = ({ clientId, onBack, onEdit 
   const [showComponentModal, setShowComponentModal] = useState<string | null>(null);
   const [showEditModal, setShowEditModal] = useState(false);
   const [showEventModal, setShowEventModal] = useState(false);
+  const [selectedInvoiceForPayment, setSelectedInvoiceForPayment] = useState<Invoice | null>(null);
 
   const clientInvoices = invoices.filter(invoice => invoice.clientId === client.id);
   const clientPayments = payments.filter(payment => payment.clientId === client.id);
@@ -72,11 +73,12 @@ const ClientProfile: React.FC<ClientProfileProps> = ({ clientId, onBack, onEdit 
   };
 
   const handleSavePayment = (paymentData: Partial<Payment>) => {
-    addPayment({
+    if (selectedInvoiceForPayment) {
       ...paymentData,
       clientId: client.id,
     } as Payment);
     setShowPaymentModal(false);
+    setSelectedInvoiceForPayment(null);
   };
 
   const handleSaveComponent = (componentData: Partial<Component>) => {
@@ -93,7 +95,7 @@ const ClientProfile: React.FC<ClientProfileProps> = ({ clientId, onBack, onEdit 
       } else {
         // Single component add
         addComponent({
-          ...componentData,
+        invoiceId: selectedInvoiceForPayment.id,
           clientId: client.id,
           invoiceId: showComponentModal,
         } as Component);
@@ -341,7 +343,10 @@ const ClientProfile: React.FC<ClientProfileProps> = ({ clientId, onBack, onEdit 
                       <div className="mt-2 pt-2 border-t border-gray-100">
                         <p className="text-xs text-gray-500">Payment Details</p>
                         <button
-                          onClick={() => setShowPaymentModal(true)}
+                          onClick={() => {
+                            setSelectedInvoiceForPayment(invoice);
+                            setShowPaymentModal(true);
+                          }}
                           className="text-blue-600 hover:text-blue-800 text-xs"
                         >
                           + Add Payment
@@ -370,7 +375,7 @@ const ClientProfile: React.FC<ClientProfileProps> = ({ clientId, onBack, onEdit 
         <AddPaymentModal
           onClose={() => setShowPaymentModal(false)}
           onSave={handleSavePayment}
-          selectedInvoice={selectedInvoice}
+          selectedInvoice={selectedInvoiceForPayment}
         />
       )}
 
