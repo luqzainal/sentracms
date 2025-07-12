@@ -63,9 +63,11 @@ const ClientProfile: React.FC<ClientProfileProps> = ({ clientId, onBack, onEdit 
 
   const handleSaveInvoice = (invoiceData: Partial<Invoice>) => {
     addInvoice({
-      ...invoiceData,
       clientId: client.id,
-    } as Invoice);
+      packageName: invoiceData.packageName || '',
+      amount: invoiceData.amount || 0,
+      invoiceDate: invoiceData.invoiceDate || new Date().toISOString()
+    });
     setShowInvoiceModal(false);
   };
 

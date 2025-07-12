@@ -178,7 +178,7 @@ interface AppState {
   deleteClient: (id: number) => void;
   getClientById: (id: number) => Client | undefined;
 
-  addInvoice: (invoice: Omit<Invoice, 'id' | 'createdAt' | 'updatedAt'>) => void;
+  addInvoice: (invoiceData: { clientId: number; packageName: string; amount: number; invoiceDate: string }) => void;
   updateInvoice: (id: string, updates: Partial<Invoice>) => void;
   deleteInvoice: (invoiceId: string) => void;
   getInvoicesByClientId: (clientId: number) => Invoice[];
@@ -743,9 +743,14 @@ export const useAppStore = create<AppState>((set, get) => ({
 
   addInvoice: (invoiceData) => {
     const newInvoice: Invoice = {
-      ...invoiceData,
       id: `INV-${Date.now()}`,
-      createdAt: new Date().toISOString(),
+      clientId: invoiceData.clientId,
+      packageName: invoiceData.packageName,
+      amount: invoiceData.amount,
+      paid: 0,
+      due: invoiceData.amount,
+      status: 'Pending',
+      createdAt: invoiceData.invoiceDate,
       updatedAt: new Date().toISOString(),
     };
     
@@ -756,7 +761,7 @@ export const useAppStore = create<AppState>((set, get) => ({
           ? {
               ...client,
               totalSales: client.totalSales + invoiceData.amount,
-              balance: client.balance + invoiceData.due,
+              balance: client.balance + invoiceData.amount,
               invoiceCount: client.invoiceCount + 1,
               updatedAt: new Date().toISOString(),
             }
