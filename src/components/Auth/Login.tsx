@@ -73,9 +73,6 @@ const Login: React.FC = () => {
         backgroundBlendMode: 'overlay'
       }}
     >
-      {/* Professional overlay */}
-      <div className="absolute inset-0 bg-gradient-to-br from-slate-900/80 via-blue-900/70 to-slate-800/90"></div>
-      
       {/* Main login container */}
       <div className="relative z-10 w-full max-w-sm lg:max-w-md">        
         {/* Login card */}
