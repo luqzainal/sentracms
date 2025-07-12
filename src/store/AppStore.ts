@@ -836,7 +836,18 @@ export const useAppStore = create<AppState>((set, get) => ({
             await updateClient(invoice.clientId, {
               invoiceCount: Math.max(0, client.invoiceCount - 1),
               totalSales: Math.max(0, client.totalSales - invoice.amount),
-             balance: Math.max(0, client.balance - invoice.amount)
+             balance: Math.max(0, client.b
+              )
+            }
+            )
+          }
+        }
+      }
+    }
+  }
+}
+)
+)alance - invoice.amount)
             }
             )
           }
