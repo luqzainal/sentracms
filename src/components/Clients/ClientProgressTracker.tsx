@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { ArrowLeft, Plus, Check, Edit, Trash2, Calendar, Clock, User, MessageCircle, Star, X, Upload, Link, FileText, Trash } from 'lucide-react';
+import { ArrowLeft, Plus, Check, Edit, Trash2, Calendar, Clock, User, MessageCircle, Star, X, Upload, Link, FileText, Trash, Paperclip } from 'lucide-react';
 import { useAppStore } from '../../store/AppStore';
 
 interface ClientProgressTrackerProps {
@@ -204,14 +204,7 @@ const ClientProgressTracker: React.FC<ClientProgressTrackerProps> = ({ clientId,
   };
 
   const handleDeleteStep = (stepId: string) => {
-    const step = progressSteps.find(s => s.id === stepId);
-    const isPackageStep = step?.title.includes(' - Package Setup');
-    
-    const confirmMessage = isPackageStep 
-      ? 'Are you sure you want to delete this package? This will also delete all related component steps.'
-      : 'Are you sure you want to delete this step?';
-      
-    if (confirm(confirmMessage)) {
+    if (confirm('Are you sure you want to delete this step?')) {
       deleteProgressStep(stepId);
     }
   };
