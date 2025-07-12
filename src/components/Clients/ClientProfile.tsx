@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { ArrowLeft, Edit, Plus, Trash2, Calendar, FileText, CreditCard, User, Mail, Phone, Building, MapPin, Clock } from 'lucide-react';
+import { ArrowLeft, Edit, Plus, Trash2, Calendar, FileText, CreditCard, User, Mail, Phone, Building, MapPin, Clock, X } from 'lucide-react';
 import AddInvoiceModal from './AddInvoiceModal';
 import AddPaymentModal from './AddPaymentModal';
 import AddComponentModal from './AddComponentModal';
@@ -28,6 +28,7 @@ const ClientProfile: React.FC<ClientProfileProps> = ({ clientId, onBack, onEdit 
     calendarEvents,
     updateClient,
     addInvoice,
+    deleteInvoice,
     addPayment,
     addComponent,
     addCalendarEvent,
@@ -131,6 +132,11 @@ const ClientProfile: React.FC<ClientProfileProps> = ({ clientId, onBack, onEdit 
     }
   };
 
+  const handleDeleteInvoice = (invoiceId: string) => {
+    if (confirm('Are you sure you want to delete this invoice? This action cannot be undone.')) {
+      deleteInvoice(invoiceId);
+    }
+  };
   return (
     <div className="p-6 space-y-6">
       {/* Header */}
@@ -330,7 +336,14 @@ const ClientProfile: React.FC<ClientProfileProps> = ({ clientId, onBack, onEdit 
             
             <div className="space-y-4">
               {invoices.map((invoice, index) => (
-                <div key={index} className="border border-slate-200 rounded-lg p-4">
+                <div key={invoice.id} className="border border-slate-200 rounded-lg p-4 relative">
+                  <button
+                    onClick={() => handleDeleteInvoice(invoice.id)}
+                    className="absolute top-2 right-2 p-1 text-red-500 hover:text-red-700 hover:bg-red-50 rounded-lg transition-all duration-200"
+                    title="Delete Invoice"
+                  >
+                    <X className="w-4 h-4" />
+                  </button>
                   <div className="flex items-center justify-between mb-2">
                     <h4 className="font-medium text-slate-900">{invoice.packageName}</h4>
                   </div>
