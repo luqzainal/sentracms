@@ -22,36 +22,29 @@ const ClientDashboard: React.FC<ClientDashboardProps> = ({ user, onBack }) => {
     getInvoicesByClientId,
     getPaymentsByClientId,
     chats,
-    calendarEvents
+    calendarEvents,
+    fetchClients,
+    fetchProgressSteps,
+    fetchComponents,
+    fetchInvoices,
+    fetchPayments,
+    fetchChats,
+    fetchCalendarEvents
   } = useAppStore();
+
+  // Fetch data when component mounts to ensure sync with admin
+  useEffect(() => {
+    fetchClients();
+    fetchProgressSteps();
+    fetchComponents();
+    fetchInvoices();
+    fetchPayments();
+    fetchChats();
+    fetchCalendarEvents();
+  }, [fetchClients, fetchProgressSteps, fetchComponents, fetchInvoices, fetchPayments, fetchChats, fetchCalendarEvents]);
 
   // Find the client data based on the user email or create demo client for demo users
   let client = clients.find(c => c.email === user.email);
-  
-  // If no client found and this is a demo user, create demo client data
-  if (!client && user.email === 'client@sentra.com') {
-    client = {
-      id: 1,
-      name: 'Nik Salwani Bt.Nik Ab Rahman',
-      businessName: 'Ahmad Tech Solutions',
-      email: 'client@sentra.com',
-      phone: '+60 12-345 6789',
-      status: 'Complete',
-      packageName: 'Premium Package',
-      tags: ['VIP', 'Priority'],
-      totalSales: 15000,
-      totalCollection: 12000,
-      balance: 3000,
-      lastActivity: new Date().toISOString().split('T')[0],
-      invoiceCount: 2,
-      registeredAt: '2024-01-15T00:00:00Z',
-      company: 'Ahmad Tech Solutions',
-      address: 'Kuala Lumpur, Malaysia',
-      notes: 'Demo client for testing',
-      createdAt: '2024-01-15T00:00:00Z',
-      updatedAt: new Date().toISOString()
-    };
-  }
   
   if (!client) {
     return (
@@ -86,6 +79,9 @@ const ClientDashboard: React.FC<ClientDashboardProps> = ({ user, onBack }) => {
   const totalAmount = invoices.reduce((sum, inv) => sum + inv.amount, 0);
   const paidAmount = invoices.reduce((sum, inv) => sum + inv.paid, 0);
   const dueAmount = invoices.reduce((sum, inv) => sum + inv.due, 0);
+
+  // Get the actual package name from invoices if available
+  const actualPackageName = invoices.length > 0 ? invoices[0].packageName : 'No Package Assigned';
 
   const handleSendMessage = () => {
     if (message.trim()) {
@@ -133,7 +129,7 @@ const ClientDashboard: React.FC<ClientDashboardProps> = ({ user, onBack }) => {
           <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-6">
             <div className="mb-6">
               <p className="text-slate-600 mb-2">Current Package:</p>
-              <h2 className="text-2xl font-bold text-slate-900">{client.packageName || 'No Package Assigned'}</h2>
+              <h2 className="text-2xl font-bold text-slate-900">{actualPackageName}</h2>
             </div>
 
             <div className="mb-6">
@@ -205,7 +201,7 @@ const ClientDashboard: React.FC<ClientDashboardProps> = ({ user, onBack }) => {
               </div>
               <div>
                 <span className="font-medium text-slate-700">Registered Package: </span>
-                <span className="text-slate-900">{client.packageName || 'No Package Assigned'}</span>
+                <span className="text-slate-900">{actualPackageName}</span>
               </div>
             </div>
           </div>

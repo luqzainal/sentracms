@@ -21,8 +21,26 @@ const ClientPortalDashboard: React.FC<ClientPortalDashboardProps> = ({ user, onB
     getComponentsByClientId,
     getInvoicesByClientId,
     chats,
-    calendarEvents
+    calendarEvents,
+    fetchClients,
+    fetchProgressSteps,
+    fetchComponents,
+    fetchInvoices,
+    fetchPayments,
+    fetchChats,
+    fetchCalendarEvents
   } = useAppStore();
+
+  // Fetch data when component mounts to ensure sync with admin
+  useEffect(() => {
+    fetchClients();
+    fetchProgressSteps();
+    fetchComponents();
+    fetchInvoices();
+    fetchPayments();
+    fetchChats();
+    fetchCalendarEvents();
+  }, [fetchClients, fetchProgressSteps, fetchComponents, fetchInvoices, fetchPayments, fetchChats, fetchCalendarEvents]);
 
   // Find the client data based on the user email
   const client = clients.find(c => c.email === user.email);
@@ -58,6 +76,9 @@ const ClientPortalDashboard: React.FC<ClientPortalDashboardProps> = ({ user, onB
   const totalAmount = invoices.reduce((sum, inv) => sum + inv.amount, 0);
   const paidAmount = invoices.reduce((sum, inv) => sum + inv.paid, 0);
   const dueAmount = invoices.reduce((sum, inv) => sum + inv.due, 0);
+
+  // Get the actual package name from invoices if available
+  const actualPackageName = invoices.length > 0 ? invoices[0].packageName : 'No Package Assigned';
 
   const handleSendMessage = () => {
     if (message.trim()) {
@@ -105,7 +126,7 @@ const ClientPortalDashboard: React.FC<ClientPortalDashboardProps> = ({ user, onB
           <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-6">
             <div className="mb-6">
               <p className="text-slate-600 mb-2">Current Package :</p>
-              <h2 className="text-2xl font-bold text-slate-900">Kuasa 360</h2>
+              <h2 className="text-2xl font-bold text-slate-900">{actualPackageName}</h2>
             </div>
 
             <div className="mb-6">
@@ -171,7 +192,7 @@ const ClientPortalDashboard: React.FC<ClientPortalDashboardProps> = ({ user, onB
               </div>
               <div>
                 <span className="font-medium text-slate-700">Registered Package: </span>
-                <span className="text-slate-900">Kuasa 360</span>
+                <span className="text-slate-900">{actualPackageName}</span>
               </div>
             </div>
           </div>
