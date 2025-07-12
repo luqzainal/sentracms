@@ -320,19 +320,19 @@ const ClientsPage: React.FC<ClientsPageProps> = ({ setActiveTab, onToggleSidebar
 
       {/* Clients Table */}
       <div className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
-        <div className="overflow-x-auto -mx-4 lg:mx-0">
+        <div className="overflow-x-auto lg:overflow-x-hidden -mx-4 lg:mx-0">
           <table className="w-full">
             <thead className="bg-gradient-to-r from-slate-50 to-slate-100 border-b border-slate-200">
               <tr>
-                <th className="text-center py-3 lg:py-4 px-3 lg:px-6 font-semibold text-slate-900 text-xs lg:text-sm min-w-[200px]">Client</th>
-                <th className="text-center py-3 lg:py-4 px-3 lg:px-6 font-semibold text-slate-900 text-xs lg:text-sm min-w-[180px] hidden lg:table-cell">Contact</th>
-                <th className="text-center py-3 lg:py-4 px-3 lg:px-6 font-semibold text-slate-900 text-xs lg:text-sm min-w-[100px]">Status</th>
-                <th className="text-center py-3 lg:py-4 px-3 lg:px-6 font-semibold text-slate-900 text-xs lg:text-sm min-w-[120px]">Progress</th>
-                <th className="text-center py-3 lg:py-4 px-3 lg:px-6 font-semibold text-slate-900 text-xs lg:text-sm min-w-[100px] hidden md:table-cell">Total<br/>Sales</th>
-                <th className="text-center py-3 lg:py-4 px-3 lg:px-6 font-semibold text-slate-900 text-xs lg:text-sm min-w-[100px] hidden md:table-cell">Total<br/>Collection</th>
-                <th className="text-center py-3 lg:py-4 px-3 lg:px-6 font-semibold text-slate-900 text-xs lg:text-sm min-w-[100px] hidden lg:table-cell">Balance</th>
-                <th className="text-center py-3 lg:py-4 px-3 lg:px-6 font-semibold text-slate-900 text-xs lg:text-sm min-w-[120px] hidden lg:table-cell">Tags</th>
-                <th className="text-center py-3 lg:py-4 px-3 lg:px-6 font-semibold text-slate-900 text-xs lg:text-sm min-w-[120px]">Actions</th>
+                <th className="text-center py-3 lg:py-4 px-2 lg:px-4 font-semibold text-slate-900 text-xs lg:text-sm w-[160px]">Client</th>
+                <th className="text-center py-3 lg:py-4 px-2 lg:px-3 font-semibold text-slate-900 text-xs lg:text-sm w-[120px] hidden lg:table-cell">Contact</th>
+                <th className="text-center py-3 lg:py-4 px-2 lg:px-3 font-semibold text-slate-900 text-xs lg:text-sm w-[80px]">Status</th>
+                <th className="text-center py-3 lg:py-4 px-2 lg:px-3 font-semibold text-slate-900 text-xs lg:text-sm w-[100px]">Progress</th>
+                <th className="text-center py-3 lg:py-4 px-2 lg:px-3 font-semibold text-slate-900 text-xs lg:text-sm w-[80px] hidden md:table-cell">Total<br/>Sales</th>
+                <th className="text-center py-3 lg:py-4 px-2 lg:px-3 font-semibold text-slate-900 text-xs lg:text-sm w-[80px] hidden md:table-cell">Total<br/>Collection</th>
+                <th className="text-center py-3 lg:py-4 px-2 lg:px-3 font-semibold text-slate-900 text-xs lg:text-sm w-[80px] hidden lg:table-cell">Balance</th>
+                <th className="text-center py-3 lg:py-4 px-2 lg:px-3 font-semibold text-slate-900 text-xs lg:text-sm w-[100px] hidden lg:table-cell">Tags</th>
+                <th className="text-center py-3 lg:py-4 px-2 lg:px-3 font-semibold text-slate-900 text-xs lg:text-sm w-[100px]">Actions</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-200">
@@ -344,7 +344,7 @@ const ClientsPage: React.FC<ClientsPageProps> = ({ setActiveTab, onToggleSidebar
                 }) : [];
                 return (
                   <tr key={client.id} className="hover:bg-slate-50 transition-colors duration-150 border-b border-slate-100">
-                    <td className="py-3 lg:py-4 px-3 lg:px-6 text-center">
+                    <td className="py-3 lg:py-4 px-2 lg:px-4 text-center">
                       <div>
                         <div className="px-2 py-1">
                           <h4 className="font-medium text-slate-900 text-xs lg:text-sm">{client.businessName}</h4>
@@ -353,21 +353,21 @@ const ClientsPage: React.FC<ClientsPageProps> = ({ setActiveTab, onToggleSidebar
                         </div>
                       </div>
                     </td>
-                    <td className="py-3 lg:py-4 px-3 lg:px-6 text-center hidden lg:table-cell">
+                    <td className="py-3 lg:py-4 px-2 lg:px-3 text-center hidden lg:table-cell">
                       <div>
                         <p className="text-xs lg:text-sm text-slate-900">{client.email}</p>
                         <p className="text-xs lg:text-sm text-slate-600">{client.phone}</p>
                       </div>
                     </td>
-                    <td className="py-3 lg:py-4 px-3 lg:px-6 text-center">
+                    <td className="py-3 lg:py-4 px-2 lg:px-3 text-center">
                       <span className={`px-1.5 lg:px-2 py-1 rounded text-xs font-medium ${getStatusColor(client.status)}`}>
                         {client.status}
                       </span>
                     </td>
-                    <td className="py-3 lg:py-4 px-3 lg:px-6 text-center">
+                    <td className="py-3 lg:py-4 px-2 lg:px-3 text-center">
                       <div className="flex flex-col items-center space-y-2">
                         <div className="flex items-center space-x-2">
-                          <div className="w-12 lg:w-20 bg-slate-200 rounded-full h-2">
+                          <div className="w-8 lg:w-12 bg-slate-200 rounded-full h-2">
                             <div
                               className={`h-2 rounded-full transition-all duration-300 ${
                                 progressStatus.hasOverdue 
@@ -377,7 +377,7 @@ const ClientsPage: React.FC<ClientsPageProps> = ({ setActiveTab, onToggleSidebar
                               style={{ width: `${progressStatus.percentage}%` }}
                             />
                           </div>
-                          <span className={`text-xs lg:text-sm min-w-[25px] lg:min-w-[35px] font-medium ${
+                          <span className={`text-xs lg:text-sm min-w-[20px] lg:min-w-[25px] font-medium ${
                             progressStatus.hasOverdue 
                               ? 'text-red-600' 
                               : 'text-slate-600'
@@ -393,22 +393,22 @@ const ClientsPage: React.FC<ClientsPageProps> = ({ setActiveTab, onToggleSidebar
                         )}
                       </div>
                     </td>
-                    <td className="py-3 lg:py-4 px-3 lg:px-6 text-center hidden md:table-cell">
-                      <div className="text-xs lg:text-sm font-medium text-slate-900 min-w-[80px]">
+                    <td className="py-3 lg:py-4 px-2 lg:px-3 text-center hidden md:table-cell">
+                      <div className="text-xs lg:text-sm font-medium text-slate-900">
                         {formatCurrency(client.totalSales)}
                       </div>
                     </td>
-                    <td className="py-3 lg:py-4 px-3 lg:px-6 text-center hidden md:table-cell">
-                      <div className="text-xs lg:text-sm font-medium text-green-600 min-w-[80px]">
+                    <td className="py-3 lg:py-4 px-2 lg:px-3 text-center hidden md:table-cell">
+                      <div className="text-xs lg:text-sm font-medium text-green-600">
                         {formatCurrency(client.totalCollection)}
                       </div>
                     </td>
-                    <td className="py-3 lg:py-4 px-3 lg:px-6 text-center hidden lg:table-cell">
-                      <div className="text-xs lg:text-sm font-medium text-orange-600 min-w-[80px]">
+                    <td className="py-3 lg:py-4 px-2 lg:px-3 text-center hidden lg:table-cell">
+                      <div className="text-xs lg:text-sm font-medium text-orange-600">
                         {formatCurrency(client.balance)}
                       </div>
                     </td>
-                    <td className="py-3 lg:py-4 px-3 lg:px-6 text-center hidden lg:table-cell">
+                    <td className="py-3 lg:py-4 px-2 lg:px-3 text-center hidden lg:table-cell">
                       <div className="flex flex-wrap gap-1 justify-center">
                         {tagObjects.slice(0, 3).map((tag, index) => (
                           <span 
@@ -431,24 +431,24 @@ const ClientsPage: React.FC<ClientsPageProps> = ({ setActiveTab, onToggleSidebar
                         )}
                       </div>
                     </td>
-                    <td className="py-3 lg:py-4 px-3 lg:px-6 text-center">
+                    <td className="py-3 lg:py-4 px-2 lg:px-3 text-center">
                       <div className="flex flex-col lg:flex-row items-center justify-center space-y-2 lg:space-y-0 lg:space-x-2 px-2 py-1">
                         <button 
                           onClick={() => handleViewProfile(client.id.toString())}
-                          className="px-3 lg:px-4 py-2 text-xs font-medium bg-blue-100 text-blue-700 rounded-lg hover:bg-blue-200 transition-all duration-200 w-full lg:w-auto min-w-[60px]"
+                          className="px-2 lg:px-3 py-1 text-xs font-medium bg-blue-100 text-blue-700 rounded-lg hover:bg-blue-200 transition-all duration-200 w-full lg:w-auto"
                         >
                           View
                         </button>
                         <button
                           onClick={() => handleTrackProgress(client.id.toString())}
-                          className="px-3 lg:px-4 py-2 text-xs font-medium bg-purple-100 text-purple-700 rounded-lg hover:bg-purple-200 transition-all duration-200 w-full lg:w-auto min-w-[60px]"
+                          className="px-2 lg:px-3 py-1 text-xs font-medium bg-purple-100 text-purple-700 rounded-lg hover:bg-purple-200 transition-all duration-200 w-full lg:w-auto"
                         >
                           Track
                         </button>
                         <div className="lg:hidden">
                           <button 
                             onClick={() => handleDeleteClient(client.id)}
-                            className="p-2 text-red-500 hover:text-red-700 hover:bg-red-50 rounded-lg transition-all duration-200 flex items-center justify-center min-w-[36px] min-h-[36px]"
+                            className="p-1 text-red-500 hover:text-red-700 hover:bg-red-50 rounded-lg transition-all duration-200 flex items-center justify-center"
                           >
                             <Trash2 className="w-3 h-3" />
                           </button>
@@ -456,7 +456,7 @@ const ClientsPage: React.FC<ClientsPageProps> = ({ setActiveTab, onToggleSidebar
                         <div className="hidden lg:block">
                           <button 
                             onClick={() => handleDeleteClient(client.id)}
-                            className="p-3 text-red-500 hover:text-red-700 hover:bg-red-50 rounded-lg transition-all duration-200 flex items-center justify-center min-w-[40px] min-h-[40px]"
+                            className="p-1 text-red-500 hover:text-red-700 hover:bg-red-50 rounded-lg transition-all duration-200 flex items-center justify-center"
                           >
                             <Trash2 className="w-4 h-4" />
                           </button>
