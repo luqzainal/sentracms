@@ -248,25 +248,13 @@ const ClientProfile: React.FC<ClientProfileProps> = ({ clientId, onBack, onEdit 
                         <Plus className="w-4 h-4" />
                         <span>Add Component</span>
                       </button>
-                      <button
-                        onClick={() => {
-                          const packageInvoice = invoices.find(inv => inv.packageName === client.packageName);
-                          if (packageInvoice && confirm(`Are you sure you want to delete the "${client.packageName}" package? This will also delete the associated invoice and all child components.`)) {
-                            handleDeleteInvoice(packageInvoice.id);
-                          }
-                        }}
-                        className="p-2 text-red-500 hover:text-red-700 hover:bg-red-50 rounded-lg transition-colors"
-                        title="Delete Package"
-                      >
-                        <Trash2 className="w-4 h-4" />
-                      </button>
                     </div>
                   </div>
                 </div>
 
-                {/* Child Components */}
-                <div className="ml-6 space-y-2">
-                  {components.length > 0 ? (
+                {/* Child Components - Only show if there are components */}
+                {components.length > 0 && (
+                  <div className="ml-6 space-y-2">
                     components.map((component) => (
                       <div key={component.id} className="flex items-center justify-between p-3 bg-slate-50 rounded-lg border-l-4 border-blue-300">
                         <div className="flex items-center space-x-3">
@@ -289,14 +277,8 @@ const ClientProfile: React.FC<ClientProfileProps> = ({ clientId, onBack, onEdit 
                         </button>
                       </div>
                     ))
-                  ) : (
-                    <div className="text-center py-6 text-slate-500 bg-slate-50 rounded-lg border-2 border-dashed border-slate-300">
-                      <FileText className="w-8 h-8 text-slate-300 mx-auto mb-2" />
-                      <p className="text-sm">No components added yet</p>
-                      <p className="text-xs">Click "Add Component" to add child components</p>
-                    </div>
-                  )}
-                </div>
+                  </div>
+                )}
               </div>
             ) : (
               <div className="text-center py-8 text-slate-500">
@@ -305,8 +287,8 @@ const ClientProfile: React.FC<ClientProfileProps> = ({ clientId, onBack, onEdit 
                 <p className="text-sm">Create an invoice to automatically set up a package</p>
               </div>
             )}
-            </div>
           </div>
+        </div>
 
           {/* Calendar Events */}
           <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-6">
