@@ -9,17 +9,13 @@ interface EditComponentModalProps {
 
 const EditComponentModal: React.FC<EditComponentModalProps> = ({ component, onClose, onSave }) => {
   const [formData, setFormData] = useState({
-    name: '',
-    price: '',
-    active: true
+    name: ''
   });
 
   useEffect(() => {
     if (component) {
       setFormData({
-        name: component.name || '',
-        price: component.price || '',
-        active: component.active !== undefined ? component.active : true
+        name: component.name || ''
       });
     }
   }, [component]);
@@ -33,17 +29,15 @@ const EditComponentModal: React.FC<EditComponentModalProps> = ({ component, onCl
     }
     
     onSave({
-      name: formData.name,
-      price: formData.price,
-      active: formData.active
+      name: formData.name
     });
   };
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const { name, value, type, checked } = e.target;
+    const { name, value } = e.target;
     setFormData({
       ...formData,
-      [name]: type === 'checkbox' ? checked : value
+      [name]: value
     });
   };
 
@@ -79,32 +73,6 @@ const EditComponentModal: React.FC<EditComponentModalProps> = ({ component, onCl
             </div>
           </div>
 
-          <div>
-            <label className="block text-sm font-medium text-slate-700 mb-2">
-              Price
-            </label>
-            <input
-              type="text"
-              name="price"
-              value={formData.price}
-              onChange={handleChange}
-              className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none"
-              placeholder="RM 0"
-            />
-          </div>
-
-          <div>
-            <label className="flex items-center space-x-3">
-              <input
-                type="checkbox"
-                name="active"
-                checked={formData.active}
-                onChange={handleChange}
-                className="w-4 h-4 text-blue-600 border-slate-300 rounded focus:ring-blue-500"
-              />
-              <span className="text-sm font-medium text-slate-700">Active Component</span>
-            </label>
-          </div>
 
           <div className="flex justify-end space-x-3 pt-4">
             <button
