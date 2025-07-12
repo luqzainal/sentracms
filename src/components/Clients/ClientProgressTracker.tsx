@@ -314,13 +314,18 @@ const ClientProgressTracker: React.FC<ClientProgressTrackerProps> = ({ clientId,
           <div className="flex items-start space-x-2 sm:space-x-3 lg:space-x-4 flex-1 min-w-0 overflow-hidden">
             <button
               onClick={() => handleToggleComplete(step.id)}
+             disabled={user && (user.role === 'Client Admin' || user.role === 'Client Team')}
               className={`mt-1 w-5 h-5 sm:w-6 sm:h-6 rounded-full border-2 flex items-center justify-center transition-all duration-200 ${
                 step.completed
                   ? 'bg-green-500 border-green-500 text-white shadow-sm'
                   : isStepOverdue(step)
                   ? 'border-red-400 hover:border-red-500 hover:bg-red-100'
                   : 'border-slate-300 hover:border-blue-500 hover:bg-blue-50'
-              } flex-shrink-0`}
+              } flex-shrink-0 ${
+                user && (user.role === 'Client Admin' || user.role === 'Client Team') 
+                  ? 'cursor-not-allowed opacity-50' 
+                  : 'cursor-pointer'
+              }`}
             >
               {step.completed && <Check className="w-3 h-3 sm:w-4 sm:h-4" />}
             </button>
