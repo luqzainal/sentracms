@@ -488,12 +488,14 @@ const ClientProgressTracker: React.FC<ClientProgressTrackerProps> = ({ clientId,
           </div>
           
           <div className="flex flex-col items-center space-y-1 opacity-0 group-hover:opacity-100 transition-opacity duration-200 flex-shrink-0">
+            {user && user.role !== 'Client Admin' && user.role !== 'Client Team' && (
             <button 
               onClick={() => handleEditStepOpen(step)}
               className="p-1 sm:p-1.5 text-blue-500 hover:text-blue-700 hover:bg-blue-50 rounded-lg transition-all duration-200 border border-transparent hover:border-blue-200"
             >
               <Edit className="w-3 h-3 sm:w-4 sm:h-4" />
             </button>
+            )}
             {user && user.role !== 'Client Admin' && user.role !== 'Client Team' && (
               <button 
                 onClick={() => handleDeleteStep(step.id)}
