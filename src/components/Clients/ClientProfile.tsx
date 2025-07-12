@@ -445,20 +445,9 @@ const ClientProfile: React.FC<ClientProfileProps> = ({ clientId, onBack, onEdit 
                             onClick={() => handleDeleteInvoice(invoice.id)}
                             className="text-red-500 hover:text-red-700"
                           >
-                          <button
-                            onClick={() => handleEditInvoice(invoice)}
-                            className="text-blue-500 hover:text-blue-700"
-                          >
-                            <Edit className="w-4 h-4" />
-                          </button>
-                          <button
-                            onClick={() => handleDeleteInvoice(invoice.id)}
-                            className="text-red-500 hover:text-red-700"
-                          >
                           <Trash2 className="w-4 h-4" />
                           </button>
                         </div>
-                          </button>
                       </div>
                       <div className="space-y-1 text-sm">
                         <div className="flex justify-between">
