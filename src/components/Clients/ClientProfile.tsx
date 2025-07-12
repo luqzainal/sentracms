@@ -450,7 +450,6 @@ const ClientProfile: React.FC<ClientProfileProps> = ({ clientId, onBack, onEdit 
           onSave={handleSaveEvent}
         />
       )}
-    </div>
     </>
   );
 };
