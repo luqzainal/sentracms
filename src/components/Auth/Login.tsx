@@ -146,6 +146,9 @@ const Login: React.FC = () => {
               </div>
               
               <div className="space-y-2">
+              </div>
+            </div>
+          </div>
         </div>
       </div>
     </div>
