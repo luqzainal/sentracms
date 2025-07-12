@@ -739,6 +739,24 @@ export const useAppStore = create<AppState>((set, get) => ({
             updatedAt: new Date().toISOString(),
           }]
     }));
+    
+    // Auto-create a progress step for the package
+    const packageProgressStep: ProgressStep = {
+      id: `step-${Date.now()}-package`,
+      clientId: invoiceData.clientId,
+      title: `${invoiceData.packageName} - Package Setup`,
+      description: `Complete the setup and delivery of ${invoiceData.packageName} package`,
+      deadline: new Date(Date.now() + 60 * 24 * 60 * 60 * 1000).toISOString(), // 60 days from now
+      completed: false,
+      important: true, // Mark package steps as important
+      comments: [],
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+    };
+    
+    set((state) => ({
+      progressSteps: [...state.progressSteps, packageProgressStep],
+    }));
   },
 
   updateInvoice: (id, updates) => {
