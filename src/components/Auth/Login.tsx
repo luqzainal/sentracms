@@ -9,7 +9,7 @@ const Login: React.FC = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
   
-  const { signIn } = useSupabase();
+  const { signIn, setDemoUser } = useSupabase();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -24,17 +24,20 @@ const Login: React.FC = () => {
         
         // Create a mock user session for demo purposes
         const mockUser = {
-          id: email === 'client@sentra.com' ? 'client-user-id' : 'admin-user-id',
+          id: email === 'client@sentra.com' ? 'client-user-id' : 
+              email === 'team@sentra.com' ? 'team-user-id' : 'admin-user-id',
           email: email,
-          user_metadata: {
-            name: email === 'client@sentra.com' ? 'Nik Salwani Bt.Nik Ab Rahman' : 
-                  email === 'team@sentra.com' ? 'Team Member' : 'Admin User'
-          }
+          name: email === 'client@sentra.com' ? 'Nik Salwani Bt.Nik Ab Rahman' : 
+                email === 'team@sentra.com' ? 'Team Member' : 'Admin User',
+          role: email === 'client@sentra.com' ? 'Client Admin' as const : 
+                email === 'team@sentra.com' ? 'Team' as const : 'Super Admin' as const,
+          permissions: email === 'client@sentra.com' ? ['client_dashboard', 'client_profile', 'client_messages'] : ['all'],
+          clientId: email === 'client@sentra.com' ? 1 : undefined
         };
         
-        // Simulate successful login by triggering the auth state change
+        // Set demo user directly
         console.log('Demo login successful for:', email);
-        window.location.reload(); // Force reload to trigger auth state
+        setDemoUser(mockUser);
         return;
       }
 
@@ -43,13 +46,20 @@ const Login: React.FC = () => {
       
       if (error) {
         // If Supabase fails, check if it's a network error and allow demo login
-        if (error.message?.includes('fetch') || error.message?.includes('network')) {
+        if (error.message?.includes('fetch') || error.message?.includes('network') || error.message?.includes('Supabase not configured')) {
           setError('Unable to connect to authentication server. Using demo mode.');
           
           // Allow any login in demo mode when Supabase is unavailable
           setTimeout(() => {
             console.log('Demo mode login for:', email);
-            window.location.reload();
+            setDemoUser({
+              id: 'demo-fallback-user',
+              email: email,
+              name: 'Demo User',
+              role: email.includes('client') ? 'Client Admin' : 'Super Admin',
+              permissions: email.includes('client') ? ['client_dashboard', 'client_profile', 'client_messages'] : ['all'],
+              clientId: email.includes('client') ? 1 : undefined
+            });
           }, 1000);
           return;
         }
@@ -93,7 +103,7 @@ const Login: React.FC = () => {
 
           {/* Error Message */}
           {error && (
-            <div className="p-3 bg-red-50 border border-red-200 rounded-lg">
+            <div className="p-3 bg-red-50 border border-red-200 rounded-lg mx-4 lg:mx-8 mb-4">
               <p className="text-red-700 text-sm">{error}</p>
             </div>
           )}

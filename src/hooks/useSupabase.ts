@@ -21,6 +21,22 @@ export const useSupabase = () => {
     let mounted = true;
     let timeoutId: NodeJS.Timeout;
     
+    // Check for demo user in localStorage first
+    const demoUser = localStorage.getItem('demoUser');
+    if (demoUser) {
+      try {
+        const parsedUser = JSON.parse(demoUser);
+        if (mounted) {
+          setUser(parsedUser);
+          setLoading(false);
+          return;
+        }
+      } catch (error) {
+        console.error('Error parsing demo user from localStorage:', error);
+        localStorage.removeItem('demoUser');
+      }
+    }
+    
     // Get initial session
     const getInitialSession = async () => {
       try {
@@ -75,7 +91,20 @@ export const useSupabase = () => {
           if (session?.user) {
             await fetchUserProfile(session.user);
           } else {
-            setUser(null);
+            // Check for demo user when auth state changes
+            const demoUser = localStorage.getItem('demoUser');
+            if (demoUser) {
+              try {
+                const parsedUser = JSON.parse(demoUser);
+                setUser(parsedUser);
+              } catch (error) {
+                console.error('Error parsing demo user:', error);
+                localStorage.removeItem('demoUser');
+                setUser(null);
+              }
+            } else {
+              setUser(null);
+            }
           }
         } catch (error) {
           console.error('Error in auth state change:', error);
@@ -246,11 +275,17 @@ export const useSupabase = () => {
 
   const signOut = async () => {
     try {
+      // Clear demo user from localStorage
+      localStorage.removeItem('demoUser');
+      
       const { error } = await supabase.auth.signOut();
       if (error) throw error;
       setUser(null);
     } catch (error) {
       console.error('Error signing out:', error);
+      // Even if Supabase signOut fails, clear local state
+      localStorage.removeItem('demoUser');
+      setUser(null);
     }
   };
 
@@ -291,12 +326,21 @@ export const useSupabase = () => {
     }
   };
 
+  const setDemoUser = (demoUser: AuthUser) => {
+    console.log('Setting demo user:', demoUser);
+    // Store demo user in localStorage for persistence
+    localStorage.setItem('demoUser', JSON.stringify(demoUser));
+    setUser(demoUser);
+    setLoading(false);
+  };
+
   return {
     user,
     loading,
     signIn,
     signOut,
     signUp,
+    setDemoUser,
     isAuthenticated: !!user
   };
 };
