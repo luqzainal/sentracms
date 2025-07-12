@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { ArrowLeft, Calendar, MessageSquare, DollarSign, HelpCircle, Package, Plus, Clock, CheckCircle, AlertCircle, User, Phone, Mail, MapPin, ChevronLeft, ChevronRight, X, Send, Paperclip, Smile } from 'lucide-react';
+import { ArrowLeft, Calendar, MessageSquare, DollarSign, HelpCircle, Package, Eye, Clock, CheckCircle, AlertCircle, User, Phone, Mail, MapPin, ChevronLeft, ChevronRight, X, Send, Paperclip, Smile } from 'lucide-react';
 import ClientProgressTracker from '../Clients/ClientProgressTracker';
 import { useAppStore } from '../../store/AppStore';
 
@@ -12,15 +12,15 @@ const ClientDashboard: React.FC<ClientDashboardProps> = ({ user, onBack }) => {
   const [showProgressTracker, setShowProgressTracker] = useState(false);
   const [showPackageComponents, setShowPackageComponents] = useState(false);
   const [showBilling, setShowBilling] = useState(false);
-  const [showScheduleAppointment, setShowScheduleAppointment] = useState(false);
-  const [currentDate, setCurrentDate] = useState(new Date());
-  const [calendarView, setCalendarView] = useState<'month' | 'list'>('month');
+  const [showViewAppointments, setShowViewAppointments] = useState(false);
+  const [message, setMessage] = useState('');
 
   const { 
     clients, 
     getProgressStepsByClientId, 
     getComponentsByClientId,
     getInvoicesByClientId,
+    getPaymentsByClientId,
     chats,
     calendarEvents
   } = useAppStore();
@@ -73,6 +73,7 @@ const ClientDashboard: React.FC<ClientDashboardProps> = ({ user, onBack }) => {
   const progressSteps = getProgressStepsByClientId(client.id);
   const components = getComponentsByClientId(client.id);
   const invoices = getInvoicesByClientId(client.id);
+  const payments = getPaymentsByClientId(client.id);
   const clientChat = chats.find(chat => chat.clientId === client.id);
   const clientEvents = calendarEvents.filter(event => event.clientId === client.id);
 
@@ -86,80 +87,12 @@ const ClientDashboard: React.FC<ClientDashboardProps> = ({ user, onBack }) => {
   const paidAmount = invoices.reduce((sum, inv) => sum + inv.paid, 0);
   const dueAmount = invoices.reduce((sum, inv) => sum + inv.due, 0);
 
-  // Calendar functions
-  const monthNames = [
-    'January', 'February', 'March', 'April', 'May', 'June',
-    'July', 'August', 'September', 'October', 'November', 'December'
-  ];
-
-  const daysInMonth = new Date(currentDate.getFullYear(), currentDate.getMonth() + 1, 0).getDate();
-  const firstDayOfMonth = new Date(currentDate.getFullYear(), currentDate.getMonth(), 1).getDay();
-  const today = new Date();
-
-  const navigateMonth = (direction: 'prev' | 'next') => {
-    const newDate = new Date(currentDate);
-    newDate.setMonth(currentDate.getMonth() + (direction === 'next' ? 1 : -1));
-    setCurrentDate(newDate);
-  };
-
-  const getEventsForDate = (date: number) => {
-    const dateStr = `${currentDate.getFullYear()}-${String(currentDate.getMonth() + 1).padStart(2, '0')}-${String(date).padStart(2, '0')}`;
-    return clientEvents.filter(event => event.startDate === dateStr);
-  };
-
-  const renderCalendarDays = () => {
-    const days = [];
-    const totalCells = 42; // 6 weeks * 7 days
-
-    // Previous month's days
-    for (let i = firstDayOfMonth - 1; i >= 0; i--) {
-      const prevMonth = new Date(currentDate.getFullYear(), currentDate.getMonth() - 1, 0);
-      const day = prevMonth.getDate() - i;
-      days.push(
-        <div key={`prev-${day}`} className="min-h-20 p-2 text-slate-400 bg-slate-50 border border-slate-200">
-          <span className="text-sm">{day}</span>
-        </div>
-      );
+  const handleSendMessage = () => {
+    if (message.trim()) {
+      // Add message logic here
+      console.log('Sending message:', message);
+      setMessage('');
     }
-
-    // Current month's days
-    for (let day = 1; day <= daysInMonth; day++) {
-      const isToday = today.getDate() === day && 
-                     today.getMonth() === currentDate.getMonth() && 
-                     today.getFullYear() === currentDate.getFullYear();
-      const dayEvents = getEventsForDate(day);
-
-      days.push(
-        <div key={day} className={`min-h-20 p-2 border border-slate-200 ${isToday ? 'bg-blue-50' : 'bg-white'}`}>
-          <div className={`text-sm font-medium mb-1 ${isToday ? 'text-blue-600' : 'text-slate-900'}`}>
-            {day}
-          </div>
-          <div className="space-y-1">
-            {dayEvents.map((event) => (
-              <div
-                key={event.id}
-                className="text-xs p-1 rounded bg-green-100 text-green-700 truncate"
-                title={`${event.title} - ${event.startTime}`}
-              >
-                {event.title}
-              </div>
-            ))}
-          </div>
-        </div>
-      );
-    }
-
-    // Next month's days
-    const remainingCells = totalCells - days.length;
-    for (let day = 1; day <= remainingCells; day++) {
-      days.push(
-        <div key={`next-${day}`} className="min-h-20 p-2 text-slate-400 bg-slate-50 border border-slate-200">
-          <span className="text-sm">{day}</span>
-        </div>
-      );
-    }
-
-    return days;
   };
 
   // Show Progress Tracker
@@ -189,7 +122,7 @@ const ClientDashboard: React.FC<ClientDashboardProps> = ({ user, onBack }) => {
               <div>
                 <h1 className="text-xl lg:text-2xl font-bold text-slate-900 flex items-center space-x-2">
                   <Package className="w-6 h-6 text-orange-600" />
-                  <span>Kuasa Components</span>
+                  <span>Package Components</span>
                 </h1>
               </div>
             </div>
@@ -210,16 +143,24 @@ const ClientDashboard: React.FC<ClientDashboardProps> = ({ user, onBack }) => {
                   <div key={component.id} className="flex items-center justify-between p-4 border border-slate-200 rounded-lg">
                     <div className="flex items-center space-x-3">
                       <Package className="w-5 h-5 text-slate-600" />
-                      <span className="font-medium text-slate-900">Component {index + 1}: {component.name}</span>
+                      <div>
+                        <span className="font-medium text-slate-900">{component.name}</span>
+                        <p className="text-sm text-slate-600">{component.price}</p>
+                      </div>
                       {component.active && (
                         <span className="px-2 py-1 bg-green-100 text-green-700 text-xs font-medium rounded-full">
-                          Selesai
+                          Active
                         </span>
                       )}
                     </div>
-                    <ChevronRight className="w-5 h-5 text-slate-400" />
                   </div>
                 ))}
+                {components.length === 0 && (
+                  <div className="text-center py-8 text-slate-500">
+                    <Package className="w-12 h-12 text-slate-300 mx-auto mb-3" />
+                    <p>No components assigned yet</p>
+                  </div>
+                )}
               </div>
             </div>
           </div>
@@ -295,25 +236,29 @@ const ClientDashboard: React.FC<ClientDashboardProps> = ({ user, onBack }) => {
               <table className="w-full">
                 <thead className="bg-slate-50 border-b border-slate-200">
                   <tr>
-                    <th className="text-left py-3 px-4 font-medium text-slate-900">Invoice</th>
+                    <th className="text-left py-3 px-4 font-medium text-slate-900">Package</th>
                     <th className="text-left py-3 px-4 font-medium text-slate-900">Amount</th>
                     <th className="text-left py-3 px-4 font-medium text-slate-900">Date</th>
-                    <th className="text-left py-3 px-4 font-medium text-slate-900">Payment</th>
-                    <th className="text-left py-3 px-4 font-medium text-slate-900">Receipt</th>
+                    <th className="text-left py-3 px-4 font-medium text-slate-900">Paid</th>
+                    <th className="text-left py-3 px-4 font-medium text-slate-900">Due</th>
                     <th className="text-left py-3 px-4 font-medium text-slate-900">Status</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-200">
                   {invoices.map((invoice) => (
                     <tr key={invoice.id}>
-                      <td className="py-3 px-4 text-slate-900">Kuasa 360</td>
+                      <td className="py-3 px-4 text-slate-900">{invoice.packageName}</td>
                       <td className="py-3 px-4 text-slate-900">RM {invoice.amount.toLocaleString()}</td>
                       <td className="py-3 px-4 text-slate-600">{new Date(invoice.createdAt).toLocaleDateString()}</td>
-                      <td className="py-3 px-4 text-slate-900">RM {invoice.paid.toLocaleString()}</td>
-                      <td className="py-3 px-4 text-slate-600">-</td>
+                      <td className="py-3 px-4 text-green-600">RM {invoice.paid.toLocaleString()}</td>
+                      <td className="py-3 px-4 text-red-600">RM {invoice.due.toLocaleString()}</td>
                       <td className="py-3 px-4">
-                        <span className="px-2 py-1 bg-green-100 text-green-700 text-xs font-medium rounded-full">
-                          Paid
+                        <span className={`px-2 py-1 text-xs font-medium rounded-full ${
+                          invoice.status === 'Paid' ? 'bg-green-100 text-green-700' :
+                          invoice.status === 'Pending' ? 'bg-yellow-100 text-yellow-700' :
+                          'bg-red-100 text-red-700'
+                        }`}>
+                          {invoice.status}
                         </span>
                       </td>
                     </tr>
@@ -321,6 +266,30 @@ const ClientDashboard: React.FC<ClientDashboardProps> = ({ user, onBack }) => {
                 </tbody>
               </table>
             </div>
+            
+            {/* Payment Details */}
+            {payments.length > 0 && (
+              <div className="mt-6">
+                <h4 className="text-md font-semibold text-slate-900 mb-3">Payment Details</h4>
+                <div className="space-y-2">
+                  {payments.map((payment) => (
+                    <div key={payment.id} className="flex items-center justify-between p-3 bg-slate-50 rounded-lg">
+                      <div>
+                        <p className="text-sm font-medium text-slate-900">RM {payment.amount.toLocaleString()}</p>
+                        <p className="text-xs text-slate-600">{payment.paymentSource} • {new Date(payment.paidAt).toLocaleDateString()}</p>
+                      </div>
+                      <span className={`px-2 py-1 text-xs font-medium rounded-full ${
+                        payment.status === 'Paid' ? 'bg-green-100 text-green-700' :
+                        payment.status === 'Pending' ? 'bg-yellow-100 text-yellow-700' :
+                        'bg-red-100 text-red-700'
+                      }`}>
+                        {payment.status}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
             
             <div className="mt-6 text-center">
               <button className="bg-green-600 text-white px-6 py-2 rounded-lg hover:bg-green-700 transition-colors">
@@ -333,15 +302,15 @@ const ClientDashboard: React.FC<ClientDashboardProps> = ({ user, onBack }) => {
     );
   }
 
-  // Show Schedule Appointment
-  if (showScheduleAppointment) {
+  // Show View Appointments
+  if (showViewAppointments) {
     return (
       <div className="min-h-screen bg-slate-50">
         <div className="bg-white border-b border-slate-200 px-4 lg:px-8 py-4 lg:py-6">
           <div className="max-w-7xl mx-auto flex items-center justify-between">
             <div className="flex items-center space-x-4">
               <button
-                onClick={() => setShowScheduleAppointment(false)}
+                onClick={() => setShowViewAppointments(false)}
                 className="flex items-center space-x-2 px-3 py-2 text-slate-600 hover:text-slate-900 hover:bg-slate-100 rounded-lg transition-colors"
               >
                 <ArrowLeft className="w-5 h-5" />
@@ -350,7 +319,7 @@ const ClientDashboard: React.FC<ClientDashboardProps> = ({ user, onBack }) => {
               <div>
                 <h1 className="text-xl lg:text-2xl font-bold text-slate-900 flex items-center space-x-2">
                   <Calendar className="w-6 h-6 text-orange-600" />
-                  <span>Schedule Appointment</span>
+                  <span>View Appointments</span>
                 </h1>
               </div>
             </div>
@@ -359,81 +328,43 @@ const ClientDashboard: React.FC<ClientDashboardProps> = ({ user, onBack }) => {
 
         <div className="max-w-4xl mx-auto p-4 lg:p-8">
           <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-6">
-            <h3 className="text-lg font-semibold text-slate-900 mb-4">Book your appointment session</h3>
-            <form className="space-y-6">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div>
-                  <label className="block text-sm font-medium text-slate-700 mb-2">Title</label>
-                  <input
-                    type="text"
-                    className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none"
-                    placeholder="Enter appointment title"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-slate-700 mb-2">Purpose</label>
-                  <input
-                    type="text"
-                    className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none"
-                    placeholder="Enter purpose"
-                  />
-                </div>
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-slate-700 mb-2">Purpose Date</label>
-                <input
-                  type="datetime-local"
-                  className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none"
-                />
-              </div>
-
-              <button
-                type="button"
-                className="bg-green-600 text-white px-6 py-2 rounded-lg hover:bg-green-700 transition-colors"
-              >
-                Set Appointment
-              </button>
-            </form>
-
-            <div className="mt-8">
-              <h3 className="text-lg font-semibold text-slate-900 mb-4">Your Appointments</h3>
+            <h3 className="text-lg font-semibold text-slate-900 mb-4">Your Appointments</h3>
+            {clientEvents.length > 0 ? (
               <div className="overflow-x-auto">
                 <table className="w-full">
                   <thead className="bg-slate-50 border-b border-slate-200">
                     <tr>
                       <th className="text-left py-3 px-4 font-medium text-slate-900">Title</th>
-                      <th className="text-left py-3 px-4 font-medium text-slate-900">Start</th>
-                      <th className="text-left py-3 px-4 font-medium text-slate-900">End</th>
-                      <th className="text-left py-3 px-4 font-medium text-slate-900">Status</th>
-                      <th className="text-left py-3 px-4 font-medium text-slate-900">Actions</th>
+                      <th className="text-left py-3 px-4 font-medium text-slate-900">Date</th>
+                      <th className="text-left py-3 px-4 font-medium text-slate-900">Time</th>
+                      <th className="text-left py-3 px-4 font-medium text-slate-900">Description</th>
+                      <th className="text-left py-3 px-4 font-medium text-slate-900">Type</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-200">
-                    <tr>
-                      <td className="py-3 px-4 text-slate-900">Follow up for First Session</td>
-                      <td className="py-3 px-4 text-slate-600">21/07/2025 10:30</td>
-                      <td className="py-3 px-4 text-slate-600">21/07/2025 12:30</td>
-                      <td className="py-3 px-4">
-                        <span className="px-2 py-1 bg-green-100 text-green-700 text-xs font-medium rounded-full">
-                          Approved
-                        </span>
-                      </td>
-                      <td className="py-3 px-4">
-                        <div className="flex space-x-2">
-                          <button className="text-red-600 hover:text-red-700 text-sm border border-red-300 px-2 py-1 rounded">
-                            Cancel
-                          </button>
-                          <button className="text-blue-600 hover:text-blue-700 text-sm border border-blue-300 px-2 py-1 rounded">
-                            Edit
-                          </button>
-                        </div>
-                      </td>
-                    </tr>
+                    {clientEvents.map((event) => (
+                      <tr key={event.id}>
+                        <td className="py-3 px-4 text-slate-900">{event.title}</td>
+                        <td className="py-3 px-4 text-slate-600">{new Date(event.startDate).toLocaleDateString()}</td>
+                        <td className="py-3 px-4 text-slate-600">{event.startTime} - {event.endTime}</td>
+                        <td className="py-3 px-4 text-slate-600">{event.description || '-'}</td>
+                        <td className="py-3 px-4">
+                          <span className="px-2 py-1 bg-blue-100 text-blue-700 text-xs font-medium rounded-full">
+                            {event.type}
+                          </span>
+                        </td>
+                      </tr>
+                    ))}
                   </tbody>
                 </table>
               </div>
-            </div>
+            ) : (
+              <div className="text-center py-8 text-slate-500">
+                <Calendar className="w-12 h-12 text-slate-300 mx-auto mb-3" />
+                <p>No appointments scheduled</p>
+                <p className="text-sm">Contact support to schedule an appointment</p>
+              </div>
+            )}
           </div>
         </div>
       </div>
@@ -503,7 +434,7 @@ const ClientDashboard: React.FC<ClientDashboardProps> = ({ user, onBack }) => {
               <div className="w-12 h-12 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-3">
                 <Package className="w-6 h-6 text-green-600" />
               </div>
-              <h3 className="font-semibold text-slate-900 mb-2">Kuasa Components</h3>
+              <h3 className="font-semibold text-slate-900 mb-2">Package Components</h3>
               <p className="text-sm text-slate-600 mb-3">List of modules you have access to</p>
               <div className="text-lg font-bold text-green-600">{components.length}</div>
               <p className="text-xs text-slate-500">Active Components</p>
@@ -526,20 +457,20 @@ const ClientDashboard: React.FC<ClientDashboardProps> = ({ user, onBack }) => {
             </div>
           </div>
 
-          {/* Schedule Appointment */}
+          {/* View Appointments */}
           <div 
             className="bg-white rounded-xl p-6 shadow-sm border border-slate-200 hover:shadow-md transition-shadow cursor-pointer"
-            onClick={() => setShowScheduleAppointment(true)}
+            onClick={() => setShowViewAppointments(true)}
           >
             <div className="text-center">
               <div className="w-12 h-12 bg-orange-100 rounded-full flex items-center justify-center mx-auto mb-3">
-                <Calendar className="w-6 h-6 text-orange-600" />
+                <Eye className="w-6 h-6 text-orange-600" />
               </div>
-              <h3 className="font-semibold text-slate-900 mb-2">Schedule Appointment</h3>
-              <p className="text-sm text-slate-600 mb-3">Book your appointment session</p>
+              <h3 className="font-semibold text-slate-900 mb-2">View Appointments</h3>
+              <p className="text-sm text-slate-600 mb-3">View your scheduled appointments</p>
               <div className="flex items-center justify-center text-orange-600">
-                <Plus className="w-4 h-4 mr-1" />
-                <span className="text-sm font-medium">Book Now</span>
+                <Eye className="w-4 h-4 mr-1" />
+                <span className="text-sm font-medium">View Appointments</span>
               </div>
             </div>
           </div>
@@ -593,68 +524,114 @@ const ClientDashboard: React.FC<ClientDashboardProps> = ({ user, onBack }) => {
             </div>
           </div>
 
-          {/* Calendar Section */}
-          <div className="lg:col-span-2 bg-white rounded-xl shadow-sm border border-slate-200">
-            <div className="p-4 border-b border-slate-200">
-              <div className="flex items-center justify-between mb-4">
-                <h3 className="text-lg font-semibold text-slate-900">Your Appointment Schedule</h3>
-                <div className="flex items-center space-x-2">
-                  <button
-                    onClick={() => setCalendarView('month')}
-                    className={`px-3 py-1 rounded text-sm font-medium ${
-                      calendarView === 'month' ? 'bg-slate-800 text-white' : 'bg-slate-100 text-slate-600'
-                    }`}
-                  >
-                    month
-                  </button>
-                  <button
-                    onClick={() => setCalendarView('list')}
-                    className={`px-3 py-1 rounded text-sm font-medium ${
-                      calendarView === 'list' ? 'bg-slate-800 text-white' : 'bg-slate-100 text-slate-600'
-                    }`}
-                  >
-                    list
-                  </button>
+          {/* Chat Messages Section */}
+          <div className="lg:col-span-2 bg-white rounded-xl shadow-sm border border-slate-200 flex flex-col h-96">
+            {/* Chat Header */}
+            <div className="p-4 border-b border-slate-200 flex items-center justify-between">
+              <div className="flex items-center space-x-3">
+                <div className="w-10 h-10 bg-blue-500 rounded-full flex items-center justify-center text-white font-medium">
+                  AT
+                </div>
+                <div>
+                  <h3 className="font-medium text-slate-900">Ahmad Tech Solutions</h3>
+                  <p className="text-sm text-slate-500">Online</p>
                 </div>
               </div>
-              
-              <div className="flex items-center justify-between">
-                <div className="flex items-center space-x-4">
-                  <button
-                    onClick={() => navigateMonth('prev')}
-                    className="p-2 hover:bg-slate-100 rounded-lg transition-colors"
-                  >
-                    <ChevronLeft className="w-5 h-5 text-slate-600" />
-                  </button>
-                  <h4 className="text-xl font-semibold text-slate-900">
-                    {monthNames[currentDate.getMonth()]} {currentDate.getFullYear()}
-                  </h4>
-                  <button
-                    onClick={() => navigateMonth('next')}
-                    className="p-2 hover:bg-slate-100 rounded-lg transition-colors"
-                  >
-                    <ChevronRight className="w-5 h-5 text-slate-600" />
-                  </button>
-                </div>
-                <button className="px-3 py-1 bg-slate-100 text-slate-600 rounded text-sm">
-                  today
+              <div className="flex items-center space-x-2">
+                <button className="p-2 hover:bg-slate-100 rounded-lg transition-colors">
+                  <Phone className="w-4 h-4 text-slate-600" />
+                </button>
+                <button className="p-2 hover:bg-slate-100 rounded-lg transition-colors">
+                  <MessageSquare className="w-4 h-4 text-slate-600" />
                 </button>
               </div>
             </div>
 
-            <div className="p-4">
-              {/* Days of Week Header */}
-              <div className="grid grid-cols-7 gap-0 mb-2">
-                {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map((day) => (
-                  <div key={day} className="p-2 text-center text-sm font-medium text-slate-600">
-                    {day}
+            {/* Messages */}
+            <div className="flex-1 overflow-y-auto p-4 space-y-4">
+              {clientChat && clientChat.messages ? clientChat.messages.map((msg) => (
+                <div
+                  key={msg.id}
+                  className={`flex ${msg.sender === 'client' ? 'justify-end' : 'justify-start'}`}
+                >
+                  <div
+                    className={`max-w-xs lg:max-w-md px-4 py-2 rounded-lg ${
+                      msg.sender === 'client'
+                        ? 'bg-blue-500 text-white'
+                        : 'bg-slate-100 text-slate-900'
+                    }`}
+                  >
+                    <p className="text-sm">{msg.content}</p>
+                    <p className={`text-xs mt-1 ${
+                      msg.sender === 'client' ? 'text-blue-100' : 'text-slate-500'
+                    }`}>
+                      {msg.timestamp}
+                    </p>
                   </div>
-                ))}
+                </div>
+              )) : (
+                <div className="flex justify-start">
+                  <div className="bg-slate-100 text-slate-900 px-4 py-2 rounded-lg max-w-xs">
+                    <p className="text-sm">Hi! I want to check our project progress.</p>
+                    <p className="text-xs text-slate-500 mt-1">10:15 AM</p>
+                  </div>
+                </div>
+              )}
+              
+              <div className="flex justify-end">
+                <div className="bg-blue-500 text-white px-4 py-2 rounded-lg max-w-xs">
+                  <p className="text-sm">Hello! The project is going well. We've completed the design phase and are now moving to development.</p>
+                  <p className="text-xs text-blue-100 mt-1">10:18 AM</p>
+                </div>
               </div>
+              
+              <div className="flex justify-start">
+                <div className="bg-slate-100 text-slate-900 px-4 py-2 rounded-lg max-w-xs">
+                  <p className="text-sm">Great! Can you share some screenshots?</p>
+                  <p className="text-xs text-slate-500 mt-1">10:20 AM</p>
+                </div>
+              </div>
+              
+              <div className="flex justify-end">
+                <div className="bg-blue-500 text-white px-4 py-2 rounded-lg max-w-xs">
+                  <p className="text-sm">Sure! I'll send them shortly. The UI looks very clean and modern.</p>
+                  <p className="text-xs text-blue-100 mt-1">10:22 AM</p>
+                </div>
+              </div>
+              
+              <div className="flex justify-start">
+                <div className="bg-slate-100 text-slate-900 px-4 py-2 rounded-lg max-w-xs">
+                  <p className="text-sm">Thank you for the project update</p>
+                  <p className="text-xs text-slate-500 mt-1">10:30 AM</p>
+                </div>
+              </div>
+            </div>
 
-              {/* Calendar Grid */}
-              <div className="grid grid-cols-7 gap-0">
-                {renderCalendarDays()}
+            {/* Message Input */}
+            <div className="p-4 border-t border-slate-200">
+              <div className="flex items-center space-x-2">
+                <button className="p-2 hover:bg-slate-100 rounded-lg transition-colors">
+                  <Paperclip className="w-4 h-4 text-slate-600" />
+                </button>
+                <div className="flex-1 relative">
+                  <input
+                    type="text"
+                    value={message}
+                    onChange={(e) => setMessage(e.target.value)}
+                    onKeyPress={(e) => e.key === 'Enter' && handleSendMessage()}
+                    placeholder="Type a message..."
+                    className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none"
+                  />
+                  <button className="absolute right-2 top-1/2 transform -translate-y-1/2 p-1 hover:bg-slate-100 rounded">
+                    <Smile className="w-4 h-4 text-slate-600" />
+                  </button>
+                </div>
+                <button
+                  onClick={handleSendMessage}
+                  className="p-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors"
+                >
+                  <Send className="w-4 h-4" />
+                </button>
               </div>
             </div>
           </div>
