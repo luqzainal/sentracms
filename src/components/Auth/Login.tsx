@@ -55,22 +55,6 @@ const Login: React.FC = () => {
         <div className="rounded-2xl shadow-2xl border border-slate-200/20 overflow-hidden" style={{ backgroundColor: '#eded21' }}>
           {/* Header with brand colors */}
           <div className="bg-gradient-to-r from-slate-800 to-slate-900 px-4 lg:px-8 py-6 lg:py-8 text-center">
-            <div className="flex justify-center">
-                <img 
-                  src="/src/assets/AiChatbot (13) copy copy.png" 
-                  alt="Sentra Logo" 
-                  className="w-full h-auto max-w-[200px] lg:max-w-xs"
-                />
-            </div>
-          </div>
-
-          {/* Error Message */}
-          {error && (
-            <div className="p-3 bg-red-50 border border-red-200 rounded-lg">
-              <p className="text-red-700 text-sm">{error}</p>
-            </div>
-          )}
-
           {/* Form section */}
           <div className="px-4 lg:px-8 py-6 lg:py-8" style={{ backgroundColor: '#eded21' }}>
             <div className="text-center mb-6 lg:mb-8">
