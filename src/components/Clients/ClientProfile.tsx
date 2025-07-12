@@ -1,12 +1,15 @@
 import React, { useState, useEffect } from 'react';
 import { useAppStore } from '../../store/AppStore';
 import { Client, Invoice, Payment, Component, CalendarEvent } from '../../store/AppStore';
-import { Edit, Calendar, FileText, DollarSign, Package, Plus, Trash2 } from 'lucide-react';
+import { Edit, Calendar, FileText, DollarSign, Package, Plus, Trash2, ArrowLeft } from 'lucide-react';
 import AddInvoiceModal from './AddInvoiceModal';
 import AddPaymentModal from './AddPaymentModal';
 import AddComponentModal from './AddComponentModal';
 import ClientModal from './ClientModal';
 import AddEventModal from './AddEventModal';
+import EditInvoiceModal from './EditInvoiceModal';
+import EditComponentModal from './EditComponentModal';
+import EditEventModal from './EditEventModal';
 
 interface ClientProfileProps {
   clientId: string;
@@ -27,7 +30,13 @@ const ClientProfile: React.FC<ClientProfileProps> = ({ clientId, onBack, onEdit 
     addComponents,
     updateClient, 
     addCalendarEvent,
-    getComponentsByInvoiceId 
+    updateCalendarEvent,
+    deleteCalendarEvent,
+    getComponentsByInvoiceId,
+    deleteInvoice,
+    updateInvoice,
+    deleteComponent,
+    updateComponent
   } = useAppStore();
 
   // Get client by ID
@@ -56,11 +65,21 @@ const ClientProfile: React.FC<ClientProfileProps> = ({ clientId, onBack, onEdit 
   const [showComponentModal, setShowComponentModal] = useState<string | null>(null);
   const [showEditModal, setShowEditModal] = useState(false);
   const [showEventModal, setShowEventModal] = useState(false);
+  const [showEditInvoiceModal, setShowEditInvoiceModal] = useState(false);
+  const [showEditComponentModal, setShowEditComponentModal] = useState(false);
+  const [showEditEventModal, setShowEditEventModal] = useState(false);
+  const [editingInvoice, setEditingInvoice] = useState<Invoice | null>(null);
+  const [editingComponent, setEditingComponent] = useState<Component | null>(null);
+  const [editingEvent, setEditingEvent] = useState<CalendarEvent | null>(null);
   const [selectedInvoiceForPayment, setSelectedInvoiceForPayment] = useState<Invoice | null>(null);
 
   const clientInvoices = invoices.filter(invoice => invoice.clientId === client.id);
   const clientPayments = payments.filter(payment => payment.clientId === client.id);
   const clientEvents = calendarEvents.filter(event => event.clientId === client.id);
+  
+  // Get all package names from invoices
+  const packageNames = clientInvoices.map(invoice => invoice.packageName).filter(Boolean);
+  const displayPackageName = packageNames.length > 0 ? packageNames.join(', ') : 'No package assigned yet';
 
   const handleSaveInvoice = (invoiceData: Partial<Invoice>) => {
     addInvoice({
@@ -119,11 +138,76 @@ const ClientProfile: React.FC<ClientProfileProps> = ({ clientId, onBack, onEdit 
     setShowEventModal(false);
   };
 
+  const handleEditInvoice = (invoice: Invoice) => {
+    setEditingInvoice(invoice);
+    setShowEditInvoiceModal(true);
+  };
+
+  const handleSaveEditedInvoice = (invoiceData: Partial<Invoice>) => {
+    if (editingInvoice) {
+      updateInvoice(editingInvoice.id, invoiceData);
+      setShowEditInvoiceModal(false);
+      setEditingInvoice(null);
+    }
+  };
+
+  const handleDeleteInvoice = (invoiceId: string) => {
+    if (confirm('Are you sure you want to delete this invoice? This will also delete all related components.')) {
+      deleteInvoice(invoiceId);
+    }
+  };
+
+  const handleEditComponent = (component: Component) => {
+    setEditingComponent(component);
+    setShowEditComponentModal(true);
+  };
+
+  const handleSaveEditedComponent = (componentData: Partial<Component>) => {
+    if (editingComponent) {
+      updateComponent(editingComponent.id, componentData);
+      setShowEditComponentModal(false);
+      setEditingComponent(null);
+    }
+  };
+
+  const handleDeleteComponent = (componentId: string) => {
+    if (confirm('Are you sure you want to delete this component?')) {
+      deleteComponent(componentId);
+    }
+  };
+
+  const handleEditEvent = (event: CalendarEvent) => {
+    setEditingEvent(event);
+    setShowEditEventModal(true);
+  };
+
+  const handleSaveEditedEvent = (eventData: Partial<CalendarEvent>) => {
+    if (editingEvent) {
+      updateCalendarEvent(editingEvent.id, eventData);
+      setShowEditEventModal(false);
+      setEditingEvent(null);
+    }
+  };
+
+  const handleDeleteEvent = (eventId: string) => {
+    if (confirm('Are you sure you want to delete this event?')) {
+      deleteCalendarEvent(eventId);
+    }
+  };
+
   return (
     <>
       <div className="p-6 space-y-6">
         {/* Header */}
         <div className="flex items-center justify-between">
+          <div className="flex items-center space-x-4">
+            <button
+              onClick={onBack}
+              className="flex items-center space-x-2 px-3 py-2 text-slate-600 hover:text-slate-900 hover:bg-slate-100 rounded-lg transition-colors border border-slate-200"
+            >
+              <ArrowLeft className="w-5 h-5" />
+              <span className="font-medium">Back</span>
+            </button>
           <div className="flex items-center space-x-4">
             <div className="w-16 h-16 bg-blue-100 rounded-full flex items-center justify-center">
               <span className="text-2xl font-bold text-blue-600">
@@ -134,6 +218,7 @@ const ClientProfile: React.FC<ClientProfileProps> = ({ clientId, onBack, onEdit 
               <h1 className="text-2xl font-bold text-gray-900">{client.name}</h1>
               <p className="text-gray-600">{client.businessName}</p>
             </div>
+          </div>
           </div>
           <button
             onClick={() => setShowEditModal(true)}
@@ -179,7 +264,7 @@ const ClientProfile: React.FC<ClientProfileProps> = ({ clientId, onBack, onEdit 
               </div>
               <div>
                 <label className="text-sm font-medium text-gray-500">Package Name:</label>
-                <p className="text-gray-900">{client.packageName || 'No package assigned yet'}</p>
+                <p className="text-gray-900">{displayPackageName}</p>
               </div>
               <div>
                 <label className="text-sm font-medium text-gray-500">Tags:</label>
@@ -248,7 +333,16 @@ const ClientProfile: React.FC<ClientProfileProps> = ({ clientId, onBack, onEdit 
                           </div>
                           <div className="flex items-center space-x-2">
                             <span className="text-sm font-medium text-gray-900">{component.price}</span>
-                            <button className="text-red-500 hover:text-red-700">
+                            <button
+                              onClick={() => handleEditComponent(component)}
+                              className="text-blue-500 hover:text-blue-700"
+                            >
+                              <Edit className="w-4 h-4" />
+                            </button>
+                            <button
+                              onClick={() => handleDeleteComponent(component.id)}
+                              className="text-red-500 hover:text-red-700"
+                            >
                               <Trash2 className="w-4 h-4" />
                             </button>
                           </div>
@@ -289,11 +383,27 @@ const ClientProfile: React.FC<ClientProfileProps> = ({ clientId, onBack, onEdit 
               {clientEvents.length > 0 ? (
                 <div className="space-y-3">
                   {clientEvents.slice(0, 3).map((event) => (
-                    <div key={event.id} className="p-3 bg-blue-50 rounded-lg">
+                    <div key={event.id} className="p-3 bg-blue-50 rounded-lg flex items-center justify-between">
+                      <div>
                       <h4 className="font-medium text-gray-900">{event.title}</h4>
                       <p className="text-sm text-gray-600">
                         {new Date(event.startDate).toLocaleDateString()}
                       </p>
+                      </div>
+                      <div className="flex items-center space-x-2">
+                        <button
+                          onClick={() => handleEditEvent(event)}
+                          className="text-blue-500 hover:text-blue-700"
+                        >
+                          <Edit className="w-4 h-4" />
+                        </button>
+                        <button
+                          onClick={() => handleDeleteEvent(event.id)}
+                          className="text-red-500 hover:text-red-700"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+                      </div>
                     </div>
                   ))}
                 </div>
@@ -324,9 +434,31 @@ const ClientProfile: React.FC<ClientProfileProps> = ({ clientId, onBack, onEdit 
                     <div key={invoice.id} className="p-3 border border-gray-200 rounded-lg">
                       <div className="flex justify-between items-start mb-2">
                         <h4 className="font-medium text-gray-900">{invoice.packageName}</h4>
-                        <button className="text-red-500 hover:text-red-700">
+                        <div className="flex items-center space-x-2">
+                          <button
+                            onClick={() => handleEditInvoice(invoice)}
+                            className="text-blue-500 hover:text-blue-700"
+                          >
+                            <Edit className="w-4 h-4" />
+                          </button>
+                          <button
+                            onClick={() => handleDeleteInvoice(invoice.id)}
+                            className="text-red-500 hover:text-red-700"
+                          >
+                          <button
+                            onClick={() => handleEditInvoice(invoice)}
+                            className="text-blue-500 hover:text-blue-700"
+                          >
+                            <Edit className="w-4 h-4" />
+                          </button>
+                          <button
+                            onClick={() => handleDeleteInvoice(invoice.id)}
+                            className="text-red-500 hover:text-red-700"
+                          >
                           <Trash2 className="w-4 h-4" />
-                        </button>
+                          </button>
+                        </div>
+                          </button>
                       </div>
                       <div className="space-y-1 text-sm">
                         <div className="flex justify-between">
@@ -402,6 +534,30 @@ const ClientProfile: React.FC<ClientProfileProps> = ({ clientId, onBack, onEdit 
         <AddEventModal
           onClose={() => setShowEventModal(false)}
           onSave={handleSaveEvent}
+        />
+      )}
+
+      {showEditInvoiceModal && editingInvoice && (
+        <EditInvoiceModal
+          invoice={editingInvoice}
+          onClose={() => setShowEditInvoiceModal(false)}
+          onSave={handleSaveEditedInvoice}
+        />
+      )}
+
+      {showEditComponentModal && editingComponent && (
+        <EditComponentModal
+          component={editingComponent}
+          onClose={() => setShowEditComponentModal(false)}
+          onSave={handleSaveEditedComponent}
+        />
+      )}
+
+      {showEditEventModal && editingEvent && (
+        <EditEventModal
+          event={editingEvent}
+          onClose={() => setShowEditEventModal(false)}
+          onSave={handleSaveEditedEvent}
         />
       )}
     </>
