@@ -41,7 +41,8 @@ const ClientProgressTracker: React.FC<ClientProgressTrackerProps> = ({ clientId,
     getProgressStepsByClientId,
     addProgressStep,
     updateProgressStep,
-    deleteProgressStep
+    deleteProgressStep,
+    copyComponentsToProgressSteps
   } = useAppStore();
 
   const client = getClientById(parseInt(clientId));
@@ -50,6 +51,13 @@ const ClientProgressTracker: React.FC<ClientProgressTrackerProps> = ({ clientId,
   const [websiteLinks, setWebsiteLinks] = useState([]);
 
   const progressSteps = getProgressStepsByClientId(parseInt(clientId));
+
+  // Auto-sync components to progress steps when component loads
+  useEffect(() => {
+    if (client) {
+      copyComponentsToProgressSteps(client.id);
+    }
+  }, [client, copyComponentsToProgressSteps]);
 
   if (!client) {
     return (
