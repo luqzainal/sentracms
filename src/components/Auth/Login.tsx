@@ -55,6 +55,7 @@ const Login: React.FC = () => {
         <div className="rounded-2xl shadow-2xl border border-slate-200/20 overflow-hidden" style={{ backgroundColor: '#eded21' }}>
           {/* Header with brand colors */}
           <div className="bg-gradient-to-r from-slate-800 to-slate-900 px-4 lg:px-8 py-6 lg:py-8 text-center">
+          </div>
           {/* Form section */}
           <div className="px-4 lg:px-8 py-6 lg:py-8" style={{ backgroundColor: '#eded21' }}>
             <div className="text-center mb-6 lg:mb-8">
