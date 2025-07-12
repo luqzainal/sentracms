@@ -68,7 +68,7 @@ const Sidebar: React.FC<SidebarProps> = ({ activeTab, setActiveTab, onLogout, is
           <img 
             src="/src/assets/AiChatbot (14) copy.png" 
             alt="Sentra Logo" 
-            className="w-full h-auto max-w-[160px] lg:max-w-[200px]"
+            className="w-full h-auto max-w-[240px] lg:max-w-[300px]"
           />
         </div>
       </div>
