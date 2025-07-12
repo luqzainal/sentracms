@@ -37,7 +37,7 @@ const ClientDashboard: React.FC<ClientDashboardProps> = ({ user, onBack }) => {
       email: 'client@sentra.com',
       phone: '+60 12-345 6789',
       status: 'Complete',
-      packageName: 'Kuasa 360',
+      packageName: 'Premium Package',
       tags: ['VIP', 'Priority'],
       totalSales: 15000,
       totalCollection: 12000,
@@ -133,7 +133,7 @@ const ClientDashboard: React.FC<ClientDashboardProps> = ({ user, onBack }) => {
           <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-6">
             <div className="mb-6">
               <p className="text-slate-600 mb-2">Current Package:</p>
-              <h2 className="text-2xl font-bold text-slate-900">Kuasa 360</h2>
+              <h2 className="text-2xl font-bold text-slate-900">{client.packageName || 'No Package Assigned'}</h2>
             </div>
 
             <div className="mb-6">
@@ -205,7 +205,7 @@ const ClientDashboard: React.FC<ClientDashboardProps> = ({ user, onBack }) => {
               </div>
               <div>
                 <span className="font-medium text-slate-700">Registered Package: </span>
-                <span className="text-slate-900">Kuasa 360</span>
+                <span className="text-slate-900">{client.packageName || 'No Package Assigned'}</span>
               </div>
             </div>
           </div>
