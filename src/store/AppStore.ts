@@ -721,16 +721,10 @@ export const useAppStore = create<AppState>((set, get) => ({
     const invoice = state.invoices.find(inv => inv.id === invoiceId);
     
     if (invoice) {
-      // Find and delete the main package component that matches the invoice package name
-      const packageComponent = state.components.find(comp => 
-        comp.clientId === invoice.clientId && comp.name === invoice.packageName
-      );
-      
       set((state) => ({
         invoices: state.invoices.filter((inv) => inv.id !== invoiceId),
-        components: packageComponent 
-          ? state.components.filter((comp) => comp.clientId !== invoice.clientId)
-          : state.components,
+        // Keep components - only delete components tied to this specific invoice
+        components: state.components.filter((comp) => comp.invoiceId !== invoiceId),
         clients: state.clients.map((client) =>
           client.id === invoice.clientId
             ? {
@@ -738,12 +732,12 @@ export const useAppStore = create<AppState>((set, get) => ({
                 totalSales: Math.max(0, client.totalSales - invoice.amount),
                 balance: Math.max(0, client.balance - invoice.amount),
                 invoiceCount: Math.max(0, client.invoiceCount - 1),
-                // Clear package name if this was the package component
-                packageName: packageComponent ? undefined : client.packageName,
+                // Keep package name - don't clear it when deleting invoice
                 updatedAt: new Date().toISOString(),
               }
             : client
         ),
+        // Keep progress steps - don't delete them when invoice is deleted
       }));
     }
   },
@@ -1000,11 +994,13 @@ export const useAppStore = create<AppState>((set, get) => ({
         
         set((state) => ({
           progressSteps: state.progressSteps.filter((step) => !stepIdsToDelete.includes(step.id)),
+          // Keep invoices and components - don't delete them when progress step is deleted
         }));
       } else {
         // Regular step deletion
         set((state) => ({
           progressSteps: state.progressSteps.filter((step) => step.id !== id),
+          // Keep invoices and components - don't delete them when progress step is deleted
         }));
       }
     }
