@@ -399,7 +399,7 @@ const ClientProfile: React.FC<ClientProfileProps> = ({ clientId, onBack, onEdit 
                       </button>
                     </div>
                   </div>
-                )}
+                </div>
               ))}
               {invoices.length === 0 && (
                 <div className="text-center py-8 text-slate-500">
@@ -408,6 +408,7 @@ const ClientProfile: React.FC<ClientProfileProps> = ({ clientId, onBack, onEdit 
               )}
             </div>
           </div>
+        </div>
       </div>
 
       {/* Modals */}
