@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { ArrowLeft, Calendar, MessageSquare, DollarSign, HelpCircle, Package, Plus, Clock, CheckCircle, AlertCircle, User, Phone, Mail, MapPin, ChevronLeft, ChevronRight, X, Send, Paperclip, Smile } from 'lucide-react';
+import { ArrowLeft, Calendar, MessageSquare, DollarSign, HelpCircle, Package, Plus, Clock, CheckCircle, AlertCircle, User, Phone, Mail, MapPin, ChevronLeft, ChevronRight, X, Send, Paperclip, Smile, Eye } from 'lucide-react';
 import ClientProgressTracker from '../Clients/ClientProgressTracker';
 import { useAppStore } from '../../store/AppStore';
 
@@ -9,26 +9,18 @@ interface ClientPortalDashboardProps {
 }
 
 const ClientPortalDashboard: React.FC<ClientPortalDashboardProps> = ({ user, onBack }) => {
-  const [showAppointmentModal, setShowAppointmentModal] = useState(false);
   const [showProgressTracker, setShowProgressTracker] = useState(false);
   const [showPackageComponents, setShowPackageComponents] = useState(false);
   const [showBilling, setShowBilling] = useState(false);
-  const [showScheduleAppointment, setShowScheduleAppointment] = useState(false);
+  const [showViewAppointments, setShowViewAppointments] = useState(false);
   const [message, setMessage] = useState('');
-  const [appointmentForm, setAppointmentForm] = useState({
-    title: '',
-    date: '',
-    time: '',
-    description: ''
-  });
 
   const { 
     clients, 
     getProgressStepsByClientId, 
     getComponentsByClientId,
     getInvoicesByClientId,
-    chats,
-    addCalendarEvent
+    chats
   } = useAppStore();
 
   // Find the client data based on the user email
@@ -72,40 +64,6 @@ const ClientPortalDashboard: React.FC<ClientPortalDashboardProps> = ({ user, onB
       console.log('Sending message:', message);
       setMessage('');
     }
-  };
-
-  const handleAppointmentSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    
-    if (!appointmentForm.title || !appointmentForm.date || !appointmentForm.time) {
-      alert('Please fill in all required fields');
-      return;
-    }
-
-    // Add the appointment to calendar
-    addCalendarEvent({
-      clientId: client.id,
-      title: appointmentForm.title,
-      startDate: appointmentForm.date,
-      endDate: appointmentForm.date,
-      startTime: appointmentForm.time,
-      endTime: appointmentForm.time,
-      description: appointmentForm.description,
-      type: 'meeting'
-    });
-
-    // Reset form and close modal
-    setAppointmentForm({ title: '', date: '', time: '', description: '' });
-    setShowAppointmentModal(false);
-    alert('Appointment scheduled successfully!');
-  };
-
-  const handleFormChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
-    const { name, value } = e.target;
-    setAppointmentForm(prev => ({
-      ...prev,
-      [name]: value
-    }));
   };
 
   // Show Progress Tracker
@@ -281,15 +239,15 @@ const ClientPortalDashboard: React.FC<ClientPortalDashboardProps> = ({ user, onB
     );
   }
 
-  // Show Schedule Appointment
-  if (showScheduleAppointment) {
+  // Show View Appointments
+  if (showViewAppointments) {
     return (
       <div className="min-h-screen bg-slate-50">
         <div className="bg-white border-b border-slate-200 px-4 lg:px-8 py-4 lg:py-6">
           <div className="max-w-7xl mx-auto flex items-center justify-between">
             <div className="flex items-center space-x-4">
               <button
-                onClick={() => setShowScheduleAppointment(false)}
+                onClick={() => setShowViewAppointments(false)}
                 className="flex items-center space-x-2 px-3 py-2 text-slate-600 hover:text-slate-900 hover:bg-slate-100 rounded-lg transition-colors"
               >
                 <ArrowLeft className="w-5 h-5" />
@@ -298,7 +256,7 @@ const ClientPortalDashboard: React.FC<ClientPortalDashboardProps> = ({ user, onB
               <div>
                 <h1 className="text-xl lg:text-2xl font-bold text-slate-900 flex items-center space-x-2">
                   <Package className="w-6 h-6 text-orange-600" />
-                  <span>Schedule Appointment</span>
+                  <span>View Appointments</span>
                 </h1>
               </div>
             </div>
@@ -307,80 +265,43 @@ const ClientPortalDashboard: React.FC<ClientPortalDashboardProps> = ({ user, onB
 
         <div className="max-w-4xl mx-auto p-4 lg:p-8">
           <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-6">
-            <form className="space-y-6">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div>
-                  <label className="block text-sm font-medium text-slate-700 mb-2">Title</label>
-                  <input
-                    type="text"
-                    className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none"
-                    placeholder="Enter appointment title"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-slate-700 mb-2">Purpose</label>
-                  <input
-                    type="text"
-                    className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none"
-                    placeholder="Enter purpose"
-                  />
-                </div>
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-slate-700 mb-2">Purpose Date</label>
-                <input
-                  type="datetime-local"
-                  className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none"
-                />
-              </div>
-
-              <button
-                type="button"
-                className="bg-green-600 text-white px-6 py-2 rounded-lg hover:bg-green-700 transition-colors"
-              >
-                Set Appointment
-              </button>
-            </form>
-
-            <div className="mt-8">
-              <h3 className="text-lg font-semibold text-slate-900 mb-4">Your Appointments</h3>
+            <h3 className="text-lg font-semibold text-slate-900 mb-4">Your Appointments</h3>
+            {clientEvents.length > 0 ? (
               <div className="overflow-x-auto">
                 <table className="w-full">
                   <thead className="bg-slate-50 border-b border-slate-200">
                     <tr>
                       <th className="text-left py-3 px-4 font-medium text-slate-900">Title</th>
-                      <th className="text-left py-3 px-4 font-medium text-slate-900">Start</th>
-                      <th className="text-left py-3 px-4 font-medium text-slate-900">End</th>
-                      <th className="text-left py-3 px-4 font-medium text-slate-900">Status</th>
-                      <th className="text-left py-3 px-4 font-medium text-slate-900">Actions</th>
+                      <th className="text-left py-3 px-4 font-medium text-slate-900">Date</th>
+                      <th className="text-left py-3 px-4 font-medium text-slate-900">Time</th>
+                      <th className="text-left py-3 px-4 font-medium text-slate-900">Description</th>
+                      <th className="text-left py-3 px-4 font-medium text-slate-900">Type</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-200">
-                    <tr>
-                      <td className="py-3 px-4 text-slate-900">Follow up for First Session</td>
-                      <td className="py-3 px-4 text-slate-600">21/07/2025 10:30</td>
-                      <td className="py-3 px-4 text-slate-600">21/07/2025 12:30</td>
-                      <td className="py-3 px-4">
-                        <span className="px-2 py-1 bg-green-100 text-green-700 text-xs font-medium rounded-full">
-                          Approved
-                        </span>
-                      </td>
-                      <td className="py-3 px-4">
-                        <div className="flex space-x-2">
-                          <button className="text-red-600 hover:text-red-700 text-sm border border-red-300 px-2 py-1 rounded">
-                            Cancel
-                          </button>
-                          <button className="text-blue-600 hover:text-blue-700 text-sm border border-blue-300 px-2 py-1 rounded">
-                            Edit
-                          </button>
-                        </div>
-                      </td>
-                    </tr>
+                    {clientEvents.map((event) => (
+                      <tr key={event.id}>
+                        <td className="py-3 px-4 text-slate-900">{event.title}</td>
+                        <td className="py-3 px-4 text-slate-600">{new Date(event.startDate).toLocaleDateString()}</td>
+                        <td className="py-3 px-4 text-slate-600">{event.startTime} - {event.endTime}</td>
+                        <td className="py-3 px-4 text-slate-600">{event.description || '-'}</td>
+                        <td className="py-3 px-4">
+                          <span className="px-2 py-1 bg-blue-100 text-blue-700 text-xs font-medium rounded-full">
+                            {event.type}
+                          </span>
+                        </td>
+                      </tr>
+                    ))}
                   </tbody>
                 </table>
               </div>
-            </div>
+            ) : (
+              <div className="text-center py-8 text-slate-500">
+                <Calendar className="w-12 h-12 text-slate-300 mx-auto mb-3" />
+                <p>No appointments scheduled</p>
+                <p className="text-sm">Contact support to schedule an appointment</p>
+              </div>
+            )}
           </div>
         </div>
       </div>
@@ -473,17 +394,17 @@ const ClientPortalDashboard: React.FC<ClientPortalDashboardProps> = ({ user, onB
           {/* Schedule Appointment */}
           <div 
             className="bg-white rounded-xl p-6 shadow-sm border border-slate-200 hover:shadow-md transition-shadow cursor-pointer"
-            onClick={() => setShowScheduleAppointment(true)}
+            onClick={() => setShowViewAppointments(true)}
           >
             <div className="text-center">
               <div className="w-12 h-12 bg-orange-100 rounded-full flex items-center justify-center mx-auto mb-3">
-                <Calendar className="w-6 h-6 text-orange-600" />
+                <Eye className="w-6 h-6 text-orange-600" />
               </div>
-              <h3 className="font-semibold text-slate-900 mb-2">Schedule Appointment</h3>
-              <p className="text-sm text-slate-600 mb-3">Tempah sesi perjumpaan anda</p>
+              <h3 className="font-semibold text-slate-900 mb-2">View Appointments</h3>
+              <p className="text-sm text-slate-600 mb-3">Lihat sesi perjumpaan anda</p>
               <div className="flex items-center justify-center text-orange-600">
-                <Plus className="w-4 h-4 mr-1" />
-                <span className="text-sm font-medium">Book Now</span>
+                <Eye className="w-4 h-4 mr-1" />
+                <span className="text-sm font-medium">View Appointments</span>
               </div>
             </div>
           </div>
