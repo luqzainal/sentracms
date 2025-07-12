@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { useSupabase } from './hooks/useSupabase';
+import { useSupabase } from './context/SupabaseContext';
 import Login from './components/Auth/Login';
 import Sidebar from './components/Layout/Sidebar';
 import Dashboard from './components/Dashboard/Dashboard';
@@ -12,14 +12,14 @@ import ClientDashboard from './components/ClientPortal/ClientDashboard';
 
 function App() {
   const { user, loading, signOut, isAuthenticated } = useSupabase();
-  console.log('App.tsx: Rendered. Loading:', loading, 'isAuthenticated:', isAuthenticated, 'User:', user);
+  console.log('App.tsx: Component rendered. Loading:', loading, 'isAuthenticated:', isAuthenticated, 'User:', user);
   
   const [activeTab, setActiveTab] = useState('dashboard');
   const [sidebarOpen, setSidebarOpen] = useState(false);
 
   // Add a useEffect to explicitly log when isAuthenticated changes
   useEffect(() => {
-    console.log(`App.tsx: isAuthenticated changed to ${isAuthenticated}. User: ${user ? user.email : 'null'}`);
+    console.log(`App.tsx: useEffect triggered - isAuthenticated: ${isAuthenticated}, User: ${user ? user.email : 'null'}`);
   }, [isAuthenticated, user]);
 
 

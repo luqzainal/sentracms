@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Eye, EyeOff, Mail, Lock, Shield } from 'lucide-react';
-import { useSupabase } from '../../hooks/useSupabase';
+import { useSupabase } from '../../context/SupabaseContext';
 
 const Login: React.FC = () => {
   const [email, setEmail] = useState('');
