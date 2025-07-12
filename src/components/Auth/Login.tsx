@@ -72,9 +72,9 @@ const Login: React.FC = () => {
       {/* Main login container */}
       <div className="relative z-10 w-full max-w-sm lg:max-w-md">        
         {/* Login card */}
-        <div className="rounded-2xl shadow-2xl border border-red-500 overflow-hidden" style={{ backgroundColor: '#eded21' }}>
+        <div className="rounded-2xl shadow-2xl border border-red-500 overflow-hidden" style={{ backgroundColor: 'transparent' }}>
           {/* Header with brand colors */}
-          <div className="bg-white px-4 lg:px-8 py-6 lg:py-8 text-center">
+          <div className="bg-transparent px-4 lg:px-8 py-6 lg:py-8 text-center">
             <div className="flex justify-center">
                 <img 
                   src="/src/assets/AiChatbot (14).png" 
@@ -92,7 +92,7 @@ const Login: React.FC = () => {
           )}
 
           {/* Form section */}
-          <div className="px-4 lg:px-8 py-6 lg:py-8" style={{ backgroundColor: '#dc2626' }}>
+          <div className="px-4 lg:px-8 py-6 lg:py-8" style={{ backgroundColor: 'transparent' }}>
             <div className="text-center mb-6 lg:mb-8">
               <h2 className="text-lg lg:text-xl font-semibold text-white mb-2">Welcome Back</h2>
               <p className="text-white/80 text-sm lg:text-base">Please sign in to your account</p>
