@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useSupabase } from './hooks/useSupabase';
 import Login from './components/Auth/Login';
 import Sidebar from './components/Layout/Sidebar';
@@ -16,6 +16,11 @@ function App() {
   
   const [activeTab, setActiveTab] = useState('dashboard');
   const [sidebarOpen, setSidebarOpen] = useState(false);
+
+  // Add a useEffect to explicitly log when isAuthenticated changes
+  useEffect(() => {
+    console.log(`App.tsx: isAuthenticated changed to ${isAuthenticated}. User: ${user ? user.email : 'null'}`);
+  }, [isAuthenticated, user]);
 
 
   const handleLogout = () => {
@@ -69,13 +74,17 @@ function App() {
       </div>
     );
   }
+  // This is the critical part. If isAuthenticated is false, it should render Login.
+  // If it becomes true, it should proceed to render the main app content.
   if (!isAuthenticated) {
+    console.log('App.tsx: Rendering Login component because isAuthenticated is false.');
     return <Login />;
   }
 
   
   // If user is Client Admin or Client Team, show only the client dashboard (no sidebar)
   if (user && (user.role === 'Client Admin' || user.role === 'Client Team')) {
+    console.log('App.tsx: Rendering Client Dashboard for client user.');
     return (
       <div className="min-h-screen bg-slate-100">
         {renderContent()}
@@ -84,6 +93,7 @@ function App() {
   }
 
   // For Super Admin and Team users, show the full dashboard with sidebar
+  console.log('App.tsx: Rendering main dashboard for admin/team user.');
   return (
     <div className="flex h-screen bg-slate-100 overflow-hidden">
       <Sidebar 

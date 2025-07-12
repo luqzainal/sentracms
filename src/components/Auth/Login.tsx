@@ -35,12 +35,9 @@ const Login: React.FC = () => {
         (email === 'client@sentra.com' && password === 'password123') ||
         (email === 'team@sentra.com' && password === 'password123')) {
       
-      console.log('Login.tsx: Demo credentials detected, scheduling mock user set');
-      // Use a small timeout to ensure React processes state updates correctly
-      setTimeout(() => {
-        setDemoUser(mockUser);
-        setIsLoading(false); // Reset loading state after demo user is set
-      }, 50); // Small delay to allow React to re-render
+      console.log('Login.tsx: Demo credentials detected, setting mock user synchronously');
+      setDemoUser(mockUser); // Directly set the demo user
+      setIsLoading(false); // Reset loading state immediately
       return; // Exit the function immediately after scheduling the update
     }
 
@@ -54,6 +51,7 @@ const Login: React.FC = () => {
         if (signInError.message?.includes('fetch') || signInError.message?.includes('network') || signInError.message?.includes('Supabase not configured')) {
           setError('Unable to connect to authentication server. Using demo mode.');
           
+          // Fallback to demo mode after a delay for visual feedback
           // Allow any login in demo mode when Supabase is unavailable
           setTimeout(() => {
             console.log('Demo mode login for:', email);
@@ -71,12 +69,8 @@ const Login: React.FC = () => {
       setError('Authentication failed. Please try the demo credentials: admin@sentra.com / password123 or client@sentra.com / password123');
     } finally {
       // This finally block only applies to the actual signIn call, not the demo path
-      // If the demo path is taken, setIsLoading(false) is handled within its setTimeout
-      if (!((email === 'admin@sentra.com' && password === 'password123') ||
-            (email === 'client@sentra.com' && password === 'password123') ||
-            (email === 'team@sentra.com' && password === 'password123'))) {
-        setIsLoading(false);
-      }
+      // The demo path handles its own setIsLoading(false)
+      setIsLoading(false);
       console.log('Login.tsx: handleSubmit completed');
     }
   };
