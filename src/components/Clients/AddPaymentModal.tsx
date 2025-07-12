@@ -17,7 +17,25 @@ const AddPaymentModal: React.FC<AddPaymentModalProps> = ({ onClose, onSave }) =>
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    onSave(formData);
+    
+    // Parse amount to number and validate
+    const amount = parseFloat(formData.amount);
+    if (isNaN(amount) || amount <= 0) {
+      alert('Please enter a valid amount');
+      return;
+    }
+    
+    // Check if payment amount exceeds due amount
+    if (selectedInvoice && amount > selectedInvoice.due) {
+      if (!confirm(`Payment amount (RM ${amount.toLocaleString()}) exceeds due amount (RM ${selectedInvoice.due.toLocaleString()}). Continue?`)) {
+        return;
+      }
+    }
+    
+    onSave({
+      ...formData,
+      amount: amount
+    });
   };
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {

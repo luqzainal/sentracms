@@ -370,6 +370,7 @@ const ClientProfile: React.FC<ClientProfileProps> = ({ clientId, onBack, onEdit 
         <AddPaymentModal
           onClose={() => setShowPaymentModal(false)}
           onSave={handleSavePayment}
+          selectedInvoice={selectedInvoice}
         />
       )}
 
