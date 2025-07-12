@@ -204,7 +204,14 @@ const ClientProgressTracker: React.FC<ClientProgressTrackerProps> = ({ clientId,
   };
 
   const handleDeleteStep = (stepId: string) => {
-    if (confirm('Are you sure you want to delete this step?')) {
+    const step = progressSteps.find(s => s.id === stepId);
+    const isPackageStep = step?.title.includes(' - Package Setup');
+    
+    const confirmMessage = isPackageStep 
+      ? 'Are you sure you want to delete this package? This will also delete all related component steps.'
+      : 'Are you sure you want to delete this step?';
+      
+    if (confirm(confirmMessage)) {
       deleteProgressStep(stepId);
     }
   };
