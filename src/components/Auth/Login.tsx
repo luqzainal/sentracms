@@ -86,7 +86,7 @@ const Login: React.FC = () => {
         {/* Login card */}
         <div className="rounded-2xl shadow-2xl border border-slate-200/20 overflow-hidden" style={{ backgroundColor: '#eded21' }}>
           {/* Header with brand colors */}
-          <div className="bg-gradient-to-r from-slate-800 to-slate-900 px-4 lg:px-8 py-6 lg:py-8 text-center">
+          <div className="bg-white px-4 lg:px-8 py-6 lg:py-8 text-center">
             <div className="flex justify-center">
                 <img 
                   src="/src/assets/AiChatbot (14).png" 
