@@ -376,26 +376,17 @@ const ClientDashboard: React.FC<ClientDashboardProps> = ({ user, onBack }) => {
       {/* Header */}
       <div className="bg-white border-b border-slate-200 px-4 lg:px-8 py-4 lg:py-6">
         <div className="max-w-7xl mx-auto flex items-center justify-between">
-          <div className="flex items-center space-x-4">
-            <button
-              onClick={onBack}
-              className="flex items-center space-x-2 px-3 py-2 text-slate-600 hover:text-slate-900 hover:bg-slate-100 rounded-lg transition-colors"
-            >
-              <ArrowLeft className="w-5 h-5" />
-              <span className="font-medium">Back to Settings</span>
-            </button>
-            <div>
+          <div>
               <h1 className="text-xl lg:text-2xl font-bold text-slate-900">
                 Hai, {client.name} 👋
               </h1>
               <p className="text-slate-600 text-sm lg:text-base">Welcome to your client portal</p>
-            </div>
           </div>
           <button 
             onClick={onBack}
-            className="bg-red-100 text-red-700 px-4 py-2 rounded-lg text-sm font-medium hover:bg-red-200 transition-colors"
+            className="bg-red-600 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-red-700 transition-colors"
           >
-            Logout Account
+            Logout
           </button>
         </div>
       </div>
