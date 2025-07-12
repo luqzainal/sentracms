@@ -16,10 +16,11 @@ export const clientService = {
     const { data, error } = await supabase
       .from('clients')
       .select('*')
-      .eq('id', id);
+      .eq('id', id)
+      .maybeSingle();
     
     if (error) throw error;
-    return data && data.length > 0 ? data[0] : null;
+    return data;
   },
 
   async create(client: any) {

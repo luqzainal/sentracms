@@ -864,7 +864,6 @@ export const useAppStore = create<AppState>((set, get) => ({
       }
 
       await invoiceService.delete(id);
-      set((state) => ({
         invoices: state.invoices.filter(invoice => invoice.id !== id),
         payments: state.payments.filter(payment => payment.invoiceId !== id)
       }));
