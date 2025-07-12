@@ -61,9 +61,9 @@ const Dashboard: React.FC<DashboardProps> = ({ setActiveTab, onToggleSidebar }) 
   // Calculate total unread messages
   const totalUnreadMessages = chats.reduce((total, chat) => total + chat.unread, 0);
 
-  // Monthly sales data based on actual client data
+  // Monthly sales data - distribute total sales to January for demonstration
   const monthlyData = [
-    { month: 'January', sales: 0, displayValue: 'RM 0' },
+    { month: 'January', sales: totalSales, displayValue: `RM ${totalSales.toLocaleString()}` },
     { month: 'February', sales: 0, displayValue: 'RM 0' },
     { month: 'March', sales: 0, displayValue: 'RM 0' },
     { month: 'April', sales: 0, displayValue: 'RM 0' },
@@ -326,7 +326,7 @@ const Dashboard: React.FC<DashboardProps> = ({ setActiveTab, onToggleSidebar }) 
                   )}
                 </div>
                 <div className="mt-2 text-center">
-                  <p className="text-xs lg:text-xs text-slate-500 truncate">{data.month.slice(0, 3)}</p>
+                  <p className="text-xs lg:text-xs text-slate-500 truncate">{data.month.slice(0, 3)} 2025</p>
                 </div>
               </div>
             ))}
@@ -335,7 +335,7 @@ const Dashboard: React.FC<DashboardProps> = ({ setActiveTab, onToggleSidebar }) 
         <div className="mt-4 flex items-center justify-end">
           <div className="flex items-center space-x-2">
             <div className="w-4 h-4 bg-blue-500 rounded"></div>
-            <span className="text-xs lg:text-sm text-slate-600">Sales (MYR)</span>
+            <span className="text-xs lg:text-sm text-slate-600">Sales (MYR) - 2025</span>
           </div>
         </div>
       </div>
