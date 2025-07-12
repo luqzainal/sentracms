@@ -16,11 +16,13 @@ export const useSupabase = () => {
   useEffect(() => {
     let mounted = true;
     const demoUser = localStorage.getItem('demoUser');
+    console.log('useSupabase: useEffect - demoUser from localStorage:', demoUser);
     if (demoUser) {
       try {
         const parsedUser = JSON.parse(demoUser);
         if (mounted) {
           setUser(parsedUser);
+          console.log('useSupabase: User restored from localStorage:', parsedUser);
         }
       } catch (error) {
         console.error('Error parsing demo user from localStorage:', error);
@@ -29,6 +31,7 @@ export const useSupabase = () => {
     }
     if (mounted) {
       setLoading(false);
+      console.log('useSupabase: Initial load complete. User:', user, 'Loading:', false);
     }
 
     return () => {
@@ -38,6 +41,7 @@ export const useSupabase = () => {
 
   const signIn = async (email: string, password: string) => {
     setLoading(true);
+    console.log('useSupabase: signIn called with email:', email);
     try {
       // Simulate API call delay
       await new Promise(resolve => setTimeout(resolve, 500));
@@ -53,6 +57,7 @@ export const useSupabase = () => {
         };
         localStorage.setItem('demoUser', JSON.stringify(mockUser));
         setUser(mockUser);
+        console.log('useSupabase: Admin user set to', mockUser);
         return { data: { user: mockUser }, error: null };
       } else if (email === 'client@sentra.com' && password === 'password123') {
         const mockUser: AuthUser = {
@@ -65,6 +70,7 @@ export const useSupabase = () => {
         };
         localStorage.setItem('demoUser', JSON.stringify(mockUser));
         setUser(mockUser);
+        console.log('useSupabase: Client user set to', mockUser);
         return { data: { user: mockUser }, error: null };
       } else if (email === 'team@sentra.com' && password === 'password123') {
         const mockUser: AuthUser = {
@@ -76,24 +82,30 @@ export const useSupabase = () => {
         };
         localStorage.setItem('demoUser', JSON.stringify(mockUser));
         setUser(mockUser);
+        console.log('useSupabase: Team user set to', mockUser);
         return { data: { user: mockUser }, error: null };
       } else {
+        console.log('useSupabase: Invalid credentials provided');
         throw new Error('Invalid credentials');
       }
     } catch (error: any) {
+      console.log('useSupabase: signIn error:', error);
       return { data: null, error: { message: error.message || 'Sign in failed' } };
     } finally {
       setLoading(false);
+      console.log('useSupabase: signIn completed, loading set to false');
     }
   };
 
   const signOut = async () => {
     setLoading(true);
+    console.log('useSupabase: signOut called');
     try {
       // Simulate API call delay
       await new Promise(resolve => setTimeout(resolve, 300));
       localStorage.removeItem('demoUser');
       setUser(null);
+      console.log('useSupabase: User signed out, set to null');
       return { error: null };
     } catch (error: any) {
       return { error: { message: error.message || 'Sign out failed' } };
@@ -126,7 +138,10 @@ export const useSupabase = () => {
     localStorage.setItem('demoUser', JSON.stringify(demoUser));
     setUser(demoUser);
     setLoading(false);
+    console.log('useSupabase: Demo user set to', demoUser);
   };
+
+  console.log('useSupabase: Current state - User:', user, 'Loading:', loading, 'isAuthenticated:', !!user);
 
   return {
     user,

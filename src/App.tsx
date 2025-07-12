@@ -12,6 +12,8 @@ import ClientDashboard from './components/ClientPortal/ClientDashboard';
 
 function App() {
   const { user, loading, signOut, isAuthenticated } = useSupabase();
+  console.log('App.tsx: Rendered. Loading:', loading, 'isAuthenticated:', isAuthenticated, 'User:', user);
+  
   const [activeTab, setActiveTab] = useState('dashboard');
   const [sidebarOpen, setSidebarOpen] = useState(false);
 

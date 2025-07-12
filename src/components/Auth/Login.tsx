@@ -15,6 +15,7 @@ const Login: React.FC = () => {
     e.preventDefault();
     setIsLoading(true);
     setError('');
+    console.log('Login.tsx: handleSubmit called with email:', email);
 
     try {
       // Check for demo credentials first
@@ -22,6 +23,7 @@ const Login: React.FC = () => {
           (email === 'client@sentra.com' && password === 'password123') ||
           (email === 'team@sentra.com' && password === 'password123')) {
         
+        console.log('Login.tsx: Demo credentials detected, creating mock user');
         // Create a mock user session for demo purposes
         const mockUser = {
           id: email === 'client@sentra.com' ? 'client-user-id' : 
@@ -37,11 +39,13 @@ const Login: React.FC = () => {
         
         // Set demo user directly
         console.log('Demo login successful for:', email);
+        console.log('Login.tsx: Setting demo user:', mockUser);
         setDemoUser(mockUser);
         return;
       }
 
       // Try Supabase authentication if not demo credentials
+      console.log('Login.tsx: Attempting signIn with Supabase hook');
       const { data, error } = await signIn(email, password);
       
       if (error) {
@@ -72,6 +76,7 @@ const Login: React.FC = () => {
       setError('Authentication failed. Please try the demo credentials: admin@sentra.com / password123 or client@sentra.com / password123');
     } finally {
       setIsLoading(false);
+      console.log('Login.tsx: handleSubmit completed, isLoading set to false');
     }
   };
 
