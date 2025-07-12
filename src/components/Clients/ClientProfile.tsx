@@ -294,7 +294,6 @@ const ClientProfile: React.FC<ClientProfileProps> = ({ clientId, onBack, onEdit 
             </div>
           </div>
       </div>
-    </div>
 
           {/* Calendar Events */}
           <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-6">
@@ -414,7 +413,6 @@ const ClientProfile: React.FC<ClientProfileProps> = ({ clientId, onBack, onEdit 
               )}
             </div>
           </div>
-        </div>
       </div>
 
       {/* Modals */}
