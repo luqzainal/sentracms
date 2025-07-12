@@ -1,5 +1,6 @@
 import { create } from 'zustand';
-import { clientService, invoiceService, paymentService, componentService, progressStepService, calendarEventService, chatService, tagService, userService } from '../services/supabaseService';
+// Removed imports for supabaseService, as it's no longer used
+// import { clientService, invoiceService, paymentService, componentService, progressStepService, calendarEventService, chatService, tagService, userService } from '../services/supabaseService';
 
 interface Client {
   id: number;
@@ -101,7 +102,7 @@ interface Chat {
   avatar: string;
   lastMessage?: string;
   lastMessageAt?: string;
-  unread: number;
+  unread_count: number;
   online: boolean;
   messages: ChatMessage[];
   createdAt: string;
@@ -442,7 +443,7 @@ export const useAppStore = create<AppState>((set, get) => ({
       avatar: 'AT',
       lastMessage: 'Thank you for the project update',
       lastMessageAt: '2024-01-20T10:30:00Z',
-      unread: 2,
+      unread_count: 2, // Changed from 'unread' to 'unread_count' to match DB schema
       online: true,
       messages: [
         {
@@ -491,7 +492,7 @@ export const useAppStore = create<AppState>((set, get) => ({
       avatar: 'JE',
       lastMessage: 'Looking forward to getting started!',
       lastMessageAt: '2024-02-01T15:45:00Z',
-      unread: 0,
+      unread_count: 0, // Changed from 'unread' to 'unread_count' to match DB schema
       online: false,
       messages: [
         {
@@ -597,110 +598,65 @@ export const useAppStore = create<AppState>((set, get) => ({
   // Actions
   fetchClients: async () => {
     set((state) => ({ loading: { ...state.loading, clients: true } }));
-    try {
-      const clients = await clientService.getAll();
-      set({ clients });
-    } catch (error) {
-      console.error('Error fetching clients:', error);
-    } finally {
-      set((state) => ({ loading: { ...state.loading, clients: false } }));
-    }
+    // Simulate API call delay
+    await new Promise(resolve => setTimeout(resolve, 300));
+    set((state) => ({ loading: { ...state.loading, clients: false } }));
   },
 
   fetchInvoices: async () => {
     set((state) => ({ loading: { ...state.loading, invoices: true } }));
-    try {
-      // Since invoices are client-specific, we'll keep the demo data
-      // In a real app, you'd fetch all invoices or filter by client
-    } catch (error) {
-      console.error('Error fetching invoices:', error);
-    } finally {
-      set((state) => ({ loading: { ...state.loading, invoices: false } }));
-    }
+    // Simulate API call delay
+    await new Promise(resolve => setTimeout(resolve, 300));
+    set((state) => ({ loading: { ...state.loading, invoices: false } }));
   },
 
   fetchPayments: async () => {
     set((state) => ({ loading: { ...state.loading, payments: true } }));
-    try {
-      // Since payments are client-specific, we'll keep the demo data
-      // In a real app, you'd fetch all payments or filter by client
-    } catch (error) {
-      console.error('Error fetching payments:', error);
-    } finally {
-      set((state) => ({ loading: { ...state.loading, payments: false } }));
-    }
+    // Simulate API call delay
+    await new Promise(resolve => setTimeout(resolve, 300));
+    set((state) => ({ loading: { ...state.loading, payments: false } }));
   },
 
   fetchComponents: async () => {
     set((state) => ({ loading: { ...state.loading, components: true } }));
-    try {
-      // Since components are client-specific, we'll keep the demo data
-      // In a real app, you'd fetch all components or filter by client
-    } catch (error) {
-      console.error('Error fetching components:', error);
-    } finally {
-      set((state) => ({ loading: { ...state.loading, components: false } }));
-    }
+    // Simulate API call delay
+    await new Promise(resolve => setTimeout(resolve, 300));
+    set((state) => ({ loading: { ...state.loading, components: false } }));
   },
 
   fetchProgressSteps: async () => {
     set((state) => ({ loading: { ...state.loading, progressSteps: true } }));
-    try {
-      // Since progress steps are client-specific, we'll keep the demo data
-      // In a real app, you'd fetch all progress steps or filter by client
-    } catch (error) {
-      console.error('Error fetching progress steps:', error);
-    } finally {
-      set((state) => ({ loading: { ...state.loading, progressSteps: false } }));
-    }
+    // Simulate API call delay
+    await new Promise(resolve => setTimeout(resolve, 300));
+    set((state) => ({ loading: { ...state.loading, progressSteps: false } }));
   },
 
   fetchCalendarEvents: async () => {
     set((state) => ({ loading: { ...state.loading, calendarEvents: true } }));
-    try {
-      const events = await calendarEventService.getAll();
-      set({ calendarEvents: events });
-    } catch (error) {
-      console.error('Error fetching calendar events:', error);
-    } finally {
-      set((state) => ({ loading: { ...state.loading, calendarEvents: false } }));
-    }
+    // Simulate API call delay
+    await new Promise(resolve => setTimeout(resolve, 300));
+    set((state) => ({ loading: { ...state.loading, calendarEvents: false } }));
   },
 
   fetchChats: async () => {
     set((state) => ({ loading: { ...state.loading, chats: true } }));
-    try {
-      const chats = await chatService.getAll();
-      set({ chats });
-    } catch (error) {
-      console.error('Error fetching chats:', error);
-    } finally {
-      set((state) => ({ loading: { ...state.loading, chats: false } }));
-    }
+    // Simulate API call delay
+    await new Promise(resolve => setTimeout(resolve, 300));
+    set((state) => ({ loading: { ...state.loading, chats: false } }));
   },
 
   fetchTags: async () => {
     set((state) => ({ loading: { ...state.loading, tags: true } }));
-    try {
-      const tags = await tagService.getAll();
-      set({ tags });
-    } catch (error) {
-      console.error('Error fetching tags:', error);
-    } finally {
-      set((state) => ({ loading: { ...state.loading, tags: false } }));
-    }
+    // Simulate API call delay
+    await new Promise(resolve => setTimeout(resolve, 300));
+    set((state) => ({ loading: { ...state.loading, tags: false } }));
   },
 
   fetchUsers: async () => {
     set((state) => ({ loading: { ...state.loading, users: true } }));
-    try {
-      const users = await userService.getAll();
-      set({ users });
-    } catch (error) {
-      console.error('Error fetching users:', error);
-    } finally {
-      set((state) => ({ loading: { ...state.loading, users: false } }));
-    }
+    // Simulate API call delay
+    await new Promise(resolve => setTimeout(resolve, 300));
+    set((state) => ({ loading: { ...state.loading, users: false } }));
   },
 
   addClient: (clientData) => {
@@ -998,41 +954,31 @@ export const useAppStore = create<AppState>((set, get) => ({
   },
 
   addTag: async (tagData) => {
-    try {
-      const newTag = await tagService.create(tagData);
-      set((state) => ({
-        tags: [...state.tags, newTag],
-      }));
-    } catch (error) {
-      console.error('Error adding tag:', error);
-      throw error;
-    }
+    set((state) => {
+      const newTag = {
+        ...tagData,
+        id: `tag-${Date.now()}`,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+      };
+      return { tags: [...state.tags, newTag] };
+    });
   },
 
   updateTag: async (id, updates) => {
-    try {
-      const updatedTag = await tagService.update(id, updates);
-      set((state) => ({
-        tags: state.tags.map((tag) =>
-          tag.id === id ? updatedTag : tag
-        ),
-      }));
-    } catch (error) {
-      console.error('Error updating tag:', error);
-      throw error;
-    }
+    set((state) => ({
+      tags: state.tags.map((tag) =>
+        tag.id === id
+          ? { ...tag, ...updates, updatedAt: new Date().toISOString() }
+          : tag
+      ),
+    }));
   },
 
   deleteTag: async (id) => {
-    try {
-      await tagService.delete(id);
-      set((state) => ({
-        tags: state.tags.filter((tag) => tag.id !== id),
-      }));
-    } catch (error) {
-      console.error('Error deleting tag:', error);
-      throw error;
-    }
+    set((state) => ({
+      tags: state.tags.filter((tag) => tag.id !== id),
+    }));
   },
 
   addUser: (userData) => {
