@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { ArrowLeft, Edit, Plus, Trash2, Calendar, FileText, CreditCard, User, Mail, Phone, Building, MapPin, Clock, X } from 'lucide-react';
+import { ArrowLeft, Edit, Plus, Trash2, Calendar, FileText, CreditCard, User, Mail, Phone, Building, MapPin, Clock, X, Package } from 'lucide-react';
 import AddInvoiceModal from './AddInvoiceModal';
 import AddPaymentModal from './AddPaymentModal';
 import AddComponentModal from './AddComponentModal';
