@@ -37,7 +37,9 @@ const ClientProfile: React.FC<ClientProfileProps> = ({ clientId, onBack, onEdit 
     deleteInvoice,
     updateInvoice,
     deleteComponent,
-    updateComponent
+    updateComponent,
+    deletePayment,
+    updatePayment
   } = useAppStore();
 
   // Get client by ID
