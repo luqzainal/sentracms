@@ -74,11 +74,13 @@ const ClientProfile: React.FC<ClientProfileProps> = ({ clientId, onBack, onEdit 
 
   const handleSavePayment = (paymentData: Partial<Payment>) => {
     if (selectedInvoiceForPayment) {
-      ...paymentData,
-      clientId: client.id,
-    } as Payment);
-    setShowPaymentModal(false);
-    setSelectedInvoiceForPayment(null);
+      addPayment({
+        ...paymentData,
+        clientId: client.id,
+      } as Payment);
+      setShowPaymentModal(false);
+      setSelectedInvoiceForPayment(null);
+    }
   };
 
   const handleSaveComponent = (componentData: Partial<Component>) => {
@@ -95,7 +97,7 @@ const ClientProfile: React.FC<ClientProfileProps> = ({ clientId, onBack, onEdit 
       } else {
         // Single component add
         addComponent({
-        invoiceId: selectedInvoiceForPayment.id,
+          ...componentData,
           clientId: client.id,
           invoiceId: showComponentModal,
         } as Component);
