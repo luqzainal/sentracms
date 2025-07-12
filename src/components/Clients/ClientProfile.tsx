@@ -406,6 +406,7 @@ const ClientProfile: React.FC<ClientProfileProps> = ({ clientId, onBack, onEdit 
           onClose={() => setShowComponentModal(false)}
           onSave={handleSaveComponent}
           clientId={client.id}
+          packageName={client.packageName}
         />
       )}
 

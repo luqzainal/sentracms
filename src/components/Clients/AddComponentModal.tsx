@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { X, Plus, Trash2, Package, Copy } from 'lucide-react';
 
 interface AddComponentModalProps {
@@ -79,7 +79,9 @@ const AddComponentModal: React.FC<AddComponentModalProps> = ({ onClose, onSave, 
         <div className="flex items-center justify-between p-6 border-b border-slate-200">
           <div className="flex items-center space-x-2">
             <Package className="w-6 h-6 text-blue-600" />
-            <h2 className="text-xl font-semibold text-slate-900">Add Components in Bulk</h2>
+            <h2 className="text-xl font-semibold text-slate-900">
+              {packageName ? `Add Components for ${packageName}` : 'Add Components in Bulk'}
+            </h2>
           </div>
           <button
             onClick={onClose}
