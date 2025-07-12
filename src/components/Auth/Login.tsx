@@ -71,7 +71,7 @@ const Login: React.FC = () => {
       setIsLoading(false);
       console.log('Login.tsx: handleSubmit completed');
     }
-    }
+  }
   };
 
   return (
