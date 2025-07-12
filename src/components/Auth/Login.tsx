@@ -67,11 +67,7 @@ const Login: React.FC = () => {
 
   return (
     <div 
-      className="min-h-screen flex items-center justify-center p-4 lg:p-8 bg-cover bg-center bg-no-repeat relative"
-      style={{ 
-        backgroundImage: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%), url("/src/assets/Picture1 (1) copy copy.png")',
-        backgroundBlendMode: 'overlay'
-      }}
+      className="min-h-screen flex items-center justify-center p-4 lg:p-8"
     >
       {/* Main login container */}
       <div className="relative z-10 w-full max-w-sm lg:max-w-md">        
