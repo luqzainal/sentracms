@@ -72,16 +72,16 @@ const Login: React.FC = () => {
           )}
 
           {/* Form section */}
-          <div className="px-4 lg:px-8 py-6 lg:py-8" style={{ backgroundColor: '#eded21' }}>
+          <div className="px-4 lg:px-8 py-6 lg:py-8" style={{ backgroundColor: '#dc2626' }}>
             <div className="text-center mb-6 lg:mb-8">
-              <h2 className="text-lg lg:text-xl font-semibold text-slate-800 mb-2">Welcome Back</h2>
-              <p className="text-slate-600 text-sm lg:text-base">Please sign in to your account</p>
+              <h2 className="text-lg lg:text-xl font-semibold text-white mb-2">Welcome Back</h2>
+              <p className="text-white/80 text-sm lg:text-base">Please sign in to your account</p>
             </div>
 
             <form onSubmit={handleSubmit} className="space-y-4 lg:space-y-6">
               {/* Email field */}
               <div>
-                <label className="block text-sm lg:text-base font-medium text-slate-700 mb-2">
+                <label className="block text-sm lg:text-base font-medium text-white mb-2">
                   Email Address
                 </label>
                 <div className="relative">
@@ -99,7 +99,7 @@ const Login: React.FC = () => {
 
               {/* Password field */}
               <div>
-                <label className="block text-sm lg:text-base font-medium text-slate-700 mb-2">
+                <label className="block text-sm lg:text-base font-medium text-white mb-2">
                   Password
                 </label>
                 <div className="relative">
@@ -140,24 +140,24 @@ const Login: React.FC = () => {
             </form>
 
             {/* Demo credentials */}
-            <div className="mt-4 lg:mt-6 p-3 bg-amber-50 rounded-lg border border-amber-200">
+            <div className="mt-4 lg:mt-6 p-3 bg-red-100 rounded-lg border border-red-300">
               <div className="text-center mb-3">
-                <p className="text-xs lg:text-sm font-semibold text-amber-800 mb-2">⚠️ Demo Accounts (Setup Required):</p>
+                <p className="text-xs lg:text-sm font-semibold text-red-800 mb-2">⚠️ Demo Accounts (Setup Required):</p>
               </div>
               
               <div className="space-y-2">
-                <div className="bg-white rounded-md p-2 border border-amber-300">
+                <div className="bg-white rounded-md p-2 border border-red-400">
                   <p className="text-xs lg:text-sm text-amber-700">
                     <span className="font-medium text-blue-600">Super Admin:</span> admin@sentra.com / password123
                   </p>
-                  <p className="text-xs text-amber-600">Full system access & user management</p>
+                  <p className="text-xs text-red-600">Full system access & user management</p>
                 </div>
                 
-                <div className="bg-white rounded-md p-2 border border-amber-300">
+                <div className="bg-white rounded-md p-2 border border-red-400">
                   <p className="text-xs lg:text-sm text-amber-700">
                     <span className="font-medium text-green-600">Client Admin:</span> client@sentra.com / password123
                   </p>
-                  <p className="text-xs text-amber-600">Client portal access & project management</p>
+                  <p className="text-xs text-red-600">Client portal access & project management</p>
                 </div>
               </div>
               
