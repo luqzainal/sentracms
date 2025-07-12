@@ -199,6 +199,9 @@ interface AppState {
   updateTag: (id: string, tag: Partial<Tag>) => Promise<void>;
   deleteTag: (id: string) => Promise<void>;
   
+  // Initialize demo data for client portal
+  initializeDemoData: () => void;
+  
   // Computed values
   getTotalSales: () => number;
   getTotalCollection: () => number;
@@ -213,182 +216,6 @@ interface AppState {
 
 // Helper function to transform database data to app format
 const transformDbClient = (dbClient: any): Client => ({
-  // Initialize demo data for client portal
-  initializeDemoData: () => {
-    const state = get();
-    
-    // Add demo client if not exists
-    if (!state.clients.find(c => c.email === 'client@sentra.com')) {
-      const demoClient = {
-        id: 1,
-        name: 'Nik Salwani Bt.Nik Ab Rahman',
-        businessName: 'Ahmad Tech Solutions',
-        email: 'client@sentra.com',
-        phone: '+60 12-345 6789',
-        status: 'Complete' as const,
-        packageName: 'Premium Package',
-        tags: ['VIP', 'Priority'],
-        totalSales: 15000,
-        totalCollection: 12000,
-        balance: 3000,
-        lastActivity: new Date().toISOString().split('T')[0],
-        invoiceCount: 2,
-        registeredAt: '2024-01-15T00:00:00Z',
-        company: 'Ahmad Tech Solutions',
-        address: 'Kuala Lumpur, Malaysia',
-        notes: 'Demo client for testing',
-        createdAt: '2024-01-15T00:00:00Z',
-        updatedAt: new Date().toISOString()
-      };
-      
-      set(state => ({
-        clients: [...state.clients, demoClient]
-      }));
-      
-      // Add demo components
-      const demoComponents = [
-        {
-          id: 'comp-demo-1',
-          clientId: 1,
-          name: 'Website Development',
-          price: 'RM 5,000.00',
-          active: true,
-          createdAt: new Date().toISOString(),
-          updatedAt: new Date().toISOString()
-        },
-        {
-          id: 'comp-demo-2',
-          clientId: 1,
-          name: 'Mobile App Development',
-          price: 'RM 8,000.00',
-          active: true,
-          createdAt: new Date().toISOString(),
-          updatedAt: new Date().toISOString()
-        },
-        {
-          id: 'comp-demo-3',
-          clientId: 1,
-          name: 'SEO Optimization',
-          price: 'RM 2,000.00',
-          active: false,
-          createdAt: new Date().toISOString(),
-          updatedAt: new Date().toISOString()
-        }
-      ];
-      
-      set(state => ({
-        components: [...state.components, ...demoComponents]
-      }));
-      
-      // Add demo progress steps
-      const demoProgressSteps = [
-        {
-          id: 'step-demo-1',
-          clientId: 1,
-          title: 'Project Kickoff Meeting',
-          description: 'Initial meeting to discuss project requirements and timeline',
-          deadline: '2024-02-01T10:00:00Z',
-          completed: true,
-          completedDate: '2024-01-28',
-          important: true,
-          comments: [],
-          createdAt: new Date().toISOString(),
-          updatedAt: new Date().toISOString()
-        },
-        {
-          id: 'step-demo-2',
-          clientId: 1,
-          title: 'Design Phase Completion',
-          description: 'Complete UI/UX design and get client approval',
-          deadline: '2024-02-15T17:00:00Z',
-          completed: true,
-          completedDate: '2024-02-14',
-          important: false,
-          comments: [],
-          createdAt: new Date().toISOString(),
-          updatedAt: new Date().toISOString()
-        },
-        {
-          id: 'step-demo-3',
-          clientId: 1,
-          title: 'Development Phase',
-          description: 'Begin development of the website and mobile application',
-          deadline: '2024-03-15T17:00:00Z',
-          completed: false,
-          important: true,
-          comments: [],
-          createdAt: new Date().toISOString(),
-          updatedAt: new Date().toISOString()
-        }
-      ];
-      
-      set(state => ({
-        progressSteps: [...state.progressSteps, ...demoProgressSteps]
-      }));
-      
-      // Add demo invoices
-      const demoInvoices = [
-        {
-          id: 'INV-demo-1',
-          clientId: 1,
-          packageName: 'Premium Package - Phase 1',
-          amount: 7500,
-          paid: 7500,
-          due: 0,
-          status: 'Paid' as const,
-          createdAt: '2024-01-20T00:00:00Z',
-          updatedAt: new Date().toISOString()
-        },
-        {
-          id: 'INV-demo-2',
-          clientId: 1,
-          packageName: 'Premium Package - Phase 2',
-          amount: 7500,
-          paid: 4500,
-          due: 3000,
-          status: 'Partial' as const,
-          createdAt: '2024-02-15T00:00:00Z',
-          updatedAt: new Date().toISOString()
-        }
-      ];
-      
-      set(state => ({
-        invoices: [...state.invoices, ...demoInvoices]
-      }));
-      
-      // Add demo payments
-      const demoPayments = [
-        {
-          id: 'PAY-demo-1',
-          clientId: 1,
-          invoiceId: 'INV-demo-1',
-          amount: 7500,
-          paymentSource: 'Online Transfer',
-          status: 'Paid' as const,
-          paidAt: '2024-01-22T00:00:00Z',
-          receiptFileUrl: null,
-          createdAt: '2024-01-22T00:00:00Z',
-          updatedAt: new Date().toISOString()
-        },
-        {
-          id: 'PAY-demo-2',
-          clientId: 1,
-          invoiceId: 'INV-demo-2',
-          amount: 4500,
-          paymentSource: 'Credit Card',
-          status: 'Paid' as const,
-          paidAt: '2024-02-16T00:00:00Z',
-          receiptFileUrl: null,
-          createdAt: '2024-02-16T00:00:00Z',
-          updatedAt: new Date().toISOString()
-        }
-      ];
-      
-      set(state => ({
-        payments: [...state.payments, ...demoPayments]
-      }));
-    }
-  },
   id: dbClient.id,
   name: dbClient.name,
   businessName: dbClient.business_name,
@@ -551,6 +378,164 @@ export const useAppStore = create<AppState>((set, get) => ({
     chats: false,
     users: false,
     tags: false,
+  },
+
+  // Initialize demo data for client portal
+  initializeDemoData: () => {
+    const { clients, components, progressSteps, invoices, payments } = get();
+    
+    // Check if demo client already exists
+    const demoClientExists = clients.some(c => c.email === 'client@sentra.com');
+    
+    if (!demoClientExists) {
+      // Add demo client
+      const demoClient = {
+        id: 1,
+        name: 'Nik Salwani Bt.Nik Ab Rahman',
+        businessName: 'Ahmad Tech Solutions',
+        email: 'client@sentra.com',
+        phone: '+60 12-345 6789',
+        status: 'Complete',
+        packageName: 'Premium Package',
+        tags: ['VIP', 'Priority'],
+        totalSales: 15000,
+        totalCollection: 12000,
+        balance: 3000,
+        lastActivity: new Date().toISOString().split('T')[0],
+        invoiceCount: 2,
+        registeredAt: '2024-01-15T00:00:00Z',
+        company: 'Ahmad Tech Solutions',
+        address: 'Kuala Lumpur, Malaysia',
+        notes: 'Demo client for testing',
+        createdAt: '2024-01-15T00:00:00Z',
+        updatedAt: new Date().toISOString()
+      };
+      
+      set(state => ({
+        clients: [...state.clients, demoClient]
+      }));
+      
+      // Add demo components
+      const demoComponents = [
+        {
+          id: 'comp-demo-1',
+          clientId: 1,
+          name: 'Website Development',
+          price: 'RM 5,000.00',
+          active: true,
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString()
+        },
+        {
+          id: 'comp-demo-2',
+          clientId: 1,
+          name: 'Mobile App Development',
+          price: 'RM 8,000.00',
+          active: true,
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString()
+        },
+        {
+          id: 'comp-demo-3',
+          clientId: 1,
+          name: 'SEO Optimization',
+          price: 'RM 2,000.00',
+          active: true,
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString()
+        }
+      ];
+      
+      set(state => ({
+        components: [...state.components, ...demoComponents]
+      }));
+      
+      // Add demo progress steps
+      const demoProgressSteps = [
+        {
+          id: 'step-demo-1',
+          clientId: 1,
+          title: 'Project Kickoff Meeting',
+          description: 'Initial meeting to discuss project requirements and timeline',
+          deadline: '2024-01-20T10:00:00Z',
+          completed: true,
+          completedDate: '2024-01-18',
+          important: true,
+          comments: [],
+          createdAt: '2024-01-15T00:00:00Z',
+          updatedAt: '2024-01-18T00:00:00Z'
+        },
+        {
+          id: 'step-demo-2',
+          clientId: 1,
+          title: 'Design Phase Completion',
+          description: 'Complete UI/UX design and get client approval',
+          deadline: '2024-02-01T17:00:00Z',
+          completed: true,
+          completedDate: '2024-01-30',
+          important: false,
+          comments: [],
+          createdAt: '2024-01-15T00:00:00Z',
+          updatedAt: '2024-01-30T00:00:00Z'
+        },
+        {
+          id: 'step-demo-3',
+          clientId: 1,
+          title: 'Development Phase',
+          description: 'Begin development of the application based on approved designs',
+          deadline: '2024-03-15T17:00:00Z',
+          completed: false,
+          completedDate: null,
+          important: true,
+          comments: [],
+          createdAt: '2024-01-15T00:00:00Z',
+          updatedAt: '2024-02-01T00:00:00Z'
+        }
+      ];
+      
+      set(state => ({
+        progressSteps: [...state.progressSteps, ...demoProgressSteps]
+      }));
+      
+      // Add demo invoices
+      const demoInvoices = [
+        {
+          id: 'INV-demo-1',
+          clientId: 1,
+          packageName: 'Premium Package',
+          amount: 15000,
+          paid: 12000,
+          due: 3000,
+          status: 'Partial',
+          createdAt: '2024-01-15T00:00:00Z',
+          updatedAt: new Date().toISOString()
+        }
+      ];
+      
+      set(state => ({
+        invoices: [...state.invoices, ...demoInvoices]
+      }));
+      
+      // Add demo payments
+      const demoPayments = [
+        {
+          id: 'PAY-demo-1',
+          clientId: 1,
+          invoiceId: 'INV-demo-1',
+          amount: 12000,
+          paymentSource: 'Online Transfer',
+          status: 'Paid',
+          paidAt: '2024-01-20T00:00:00Z',
+          receiptFileUrl: null,
+          createdAt: '2024-01-20T00:00:00Z',
+          updatedAt: '2024-01-20T00:00:00Z'
+        }
+      ];
+      
+      set(state => ({
+        payments: [...state.payments, ...demoPayments]
+      }));
+    }
   },
 
   // Client actions
