@@ -161,18 +161,6 @@ const Login: React.FC = () => {
                 </div>
               </div>
               
-              <div className="mt-3 p-2 bg-red-50 rounded border border-red-200">
-                <p className="text-xs text-red-700 text-center">
-                  <span className="font-medium">⚠️ Important:</span> These demo users must be created in your Supabase Auth panel first.
-                </p>
-                <p className="text-xs text-red-600 text-center mt-1">
-                  Go to Supabase Dashboard → Authentication → Users → Add User
-                </p>
-              </div>
-              
-              <p className="text-xs lg:text-sm text-amber-700 text-center mt-2">
-                <span className="font-medium">Alternative:</span> Use existing user credentials from your Supabase Auth users table
-              </p>
             </div>
           </div>
         </div>
