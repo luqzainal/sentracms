@@ -157,7 +157,6 @@ const ClientDashboard: React.FC<ClientDashboardProps> = ({ user, onBack }) => {
                   </div>
                 )}
               </div>
-            </div>
           </div>
         </div>
       </div>
