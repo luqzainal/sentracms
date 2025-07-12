@@ -7,6 +7,12 @@ interface ClientProgressTrackerProps {
   onBack: () => void;
 }
 
+interface ProgressStepWithHierarchy extends ProgressStep {
+  isPackage?: boolean;
+  packageName?: string;
+  children?: ProgressStepWithHierarchy[];
+}
+
 const ClientProgressTracker: React.FC<ClientProgressTrackerProps> = ({ clientId, onBack }) => {
   const [showAddStep, setShowAddStep] = useState(false);
   const [showEditStep, setShowEditStep] = useState(false);
@@ -39,6 +45,7 @@ const ClientProgressTracker: React.FC<ClientProgressTrackerProps> = ({ clientId,
   const { 
     getClientById, 
     getProgressStepsByClientId,
+    getInvoicesByClientId,
     addProgressStep,
     updateProgressStep,
     deleteProgressStep,
@@ -51,6 +58,62 @@ const ClientProgressTracker: React.FC<ClientProgressTrackerProps> = ({ clientId,
   const [websiteLinks, setWebsiteLinks] = useState([]);
 
   const progressSteps = getProgressStepsByClientId(parseInt(clientId));
+  const clientInvoices = getInvoicesByClientId(parseInt(clientId));
+
+  // Create hierarchical structure for progress steps
+  const createHierarchicalSteps = (): ProgressStepWithHierarchy[] => {
+    const hierarchicalSteps: ProgressStepWithHierarchy[] = [];
+    
+    // Group steps by package
+    clientInvoices.forEach(invoice => {
+      // Find package step
+      const packageStep = progressSteps.find(step => 
+        step.title === `${invoice.packageName} - Package Setup`
+      );
+      
+      if (packageStep) {
+        // Find component steps for this package
+        const componentSteps = progressSteps.filter(step => 
+          step.title !== `${invoice.packageName} - Package Setup` &&
+          !step.title.includes(' - Package Setup') // Exclude other package steps
+        );
+        
+        const packageWithChildren: ProgressStepWithHierarchy = {
+          ...packageStep,
+          isPackage: true,
+          packageName: invoice.packageName,
+          children: componentSteps.map(step => ({
+            ...step,
+            isPackage: false,
+            packageName: invoice.packageName
+          }))
+        };
+        
+        hierarchicalSteps.push(packageWithChildren);
+      }
+    });
+    
+    // Add any standalone steps (manually added steps that don't belong to a package)
+    const standaloneSteps = progressSteps.filter(step => 
+      !step.title.includes(' - Package Setup') && // Not a package step
+      !clientInvoices.some(invoice => 
+        progressSteps.some(ps => 
+          ps.title === `${invoice.packageName} - Package Setup`
+        )
+      ) // Not part of any package's components
+    );
+    
+    standaloneSteps.forEach(step => {
+      hierarchicalSteps.push({
+        ...step,
+        isPackage: false
+      });
+    });
+    
+    return hierarchicalSteps;
+  };
+
+  const hierarchicalSteps = createHierarchicalSteps();
 
   // Auto-sync components to progress steps when component loads
   useEffect(() => {
@@ -236,6 +299,211 @@ const ClientProgressTracker: React.FC<ClientProgressTrackerProps> = ({ clientId,
     return now > deadline;
   };
 
+  const renderProgressStep = (step: ProgressStepWithHierarchy, isChild = false) => (
+    <div key={step.id} className={`group ${isChild ? 'ml-8 mt-4' : ''}`}>
+      <div className={`border-2 rounded-lg sm:rounded-xl p-4 sm:p-6 transition-all duration-200 ${
+        step.completed 
+          ? 'border-green-200 bg-green-50' 
+          : isStepOverdue(step)
+          ? 'border-red-200 bg-red-50 hover:border-red-300 hover:shadow-sm'
+          : 'border-slate-200 bg-white hover:border-blue-200 hover:shadow-sm'
+      } ${isChild ? 'border-l-4 border-l-blue-400' : ''}`}>
+        <div className="flex items-start justify-between min-w-0 gap-2 sm:gap-4">
+          <div className="flex items-start space-x-2 sm:space-x-3 lg:space-x-4 flex-1 min-w-0 overflow-hidden">
+            <button
+              onClick={() => handleToggleComplete(step.id)}
+              className={`mt-1 w-5 h-5 sm:w-6 sm:h-6 rounded-full border-2 flex items-center justify-center transition-all duration-200 ${
+                step.completed
+                  ? 'bg-green-500 border-green-500 text-white shadow-sm'
+                  : isStepOverdue(step)
+                  ? 'border-red-400 hover:border-red-500 hover:bg-red-100'
+                  : 'border-slate-300 hover:border-blue-500 hover:bg-blue-50'
+              } flex-shrink-0`}
+            >
+              {step.completed && <Check className="w-3 h-3 sm:w-4 sm:h-4" />}
+            </button>
+            
+            <div className="flex-1 min-w-0 overflow-hidden">
+              <div className="flex flex-col space-y-1 sm:space-y-2 mb-2 sm:mb-3">
+                <div className="flex-1 min-w-0 overflow-hidden">
+                <h4 className={`text-sm sm:text-base lg:text-lg font-semibold leading-tight ${
+                  step.completed 
+                    ? 'text-green-700 line-through' 
+                    : isStepOverdue(step)
+                    ? 'text-red-700'
+                    : 'text-slate-900'
+                } break-words hyphens-auto overflow-wrap-anywhere word-break-break-word ${
+                  step.isPackage ? 'text-lg font-bold' : ''
+                }`}
+                style={{ 
+                  wordWrap: 'break-word',
+                  overflowWrap: 'anywhere',
+                  wordBreak: 'break-word',
+                  hyphens: 'auto'
+                }}>
+                  {step.isPackage ? step.packageName : step.title}
+                </h4>
+                </div>
+                <div className="flex flex-wrap items-center gap-2">
+                {step.important && (
+                  <span className="flex items-center space-x-1 px-1.5 sm:px-2 py-1 bg-orange-100 text-orange-700 text-xs font-medium rounded-full">
+                    <Star className="w-2.5 h-2.5 sm:w-3 sm:h-3" />
+                    <span>Important</span>
+                  </span>
+                )}
+                {step.isPackage && (
+                  <span className="px-2 sm:px-3 py-1 bg-blue-100 text-blue-700 text-xs font-medium rounded-full">
+                    Package
+                  </span>
+                )}
+                {isStepOverdue(step) && (
+                  <span className="px-2 sm:px-3 py-1 bg-red-100 text-red-700 text-xs font-medium rounded-full">
+                    Overdue
+                  </span>
+                )}
+                {step.completed && (
+                  <span className="px-2 sm:px-3 py-1 bg-green-100 text-green-700 text-xs font-medium rounded-full">
+                    Completed
+                  </span>
+                )}
+                </div>
+              </div>
+              
+              <p className={`mb-3 sm:mb-4 text-xs sm:text-sm lg:text-base leading-relaxed break-words hyphens-auto overflow-wrap-anywhere word-break-break-word ${
+                step.completed 
+                  ? 'text-slate-600 opacity-75' 
+                  : isStepOverdue(step)
+                  ? 'text-red-600'
+                  : 'text-slate-600'
+              }`}
+              style={{ 
+                wordWrap: 'break-word',
+                overflowWrap: 'anywhere',
+                wordBreak: 'break-word',
+                hyphens: 'auto'
+              }}>
+                {step.description}
+              </p>
+              
+              <div className="flex flex-col space-y-1 sm:space-y-2 text-xs sm:text-sm mb-3 sm:mb-4">
+                <div className={`flex items-center space-x-1 sm:space-x-2 ${
+                  step.completed 
+                    ? 'text-green-600' 
+                    : isStepOverdue(step)
+                    ? 'text-red-600'
+                    : 'text-slate-500'
+                }`}>
+                  <Calendar className="w-3 h-3 sm:w-4 sm:h-4" />
+                  <span className="font-medium">Deadline:</span>
+                  <span className="whitespace-nowrap">
+                    {new Date(step.deadline).toLocaleDateString('en-US', {
+                      month: 'short',
+                      day: 'numeric',
+                      year: 'numeric'
+                    })} at {new Date(step.deadline).toLocaleTimeString([], { 
+                      hour: '2-digit', 
+                      minute: '2-digit' 
+                    })}
+                  </span>
+                </div>
+                
+                {step.completed && step.completedDate && (
+                  <div className="flex items-center space-x-1 sm:space-x-2 text-green-600">
+                    <Check className="w-3 h-3 sm:w-4 sm:h-4" />
+                    <span className="font-medium">Completed:</span>
+                    <span>
+                      {new Date(step.completedDate).toLocaleDateString('en-US', {
+                        month: 'short',
+                        day: 'numeric',
+                        year: 'numeric'
+                      })}
+                    </span>
+                  </div>
+                )}
+              </div>
+
+              {/* Comments Section */}
+              <div className="border-t border-slate-200 pt-3 sm:pt-4 mt-3 sm:mt-4">
+                <div className="flex flex-col space-y-2 mb-2 sm:mb-3">
+                  <div className="flex items-center space-x-1 sm:space-x-2">
+                    <MessageCircle className="w-3 h-3 sm:w-4 sm:h-4 text-slate-500" />
+                    <span className="text-xs sm:text-sm font-medium text-slate-700">
+                      Comments ({step.comments.length})
+                    </span>
+                  </div>
+                  <button
+                    onClick={() => {
+                      setCommentingStepId(step.id);
+                      setShowCommentModal(true);
+                    }}
+                    className="text-xs text-blue-600 hover:text-blue-700 font-medium whitespace-nowrap"
+                  >
+                    Add Comment
+                  </button>
+                </div>
+                
+                {step.comments.length > 0 ? (
+                  <div className="space-y-2 sm:space-y-3 max-h-32 sm:max-h-40 overflow-y-auto">
+                    {step.comments.map((comment) => (
+                      <div key={comment.id} className="bg-slate-50 rounded-lg p-2 sm:p-3 border border-slate-200 min-w-0">
+                        <div className="flex flex-col space-y-1 mb-2">
+                          <div className="flex items-center justify-between">
+                          <span className="text-xs font-medium text-blue-600 break-words hyphens-auto overflow-wrap-anywhere word-break-break-word flex-1 min-w-0"
+                          style={{ 
+                            wordWrap: 'break-word',
+                            overflowWrap: 'anywhere',
+                            wordBreak: 'break-word',
+                            hyphens: 'auto'
+                          }}>
+                            {comment.username}
+                          </span>
+                            <button
+                              onClick={() => handleDeleteComment(step.id, comment.id)}
+                              className="p-0.5 sm:p-1 text-red-500 hover:text-red-700 flex-shrink-0"
+                            >
+                              <Trash className="w-2.5 h-2.5 sm:w-3 sm:h-3" />
+                            </button>
+                          </div>
+                          <span className="text-xs text-slate-500">
+                            {new Date(comment.timestamp).toLocaleDateString()} {new Date(comment.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                          </span>
+                        </div>
+                        <p className="text-xs sm:text-sm text-slate-700 break-words hyphens-auto overflow-wrap-anywhere word-break-break-word leading-relaxed"
+                        style={{ 
+                          wordWrap: 'break-word',
+                          overflowWrap: 'anywhere',
+                          wordBreak: 'break-word',
+                          hyphens: 'auto'
+                        }}>{comment.text}</p>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="text-xs text-slate-500 italic">No comments yet</p>
+                )}
+              </div>
+            </div>
+          </div>
+          
+          <div className="flex flex-col items-center space-y-1 opacity-0 group-hover:opacity-100 transition-opacity duration-200 flex-shrink-0">
+            <button 
+              onClick={() => handleEditStepOpen(step)}
+              className="p-1 sm:p-1.5 text-blue-500 hover:text-blue-700 hover:bg-blue-50 rounded-lg transition-all duration-200 border border-transparent hover:border-blue-200"
+            >
+              <Edit className="w-3 h-3 sm:w-4 sm:h-4" />
+            </button>
+            <button 
+              onClick={() => handleDeleteStep(step.id)}
+              className="p-1 sm:p-1.5 text-red-500 hover:text-red-700 hover:bg-red-50 rounded-lg transition-all duration-200 border border-transparent hover:border-red-200"
+            >
+              <Trash2 className="w-3 h-3 sm:w-4 sm:h-4" />
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+
   return (
     <div className="min-h-screen bg-slate-50">
       <div className="max-w-6xl mx-auto p-8 space-y-8">
@@ -409,203 +677,14 @@ const ClientProgressTracker: React.FC<ClientProgressTrackerProps> = ({ clientId,
           </div>
           
           <div className="p-4 sm:p-8">
-            {progressSteps.length > 0 ? (
+            {hierarchicalSteps.length > 0 ? (
               <div className="space-y-4 sm:space-y-6">
-                {progressSteps.map((step, index) => (
-                  <div key={step.id} className="group">
-                    <div className={`border-2 rounded-lg sm:rounded-xl p-4 sm:p-6 transition-all duration-200 ${
-                      step.completed 
-                        ? 'border-green-200 bg-green-50' 
-                        : isStepOverdue(step)
-                        ? 'border-red-200 bg-red-50 hover:border-red-300 hover:shadow-sm'
-                        : 'border-slate-200 bg-white hover:border-blue-200 hover:shadow-sm'
-                    }`}>
-                      <div className="flex items-start justify-between min-w-0 gap-2 sm:gap-4">
-                        <div className="flex items-start space-x-2 sm:space-x-3 lg:space-x-4 flex-1 min-w-0 overflow-hidden">
-                          <button
-                            onClick={() => handleToggleComplete(step.id)}
-                            className={`mt-1 w-5 h-5 sm:w-6 sm:h-6 rounded-full border-2 flex items-center justify-center transition-all duration-200 ${
-                              step.completed
-                                ? 'bg-green-500 border-green-500 text-white shadow-sm'
-                                : isStepOverdue(step)
-                                ? 'border-red-400 hover:border-red-500 hover:bg-red-100'
-                                : 'border-slate-300 hover:border-blue-500 hover:bg-blue-50'
-                            } flex-shrink-0`}
-                          >
-                            {step.completed && <Check className="w-3 h-3 sm:w-4 sm:h-4" />}
-                          </button>
-                          
-                          <div className="flex-1 min-w-0 overflow-hidden">
-                            <div className="flex flex-col space-y-1 sm:space-y-2 mb-2 sm:mb-3">
-                              <div className="flex-1 min-w-0 overflow-hidden">
-                              <h4 className={`text-sm sm:text-base lg:text-lg font-semibold leading-tight ${
-                                step.completed 
-                                  ? 'text-green-700 line-through' 
-                                  : isStepOverdue(step)
-                                  ? 'text-red-700'
-                                  : 'text-slate-900'
-                              } break-words hyphens-auto overflow-wrap-anywhere word-break-break-word`}
-                              style={{ 
-                                wordWrap: 'break-word',
-                                overflowWrap: 'anywhere',
-                                wordBreak: 'break-word',
-                                hyphens: 'auto'
-                              }}>
-                                {step.title}
-                              </h4>
-                              </div>
-                              <div className="flex flex-wrap items-center gap-2">
-                              {step.important && (
-                                <span className="flex items-center space-x-1 px-1.5 sm:px-2 py-1 bg-orange-100 text-orange-700 text-xs font-medium rounded-full">
-                                  <Star className="w-2.5 h-2.5 sm:w-3 sm:h-3" />
-                                  <span>Important</span>
-                                </span>
-                              )}
-                              {isStepOverdue(step) && (
-                                <span className="px-2 sm:px-3 py-1 bg-red-100 text-red-700 text-xs font-medium rounded-full">
-                                  Overdue
-                                </span>
-                              )}
-                              {step.completed && (
-                                <span className="px-2 sm:px-3 py-1 bg-green-100 text-green-700 text-xs font-medium rounded-full">
-                                  Completed
-                                </span>
-                              )}
-                              </div>
-                            </div>
-                            
-                            <p className={`mb-3 sm:mb-4 text-xs sm:text-sm lg:text-base leading-relaxed break-words hyphens-auto overflow-wrap-anywhere word-break-break-word ${
-                              step.completed 
-                                ? 'text-slate-600 opacity-75' 
-                                : isStepOverdue(step)
-                                ? 'text-red-600'
-                                : 'text-slate-600'
-                            }`}
-                            style={{ 
-                              wordWrap: 'break-word',
-                              overflowWrap: 'anywhere',
-                              wordBreak: 'break-word',
-                              hyphens: 'auto'
-                            }}>
-                              {step.description}
-                            </p>
-                            
-                            <div className="flex flex-col space-y-1 sm:space-y-2 text-xs sm:text-sm mb-3 sm:mb-4">
-                              <div className={`flex items-center space-x-1 sm:space-x-2 ${
-                                step.completed 
-                                  ? 'text-green-600' 
-                                  : isStepOverdue(step)
-                                  ? 'text-red-600'
-                                  : 'text-slate-500'
-                              }`}>
-                                <Calendar className="w-3 h-3 sm:w-4 sm:h-4" />
-                                <span className="font-medium">Deadline:</span>
-                                <span className="whitespace-nowrap">
-                                  {new Date(step.deadline).toLocaleDateString('en-US', {
-                                    month: 'short',
-                                    day: 'numeric',
-                                    year: 'numeric'
-                                  })} at {new Date(step.deadline).toLocaleTimeString([], { 
-                                    hour: '2-digit', 
-                                    minute: '2-digit' 
-                                  })}
-                                </span>
-                              </div>
-                              
-                              {step.completed && step.completedDate && (
-                                <div className="flex items-center space-x-1 sm:space-x-2 text-green-600">
-                                  <Check className="w-3 h-3 sm:w-4 sm:h-4" />
-                                  <span className="font-medium">Completed:</span>
-                                  <span>
-                                    {new Date(step.completedDate).toLocaleDateString('en-US', {
-                                      month: 'short',
-                                      day: 'numeric',
-                                      year: 'numeric'
-                                    })}
-                                  </span>
-                                </div>
-                              )}
-                            </div>
-
-                            {/* Comments Section */}
-                            <div className="border-t border-slate-200 pt-3 sm:pt-4 mt-3 sm:mt-4">
-                              <div className="flex flex-col space-y-2 mb-2 sm:mb-3">
-                                <div className="flex items-center space-x-1 sm:space-x-2">
-                                  <MessageCircle className="w-3 h-3 sm:w-4 sm:h-4 text-slate-500" />
-                                  <span className="text-xs sm:text-sm font-medium text-slate-700">
-                                    Comments ({step.comments.length})
-                                  </span>
-                                </div>
-                                <button
-                                  onClick={() => {
-                                    setCommentingStepId(step.id);
-                                    setShowCommentModal(true);
-                                  }}
-                                  className="text-xs text-blue-600 hover:text-blue-700 font-medium whitespace-nowrap"
-                                >
-                                  Add Comment
-                                </button>
-                              </div>
-                              
-                              {step.comments.length > 0 ? (
-                                <div className="space-y-2 sm:space-y-3 max-h-32 sm:max-h-40 overflow-y-auto">
-                                  {step.comments.map((comment) => (
-                                    <div key={comment.id} className="bg-slate-50 rounded-lg p-2 sm:p-3 border border-slate-200 min-w-0">
-                                      <div className="flex flex-col space-y-1 mb-2">
-                                        <div className="flex items-center justify-between">
-                                        <span className="text-xs font-medium text-blue-600 break-words hyphens-auto overflow-wrap-anywhere word-break-break-word flex-1 min-w-0"
-                                        style={{ 
-                                          wordWrap: 'break-word',
-                                          overflowWrap: 'anywhere',
-                                          wordBreak: 'break-word',
-                                          hyphens: 'auto'
-                                        }}>
-                                          {comment.username}
-                                        </span>
-                                          <button
-                                            onClick={() => handleDeleteComment(step.id, comment.id)}
-                                            className="p-0.5 sm:p-1 text-red-500 hover:text-red-700 flex-shrink-0"
-                                          >
-                                            <Trash className="w-2.5 h-2.5 sm:w-3 sm:h-3" />
-                                          </button>
-                                        </div>
-                                        <span className="text-xs text-slate-500">
-                                          {new Date(comment.timestamp).toLocaleDateString()} {new Date(comment.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                                        </span>
-                                      </div>
-                                      <p className="text-xs sm:text-sm text-slate-700 break-words hyphens-auto overflow-wrap-anywhere word-break-break-word leading-relaxed"
-                                      style={{ 
-                                        wordWrap: 'break-word',
-                                        overflowWrap: 'anywhere',
-                                        wordBreak: 'break-word',
-                                        hyphens: 'auto'
-                                      }}>{comment.text}</p>
-                                    </div>
-                                  ))}
-                                </div>
-                              ) : (
-                                <p className="text-xs text-slate-500 italic">No comments yet</p>
-                              )}
-                            </div>
-                          </div>
-                        </div>
-                        
-                        <div className="flex flex-col items-center space-y-1 opacity-0 group-hover:opacity-100 transition-opacity duration-200 flex-shrink-0">
-                          <button 
-                            onClick={() => handleEditStepOpen(step)}
-                            className="p-1 sm:p-1.5 text-blue-500 hover:text-blue-700 hover:bg-blue-50 rounded-lg transition-all duration-200 border border-transparent hover:border-blue-200"
-                          >
-                            <Edit className="w-3 h-3 sm:w-4 sm:h-4" />
-                          </button>
-                          <button 
-                            onClick={() => handleDeleteStep(step.id)}
-                            className="p-1 sm:p-1.5 text-red-500 hover:text-red-700 hover:bg-red-50 rounded-lg transition-all duration-200 border border-transparent hover:border-red-200"
-                          >
-                            <Trash2 className="w-3 h-3 sm:w-4 sm:h-4" />
-                          </button>
-                        </div>
-                      </div>
-                    </div>
+                {hierarchicalSteps.map((step) => (
+                  <div key={step.id}>
+                    {renderProgressStep(step)}
+                    {step.children && step.children.map((childStep) => 
+                      renderProgressStep(childStep, true)
+                    )}
                   </div>
                 ))}
               </div>

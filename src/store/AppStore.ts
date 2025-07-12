@@ -352,59 +352,6 @@ export const useAppStore = create<AppState>((set, get) => ({
   ],
 
   progressSteps: [
-    {
-      id: 'step-001',
-      clientId: 1,
-      title: 'Initial Consultation',
-      description: 'Meet with client to understand requirements',
-      deadline: '2024-01-20T10:00:00Z',
-      completed: true,
-      completedDate: '2024-01-18',
-      important: true,
-      comments: [
-        {
-          id: 'comment-001',
-          text: 'Great meeting! Client has clear vision.',
-          username: 'Project Manager',
-          timestamp: '2024-01-18T14:30:00Z'
-        }
-      ],
-      createdAt: '2024-01-15T00:00:00Z',
-      updatedAt: new Date().toISOString()
-    },
-    {
-      id: 'step-002',
-      clientId: 1,
-      title: 'Design Phase',
-      description: 'Create wireframes and mockups',
-      deadline: '2024-02-01T17:00:00Z',
-      completed: true,
-      completedDate: '2024-01-30',
-      important: false,
-      comments: [],
-      createdAt: '2024-01-15T00:00:00Z',
-      updatedAt: new Date().toISOString()
-    },
-    {
-      id: 'step-003',
-      clientId: 1,
-      title: 'Development Phase',
-      description: 'Build the application according to specifications',
-      deadline: '2024-03-15T17:00:00Z',
-      completed: false,
-      important: true,
-      comments: [
-        {
-          id: 'comment-002',
-          text: 'Development is progressing well. 60% complete.',
-          username: 'Lead Developer',
-          timestamp: '2024-02-15T09:00:00Z'
-        }
-      ],
-      createdAt: '2024-01-15T00:00:00Z',
-      updatedAt: new Date().toISOString()
-    }
-  ],
 
   calendarEvents: [
     {
