@@ -5,6 +5,7 @@ interface AddComponentModalProps {
   onClose: () => void;
   onSave: (componentData: any) => void;
   clientId?: number;
+  packageName?: string;
 }
 
 interface Component {
@@ -12,9 +13,19 @@ interface Component {
   name: string;
 }
 
-const AddComponentModal: React.FC<AddComponentModalProps> = ({ onClose, onSave }) => {
+const AddComponentModal: React.FC<AddComponentModalProps> = ({ onClose, onSave, packageName }) => {
   const [components, setComponents] = useState<Component[]>([]);
   const [bulkText, setBulkText] = useState('');
+  
+  // Pre-populate with package name if provided
+  useEffect(() => {
+    if (packageName && components.length === 0) {
+      setComponents([{
+        id: Date.now().toString(),
+        name: packageName
+      }]);
+    }
+  }, [packageName]);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();

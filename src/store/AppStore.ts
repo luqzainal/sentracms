@@ -742,6 +742,24 @@ export const useAppStore = create<AppState>((set, get) => ({
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
     };
+    
+    // Auto-create a component based on the package name from the invoice
+    if (invoiceData.packageName) {
+      const newComponent: Component = {
+        id: `comp-${Date.now()}`,
+        clientId: invoiceData.clientId,
+        name: invoiceData.packageName,
+        price: `RM ${invoiceData.amount.toLocaleString()}`,
+        active: true,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+      };
+      
+      set((state) => ({
+        components: [...state.components, newComponent],
+      }));
+    }
+    
     set((state) => ({
       invoices: [...state.invoices, newInvoice],
       clients: state.clients.map((client) =>
@@ -751,6 +769,7 @@ export const useAppStore = create<AppState>((set, get) => ({
               totalSales: client.totalSales + invoiceData.amount,
               balance: client.balance + invoiceData.due,
               invoiceCount: client.invoiceCount + 1,
+              packageName: invoiceData.packageName, // Update client's package name
               updatedAt: new Date().toISOString(),
             }
           : client
