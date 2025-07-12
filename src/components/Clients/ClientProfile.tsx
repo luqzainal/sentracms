@@ -10,6 +10,7 @@ import AddEventModal from './AddEventModal';
 import EditInvoiceModal from './EditInvoiceModal';
 import EditComponentModal from './EditComponentModal';
 import EditEventModal from './EditEventModal';
+import EditPaymentModal from './EditPaymentModal';
 
 interface ClientProfileProps {
   clientId: string;
@@ -71,6 +72,8 @@ const ClientProfile: React.FC<ClientProfileProps> = ({ clientId, onBack, onEdit 
   const [editingInvoice, setEditingInvoice] = useState<Invoice | null>(null);
   const [editingComponent, setEditingComponent] = useState<Component | null>(null);
   const [editingEvent, setEditingEvent] = useState<CalendarEvent | null>(null);
+ const [showEditPaymentModal, setShowEditPaymentModal] = useState(false);
+ const [editingPayment, setEditingPayment] = useState<Payment | null>(null);
   const [selectedInvoiceForPayment, setSelectedInvoiceForPayment] = useState<Invoice | null>(null);
 
   const clientInvoices = invoices.filter(invoice => invoice.clientId === client.id);
@@ -96,6 +99,7 @@ const ClientProfile: React.FC<ClientProfileProps> = ({ clientId, onBack, onEdit 
       addPayment({
         ...paymentData,
         clientId: client.id,
+        invoiceId: selectedInvoiceForPayment.id,
       } as Payment);
       setShowPaymentModal(false);
       setSelectedInvoiceForPayment(null);
@@ -195,6 +199,24 @@ const ClientProfile: React.FC<ClientProfileProps> = ({ clientId, onBack, onEdit 
     }
   };
 
+ const handleEditPayment = (payment: Payment) => {
+   setEditingPayment(payment);
+   setShowEditPaymentModal(true);
+ };
+
+ const handleSaveEditedPayment = (paymentData: Partial<Payment>) => {
+   if (editingPayment) {
+     updatePayment(editingPayment.id, paymentData);
+     setShowEditPaymentModal(false);
+     setEditingPayment(null);
+   }
+ };
+
+ const handleDeletePayment = (paymentId: string) => {
+   if (confirm('Are you sure you want to delete this payment?')) {
+     deletePayment(paymentId);
+   }
+ };
   return (
     <>
       <div className="p-6 space-y-6">
@@ -305,7 +327,6 @@ const ClientProfile: React.FC<ClientProfileProps> = ({ clientId, onBack, onEdit 
                   <div key={invoice.id} className="border border-gray-200 rounded-lg p-4">
                     {/* Package Header */}
                     <div className="flex items-center justify-between mb-4">
-                      <div className="flex items-center space-x-3">
                         <div className="w-10 h-10 bg-blue-100 rounded-lg flex items-center justify-center">
                           <Package className="w-5 h-5 text-blue-600" />
                         </div>
@@ -464,16 +485,59 @@ const ClientProfile: React.FC<ClientProfileProps> = ({ clientId, onBack, onEdit 
                         </div>
                       </div>
                       <div className="mt-2 pt-2 border-t border-gray-100">
-                        <p className="text-xs text-gray-500">Payment Details</p>
-                        <button
-                          onClick={() => {
-                            setSelectedInvoiceForPayment(invoice);
-                            setShowPaymentModal(true);
-                          }}
-                          className="text-blue-600 hover:text-blue-800 text-xs"
-                        >
-                          + Add Payment
-                        </button>
+                        <div className="flex items-center justify-between mb-2">
+                          <p className="text-xs text-gray-500">Payment Details</p>
+                          <button
+                            onClick={() => {
+                              setSelectedInvoiceForPayment(invoice);
+                              setShowPaymentModal(true);
+                            }}
+                            className="text-blue-600 hover:text-blue-800 text-xs"
+                          >
+                            + Add Payment
+                          </button>
+                        </div>
+                        
+                        {/* Payment Transactions */}
+                        <div className="space-y-1">
+                          {clientPayments
+                            .filter(payment => payment.invoiceId === invoice.id)
+                            .map((payment) => (
+                              <div key={payment.id} className="flex items-center justify-between p-2 bg-green-50 rounded border border-green-200">
+                                <div className="flex-1">
+                                  <div className="flex justify-between items-center">
+                                    <span className="text-xs font-medium text-green-800">
+                                      RM {payment.amount.toLocaleString()}
+                                    </span>
+                                    <span className="text-xs text-green-600">
+                                      {new Date(payment.paidAt).toLocaleDateString()}
+                                    </span>
+                                  </div>
+                                  <div className="text-xs text-green-600">
+                                    {payment.paymentSource} • {payment.status}
+                                  </div>
+                                </div>
+                                <div className="flex items-center space-x-1 ml-2">
+                                  <button
+                                    onClick={() => handleEditPayment(payment)}
+                                    className="text-blue-500 hover:text-blue-700"
+                                  >
+                                    <Edit className="w-3 h-3" />
+                                  </button>
+                                  <button
+                                    onClick={() => handleDeletePayment(payment.id)}
+                                    className="text-red-500 hover:text-red-700"
+                                  >
+                                    <Trash2 className="w-3 h-3" />
+                                  </button>
+                                </div>
+                              </div>
+                            ))}
+                        </div>
+                        
+                        {clientPayments.filter(payment => payment.invoiceId === invoice.id).length === 0 && (
+                          <p className="text-xs text-gray-400 italic">No payments recorded</p>
+                        )}
                       </div>
                     </div>
                   ))}
@@ -547,6 +611,14 @@ const ClientProfile: React.FC<ClientProfileProps> = ({ clientId, onBack, onEdit 
           event={editingEvent}
           onClose={() => setShowEditEventModal(false)}
           onSave={handleSaveEditedEvent}
+        />
+      )}
+
+      {showEditPaymentModal && editingPayment && (
+        <EditPaymentModal
+          payment={editingPayment}
+          onClose={() => setShowEditPaymentModal(false)}
+          onSave={handleSaveEditedPayment}
         />
       )}
     </>
