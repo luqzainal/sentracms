@@ -67,18 +67,17 @@ const Login: React.FC = () => {
 
   return (
     <div 
-      className="min-h-screen flex items-center justify-start p-4 lg:p-8"
+      className="min-h-screen flex items-center justify-center p-4 lg:p-8"
       style={{
         backgroundImage: "url('/src/assets/Picture1 (1) copy copy copy.png')",
         backgroundSize: 'cover',
         backgroundPosition: 'center',
         backgroundRepeat: 'no-repeat',
-        backgroundColor: '#f8fafc', // fallback color
-        transform: 'scaleX(-1)'
+        backgroundColor: '#f8fafc' // fallback color
       }}
     >
       {/* Main login container */}
-      <div className="relative z-10 w-full max-w-sm lg:max-w-md">        
+      <div className="relative z-10 w-full max-w-sm lg:max-w-md ml-4 lg:ml-8">        
         {/* Login card */}
         <div className="rounded-2xl shadow-2xl border border-red-500 overflow-hidden backdrop-blur-sm" style={{ backgroundColor: 'rgba(255, 255, 255, 0.95)' }}>
           {/* Header with brand colors */}
@@ -88,7 +87,6 @@ const Login: React.FC = () => {
                   src="/src/assets/AiChatbot (15).png" 
                   alt="Sentra Logo" 
                   className="w-full h-auto max-w-[200px] lg:max-w-xs"
-                  style={{ transform: 'scaleX(-1)' }}
                 />
             </div>
           </div>
