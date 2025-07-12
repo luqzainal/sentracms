@@ -864,9 +864,33 @@ export const useAppStore = create<AppState>((set, get) => ({
     const payment = state.payments.find(p => p.id === id);
     
     if (payment) {
-    set((state) => ({
-      payments: state.payments.filter((payment) => payment.id !== id),
-    }));
+      set((state) => ({
+        payments: state.payments.filter((payment) => payment.id !== id),
+        // Update client totals
+        clients: state.clients.map((client) =>
+          client.id === payment.clientId
+            ? {
+                ...client,
+                totalCollection: Math.max(0, client.totalCollection - payment.amount),
+                balance: client.balance + payment.amount,
+                updatedAt: new Date().toISOString(),
+              }
+            : client
+        ),
+        // Update invoice totals
+        invoices: state.invoices.map((invoice) =>
+          invoice.id === payment.invoiceId
+            ? {
+                ...invoice,
+                paid: Math.max(0, invoice.paid - payment.amount),
+                due: invoice.due + payment.amount,
+                status: invoice.paid - payment.amount <= 0 ? 'Pending' : 'Partial',
+                updatedAt: new Date().toISOString(),
+              }
+            : invoice
+        ),
+      }));
+    }
   },
 
   getPaymentsByClientId: (clientId) => {
