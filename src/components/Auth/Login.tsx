@@ -81,20 +81,13 @@ const Login: React.FC = () => {
         {/* Login card */}
         <div className="rounded-2xl shadow-2xl border border-red-500 overflow-hidden backdrop-blur-sm" style={{ backgroundColor: 'rgba(255, 255, 255, 0.95)' }}>
           {/* Header with brand colors */}
-          <div className="px-4 lg:px-8 py-6 lg:py-8 text-center relative" style={{ backgroundColor: 'rgba(255, 255, 255, 0.98)' }}>
+          <div className="px-4 lg:px-8 py-6 lg:py-8 text-center" style={{ backgroundColor: 'rgba(255, 255, 255, 0.98)' }}>
             <div className="flex justify-center">
-              <div className="relative p-4 rounded-xl shadow-lg" style={{ 
-                background: 'linear-gradient(135deg, rgba(0, 0, 0, 0.95) 0%, rgba(30, 30, 30, 0.95) 100%)',
-                border: '2px solid rgba(255, 255, 255, 0.1)',
-                backdropFilter: 'blur(10px)'
-              }}>
                 <img 
                   src="/src/assets/AiChatbot (15).png" 
                   alt="Sentra Logo" 
-                  className="w-full h-auto max-w-[200px] lg:max-w-xs drop-shadow-2xl"
+                  className="w-full h-auto max-w-[200px] lg:max-w-xs"
                 />
-                <div className="absolute inset-0 rounded-xl bg-gradient-to-br from-transparent via-transparent to-orange-500/10 pointer-events-none"></div>
-              </div>
             </div>
           </div>
 
