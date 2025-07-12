@@ -705,7 +705,13 @@ export const useAppStore = create<AppState>((set, get) => ({
       } else {
         // Fetch all invoices for all clients
         const { clients } = get();
-        const realClients = clients.filter(client => client.id > 0); // Exclude mock clients
+        const realClients = clients.filter(client => client.id > 0); //
+      }
+    }
+  }
+}
+)
+) Exclude mock clients
         const allInvoices: Invoice[] = [];
         
         for (const client of realClients) {
@@ -836,18 +842,7 @@ export const useAppStore = create<AppState>((set, get) => ({
             await updateClient(invoice.clientId, {
               invoiceCount: Math.max(0, client.invoiceCount - 1),
               totalSales: Math.max(0, client.totalSales - invoice.amount),
-             balance: Math.max(0, client.b
-              )
-            }
-            )
-          }
-        }
-      }
-    }
-  }
-}
-)
-)alance - invoice.amount)
+             balance: Math.max(0, client.balance - invoice.amount)
             }
             )
           }
