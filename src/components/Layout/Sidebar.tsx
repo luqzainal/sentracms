@@ -66,7 +66,7 @@ const Sidebar: React.FC<SidebarProps> = ({ activeTab, setActiveTab, onLogout, is
         <div className="p-4 lg:p-6 border-b border-slate-700">
         <div className="flex justify-center">
           <img 
-            src="/src/assets/AiChatbot (13).png" 
+            src="/src/assets/AiChatbot (14) copy.png" 
             alt="Sentra Logo" 
             className="w-full h-auto max-w-[160px] lg:max-w-[200px]"
           />
