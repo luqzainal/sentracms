@@ -6,6 +6,7 @@ interface AddComponentModalProps {
   onSave: (componentData: any) => void;
   clientId?: number;
   packageName?: string;
+  invoiceId?: string;
 }
 
 interface Component {
@@ -13,7 +14,7 @@ interface Component {
   name: string;
 }
 
-const AddComponentModal: React.FC<AddComponentModalProps> = ({ onClose, onSave, packageName }) => {
+const AddComponentModal: React.FC<AddComponentModalProps> = ({ onClose, onSave, packageName, invoiceId }) => {
   const [components, setComponents] = useState<Component[]>([]);
   const [bulkText, setBulkText] = useState('');
   
@@ -34,7 +35,7 @@ const AddComponentModal: React.FC<AddComponentModalProps> = ({ onClose, onSave, 
       alert('Please add at least one component');
       return;
     }
-    onSave(validComponents);
+    onSave(validComponents.map(comp => ({ ...comp, invoiceId })));
   };
 
   const addComponent = () => {

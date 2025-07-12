@@ -54,6 +54,7 @@ interface Component {
   name: string;
   price: string;
   active: boolean;
+  invoiceId?: string;
   createdAt: string;
   updatedAt: string;
 }
@@ -191,6 +192,7 @@ interface AppState {
   updateComponent: (id: string, updates: Partial<Component>) => void;
   deleteComponent: (id: string) => void;
   getComponentsByClientId: (clientId: number) => Component[];
+  getComponentsByInvoiceId: (invoiceId: string) => Component[];
 
   addProgressStep: (step: Omit<ProgressStep, 'id' | 'createdAt' | 'updatedAt'>) => void;
   updateProgressStep: (id: string, updates: Partial<ProgressStep>) => void;
@@ -321,6 +323,7 @@ export const useAppStore = create<AppState>((set, get) => ({
       name: 'Website Development',
       price: 'RM 5,000',
       active: true,
+      invoiceId: 'INV-001',
       createdAt: '2024-01-15T00:00:00Z',
       updatedAt: new Date().toISOString()
     },
@@ -330,6 +333,7 @@ export const useAppStore = create<AppState>((set, get) => ({
       name: 'Mobile App Development',
       price: 'RM 8,000',
       active: true,
+      invoiceId: 'INV-001',
       createdAt: '2024-01-15T00:00:00Z',
       updatedAt: new Date().toISOString()
     },
@@ -339,6 +343,7 @@ export const useAppStore = create<AppState>((set, get) => ({
       name: 'SEO Optimization',
       price: 'RM 2,000',
       active: true,
+      invoiceId: 'INV-001',
       createdAt: '2024-01-15T00:00:00Z',
       updatedAt: new Date().toISOString()
     }
@@ -752,7 +757,6 @@ export const useAppStore = create<AppState>((set, get) => ({
               totalSales: client.totalSales + invoiceData.amount,
               balance: client.balance + invoiceData.due,
               invoiceCount: client.invoiceCount + 1,
-              packageName: invoiceData.packageName, // Update client's package name
               updatedAt: new Date().toISOString(),
             }
           : client
@@ -890,6 +894,10 @@ export const useAppStore = create<AppState>((set, get) => ({
 
   getComponentsByClientId: (clientId) => {
     return get().components.filter((component) => component.clientId === clientId);
+  },
+
+  getComponentsByInvoiceId: (invoiceId) => {
+    return get().components.filter((component) => component.invoiceId === invoiceId);
   },
 
   addProgressStep: (stepData) => {
