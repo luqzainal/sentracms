@@ -763,31 +763,6 @@ export const useAppStore = create<AppState>((set, get) => ({
       
       set((state) => ({
         invoices: state.invoices.filter((inv) => inv.id !== invoiceId),
-        // Update client totals
-        clients: state.clients.map((client) =>
-          client.id === payment.clientId
-            ? {
-                ...client,
-                totalCollection: Math.max(0, client.totalCollection - payment.amount),
-                balance: client.balance + payment.amount,
-                updatedAt: new Date().toISOString(),
-              }
-            : client
-        ),
-        // Update invoice totals
-        invoices: state.invoices.map((invoice) =>
-          invoice.id === payment.invoiceId
-            ? {
-                ...invoice,
-                paid: Math.max(0, invoice.paid - payment.amount),
-                due: invoice.due + payment.amount,
-                status: invoice.due + payment.amount > 0 ? 'Partial' : 'Paid',
-                updatedAt: new Date().toISOString(),
-              }
-            : invoice
-        ),
-        // Remove the main package component and all child components for this client
-    }
         components: packageComponent 
           ? state.components.filter((comp) => comp.clientId !== invoice.clientId)
           : state.components,
