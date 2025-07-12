@@ -226,7 +226,7 @@ const ClientProfile: React.FC<ClientProfileProps> = ({ clientId, onBack, onEdit 
             </div>
             
             {/* Package Name Section */}
-            {client.packageName ? (
+            {client.packageName && invoices.length > 0 ? (
               <div className="space-y-4">
                 {/* Package Header */}
                 <div className="bg-gradient-to-r from-blue-50 to-indigo-50 rounded-lg p-4 border border-blue-200">
