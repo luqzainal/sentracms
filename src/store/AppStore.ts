@@ -1118,14 +1118,42 @@ export const useAppStore = create<AppState>((set, get) => ({
   copyComponentsToProgressSteps: (clientId) => {
     const state = get();
     const clientComponents = state.components.filter(comp => comp.clientId === clientId);
+    const clientInvoices = state.invoices.filter(inv => inv.clientId === clientId);
     
+    // Create progress steps for packages (from invoices)
+    clientInvoices.forEach(invoice => {
+      const existingPackageStep = state.progressSteps.find(step => 
+        step.clientId === clientId && step.title === `${invoice.packageName} - Package Setup`
+      );
+      
+      if (!existingPackageStep) {
+        const packageStep: ProgressStep = {
+          id: `step-${Date.now()}-${Math.random().toString(36).substr(2, 9)}-pkg`,
+          clientId: clientId,
+          title: `${invoice.packageName} - Package Setup`,
+          description: `Complete the setup and delivery of ${invoice.packageName} package`,
+          deadline: new Date(Date.now() + 60 * 24 * 60 * 60 * 1000).toISOString(), // 60 days from now
+          completed: false,
+          important: true, // Mark package steps as important
+          comments: [],
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString(),
+        };
+        
+        set((state) => ({
+          progressSteps: [...state.progressSteps, packageStep],
+        }));
+      }
+    });
+    
+    // Create progress steps for components
     clientComponents.forEach(component => {
       const existingStep = state.progressSteps.find(step => 
         step.clientId === clientId && step.title === component.name
       );
       
       if (!existingStep) {
-        const newStep: ProgressStep = {
+        const componentStep: ProgressStep = {
           id: `step-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
           clientId: clientId,
           title: component.name,
@@ -1139,7 +1167,7 @@ export const useAppStore = create<AppState>((set, get) => ({
         };
         
         set((state) => ({
-          progressSteps: [...state.progressSteps, newStep],
+          progressSteps: [...state.progressSteps, componentStep],
         }));
       }
     });
