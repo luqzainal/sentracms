@@ -9,15 +9,18 @@ import ClientModal from './ClientModal';
 import AddEventModal from './AddEventModal';
 
 interface ClientProfileProps {
-  client: Client;
+  clientId: string;
+  onBack: () => void;
+  onEdit: (client: Client) => void;
 }
 
-const ClientProfile: React.FC<ClientProfileProps> = ({ client }) => {
+const ClientProfile: React.FC<ClientProfileProps> = ({ clientId, onBack, onEdit }) => {
   const { 
     invoices, 
     payments, 
     components, 
     calendarEvents, 
+    clients,
     addInvoice, 
     addPayment, 
     addComponent, 
@@ -26,20 +29,41 @@ const ClientProfile: React.FC<ClientProfileProps> = ({ client }) => {
     getComponentsByInvoiceId 
   } = useAppStore();
 
+  // Get client by ID
+  const client = clients.find(c => c.id === parseInt(clientId));
+
+  // Handle case where client is not found
+  if (!client) {
+    return (
+      <div className="p-6">
+        <div className="text-center">
+          <h1 className="text-2xl font-bold text-gray-900 mb-4">Client Not Found</h1>
+          <p className="text-gray-600 mb-4">The requested client could not be found.</p>
+          <button
+            onClick={onBack}
+            className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+          >
+            Back to Clients
+          </button>
+        </div>
+      </div>
+    );
+  }
+
   const [showInvoiceModal, setShowInvoiceModal] = useState(false);
   const [showPaymentModal, setShowPaymentModal] = useState(false);
   const [showComponentModal, setShowComponentModal] = useState<string | null>(null);
   const [showEditModal, setShowEditModal] = useState(false);
   const [showEventModal, setShowEventModal] = useState(false);
 
-  const clientInvoices = invoices.filter(invoice => invoice.client_id === client.id);
-  const clientPayments = payments.filter(payment => payment.client_id === client.id);
-  const clientEvents = calendarEvents.filter(event => event.client_id === client.id);
+  const clientInvoices = invoices.filter(invoice => invoice.clientId === client.id);
+  const clientPayments = payments.filter(payment => payment.clientId === client.id);
+  const clientEvents = calendarEvents.filter(event => event.clientId === client.id);
 
   const handleSaveInvoice = (invoiceData: Partial<Invoice>) => {
     addInvoice({
       ...invoiceData,
-      client_id: client.id,
+      clientId: client.id,
     } as Invoice);
     setShowInvoiceModal(false);
   };
@@ -47,7 +71,7 @@ const ClientProfile: React.FC<ClientProfileProps> = ({ client }) => {
   const handleSavePayment = (paymentData: Partial<Payment>) => {
     addPayment({
       ...paymentData,
-      client_id: client.id,
+      clientId: client.id,
     } as Payment);
     setShowPaymentModal(false);
   };
@@ -56,7 +80,7 @@ const ClientProfile: React.FC<ClientProfileProps> = ({ client }) => {
     if (showComponentModal) {
       addComponent({
         ...componentData,
-        client_id: client.id,
+        clientId: client.id,
         invoiceId: showComponentModal,
       } as Component);
       setShowComponentModal(null);
@@ -71,7 +95,7 @@ const ClientProfile: React.FC<ClientProfileProps> = ({ client }) => {
   const handleSaveEvent = (eventData: Partial<CalendarEvent>) => {
     addCalendarEvent({
       ...eventData,
-      client_id: client.id,
+      clientId: client.id,
     } as CalendarEvent);
     setShowEventModal(false);
   };
@@ -89,7 +113,7 @@ const ClientProfile: React.FC<ClientProfileProps> = ({ client }) => {
             </div>
             <div>
               <h1 className="text-2xl font-bold text-gray-900">{client.name}</h1>
-              <p className="text-gray-600">{client.business_name}</p>
+              <p className="text-gray-600">{client.businessName}</p>
             </div>
           </div>
           <button
@@ -112,7 +136,7 @@ const ClientProfile: React.FC<ClientProfileProps> = ({ client }) => {
               </div>
               <div>
                 <label className="text-sm font-medium text-gray-500">Business Name:</label>
-                <p className="text-gray-900">{client.business_name}</p>
+                <p className="text-gray-900">{client.businessName}</p>
               </div>
               <div>
                 <label className="text-sm font-medium text-gray-500">Email Address:</label>
@@ -136,7 +160,7 @@ const ClientProfile: React.FC<ClientProfileProps> = ({ client }) => {
               </div>
               <div>
                 <label className="text-sm font-medium text-gray-500">Package Name:</label>
-                <p className="text-gray-900">{client.package_name || 'No package assigned'}</p>
+                <p className="text-gray-900">{client.packageName || 'No package assigned'}</p>
               </div>
               <div>
                 <label className="text-sm font-medium text-gray-500">Tags:</label>
@@ -155,7 +179,7 @@ const ClientProfile: React.FC<ClientProfileProps> = ({ client }) => {
               <div>
                 <label className="text-sm font-medium text-gray-500">Registered At:</label>
                 <p className="text-gray-900">
-                  {client.registered_at ? new Date(client.registered_at).toLocaleDateString() : 'Not available'}
+                  {client.registeredAt ? new Date(client.registeredAt).toLocaleDateString() : 'Not available'}
                 </p>
               </div>
             </div>
@@ -182,7 +206,7 @@ const ClientProfile: React.FC<ClientProfileProps> = ({ client }) => {
                           <Package className="w-5 h-5 text-blue-600" />
                         </div>
                         <div>
-                          <h3 className="font-medium text-gray-900">{invoice.package_name}</h3>
+                          <h3 className="font-medium text-gray-900">{invoice.packageName}</h3>
                           <p className="text-sm text-gray-500">Main Package</p>
                         </div>
                       </div>
@@ -249,7 +273,7 @@ const ClientProfile: React.FC<ClientProfileProps> = ({ client }) => {
                     <div key={event.id} className="p-3 bg-blue-50 rounded-lg">
                       <h4 className="font-medium text-gray-900">{event.title}</h4>
                       <p className="text-sm text-gray-600">
-                        {new Date(event.start_date).toLocaleDateString()}
+                        {new Date(event.startDate).toLocaleDateString()}
                       </p>
                     </div>
                   ))}
@@ -280,7 +304,7 @@ const ClientProfile: React.FC<ClientProfileProps> = ({ client }) => {
                   {clientInvoices.slice(0, 3).map((invoice) => (
                     <div key={invoice.id} className="p-3 border border-gray-200 rounded-lg">
                       <div className="flex justify-between items-start mb-2">
-                        <h4 className="font-medium text-gray-900">{invoice.package_name}</h4>
+                        <h4 className="font-medium text-gray-900">{invoice.packageName}</h4>
                         <button className="text-red-500 hover:text-red-700">
                           <Trash2 className="w-4 h-4" />
                         </button>
