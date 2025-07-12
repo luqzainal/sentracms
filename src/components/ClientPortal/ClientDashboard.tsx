@@ -146,6 +146,8 @@ const ClientDashboard: React.FC<ClientDashboardProps> = ({ user, onBack }) => {
                       {component.active && (
                         <span className="px-2 py-1 bg-green-100 text-green-700 text-xs font-medium rounded-full">
                           Completed
+                        </span>
+                      )}
                   </div>
                 ))}
                 {components.length === 0 && (
