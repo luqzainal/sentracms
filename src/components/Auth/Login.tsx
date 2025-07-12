@@ -57,7 +57,7 @@ const Login: React.FC = () => {
           <div className="bg-gradient-to-r from-slate-800 to-slate-900 px-4 lg:px-8 py-6 lg:py-8 text-center">
             <div className="flex justify-center">
                 <img 
-                  src="/src/assets/AiChatbot (13) copy copy.png" 
+                  src="/src/assets/AiChatbot (14).png" 
                   alt="Sentra Logo" 
                   className="w-full h-auto max-w-[200px] lg:max-w-xs"
                 />
