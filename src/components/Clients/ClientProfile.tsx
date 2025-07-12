@@ -255,7 +255,7 @@ const ClientProfile: React.FC<ClientProfileProps> = ({ clientId, onBack, onEdit 
                 {/* Child Components - Only show if there are components */}
                 {components.length > 0 && (
                   <div className="ml-6 space-y-2">
-                    components.map((component) => (
+                    {components.map((component) => (
                       <div key={component.id} className="flex items-center justify-between p-3 bg-slate-50 rounded-lg border-l-4 border-blue-300">
                         <div className="flex items-center space-x-3">
                           <div className="w-5 h-5 text-slate-400">
@@ -276,7 +276,7 @@ const ClientProfile: React.FC<ClientProfileProps> = ({ clientId, onBack, onEdit 
                           <Trash2 className="w-3 h-3" />
                         </button>
                       </div>
-                    ))
+                    ))}
                   </div>
                 )}
               </div>
@@ -399,7 +399,7 @@ const ClientProfile: React.FC<ClientProfileProps> = ({ clientId, onBack, onEdit 
                       </button>
                     </div>
                   </div>
-                </div>
+                )}
               ))}
               {invoices.length === 0 && (
                 <div className="text-center py-8 text-slate-500">
