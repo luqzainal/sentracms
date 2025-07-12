@@ -67,7 +67,7 @@ const Login: React.FC = () => {
 
   return (
     <div 
-      className="min-h-screen flex items-center justify-center p-4 lg:p-8"
+      className="min-h-screen flex items-center justify-center p-4 lg:p-8 bg-[url('/src/assets/Picture1 (1) copy copy copy.png')] bg-cover bg-center bg-no-repeat"
     >
       {/* Main login container */}
       <div className="relative z-10 w-full max-w-sm lg:max-w-md">        
