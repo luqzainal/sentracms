@@ -175,7 +175,7 @@ const ClientProfile: React.FC<ClientProfileProps> = ({ clientId, onBack, onEdit 
               </div>
               <div>
                 <label className="text-sm font-medium text-gray-500">Package Name:</label>
-                <p className="text-gray-900">{client.packageName || 'No package assigned'}</p>
+                <p className="text-gray-900">{client.packageName || 'No package assigned yet'}</p>
               </div>
               <div>
                 <label className="text-sm font-medium text-gray-500">Tags:</label>

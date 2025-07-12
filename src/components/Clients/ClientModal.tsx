@@ -51,7 +51,7 @@ const ClientModal: React.FC<ClientModalProps> = ({ client, onClose, onSave }) =>
         email: 'ahmad.abdullah@gmail.com',
         phone: '+60 12-345 6789',
         status: 'Complete',
-        packageName: 'Kuasa 360',
+        packageName: '',
         tags: [],
         newTag: '',
       });
