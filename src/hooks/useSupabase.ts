@@ -211,6 +211,12 @@ export const useSupabase = () => {
 
   const signIn = async (email: string, password: string) => {
     try {
+      // Check if Supabase is properly configured
+      if (!supabaseUrl || supabaseUrl.includes('your-project') || 
+          !supabaseAnonKey || supabaseAnonKey.includes('your-anon-key')) {
+        throw new Error('Supabase not configured - using demo mode');
+      }
+      
       const { data, error } = await supabase.auth.signInWithPassword({
         email,
         password
@@ -222,10 +228,14 @@ export const useSupabase = () => {
 
       // Update last login
       if (data.user) {
-        await supabase
-          .from('users')
-          .update({ last_login: new Date().toISOString() })
-          .eq('id', data.user.id);
+        try {
+          await supabase
+            .from('users')
+            .update({ last_login: new Date().toISOString() })
+            .eq('id', data.user.id);
+        } catch (updateError) {
+          console.warn('Could not update last login:', updateError);
+        }
       }
 
       return { data, error: null };

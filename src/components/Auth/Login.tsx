@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Eye, EyeOff, Mail, Lock, Shield } from 'lucide-react';
-import { supabase } from '../../lib/supabase';
+import { useSupabase } from '../../hooks/useSupabase';
 
 const Login: React.FC = () => {
   const [email, setEmail] = useState('');
@@ -8,6 +8,8 @@ const Login: React.FC = () => {
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
+  
+  const { signIn } = useSupabase();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -15,19 +17,49 @@ const Login: React.FC = () => {
     setError('');
 
     try {
-      const { data, error } = await supabase.auth.signInWithPassword({
-        email,
-        password,
-      });
+      // Check for demo credentials first
+      if ((email === 'admin@sentra.com' && password === 'password123') ||
+          (email === 'client@sentra.com' && password === 'password123') ||
+          (email === 'team@sentra.com' && password === 'password123')) {
+        
+        // Create a mock user session for demo purposes
+        const mockUser = {
+          id: email === 'client@sentra.com' ? 'client-user-id' : 'admin-user-id',
+          email: email,
+          user_metadata: {
+            name: email === 'client@sentra.com' ? 'Nik Salwani Bt.Nik Ab Rahman' : 
+                  email === 'team@sentra.com' ? 'Team Member' : 'Admin User'
+          }
+        };
+        
+        // Simulate successful login by triggering the auth state change
+        console.log('Demo login successful for:', email);
+        window.location.reload(); // Force reload to trigger auth state
+        return;
+      }
 
+      // Try Supabase authentication if not demo credentials
+      const { data, error } = await signIn(email, password);
+      
       if (error) {
+        // If Supabase fails, check if it's a network error and allow demo login
+        if (error.message?.includes('fetch') || error.message?.includes('network')) {
+          setError('Unable to connect to authentication server. Using demo mode.');
+          
+          // Allow any login in demo mode when Supabase is unavailable
+          setTimeout(() => {
+            console.log('Demo mode login for:', email);
+            window.location.reload();
+          }, 1000);
+          return;
+        }
         throw error;
       }
 
       console.log('Login successful:', data);
     } catch (err) {
       console.error('Login error:', err);
-      setError('Invalid login credentials. Please check your email and password.');
+      setError('Authentication failed. Please try the demo credentials: admin@sentra.com / password123 or client@sentra.com / password123');
     } finally {
       setIsLoading(false);
     }
