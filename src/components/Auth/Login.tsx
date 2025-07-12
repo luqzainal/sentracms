@@ -55,7 +55,22 @@ const Login: React.FC = () => {
         <div className="rounded-2xl shadow-2xl border border-slate-200/20 overflow-hidden" style={{ backgroundColor: '#eded21' }}>
           {/* Header with brand colors */}
           <div className="bg-gradient-to-r from-slate-800 to-slate-900 px-4 lg:px-8 py-6 lg:py-8 text-center">
+            <div className="flex justify-center">
+                <img 
+                  src="/src/assets/AiChatbot (13) copy copy.png" 
+                  alt="Sentra Logo" 
+                  className="w-full h-auto max-w-[200px] lg:max-w-xs"
+                />
+            </div>
           </div>
+
+          {/* Error Message */}
+          {error && (
+            <div className="p-3 bg-red-50 border border-red-200 rounded-lg">
+              <p className="text-red-700 text-sm">{error}</p>
+            </div>
+          )}
+
           {/* Form section */}
           <div className="px-4 lg:px-8 py-6 lg:py-8" style={{ backgroundColor: '#eded21' }}>
             <div className="text-center mb-6 lg:mb-8">
@@ -124,6 +139,41 @@ const Login: React.FC = () => {
               </button>
             </form>
 
+            {/* Demo credentials */}
+            <div className="mt-4 lg:mt-6 p-3 bg-amber-50 rounded-lg border border-amber-200">
+              <div className="text-center mb-3">
+                <p className="text-xs lg:text-sm font-semibold text-amber-800 mb-2">⚠️ Demo Accounts (Setup Required):</p>
+              </div>
+              
+              <div className="space-y-2">
+                <div className="bg-white rounded-md p-2 border border-amber-300">
+                  <p className="text-xs lg:text-sm text-amber-700">
+                    <span className="font-medium text-blue-600">Super Admin:</span> admin@sentra.com / password123
+                  </p>
+                  <p className="text-xs text-amber-600">Full system access & user management</p>
+                </div>
+                
+                <div className="bg-white rounded-md p-2 border border-amber-300">
+                  <p className="text-xs lg:text-sm text-amber-700">
+                    <span className="font-medium text-green-600">Client Admin:</span> client@sentra.com / password123
+                  </p>
+                  <p className="text-xs text-amber-600">Client portal access & project management</p>
+                </div>
+              </div>
+              
+              <div className="mt-3 p-2 bg-red-50 rounded border border-red-200">
+                <p className="text-xs text-red-700 text-center">
+                  <span className="font-medium">⚠️ Important:</span> These demo users must be created in your Supabase Auth panel first.
+                </p>
+                <p className="text-xs text-red-600 text-center mt-1">
+                  Go to Supabase Dashboard → Authentication → Users → Add User
+                </p>
+              </div>
+              
+              <p className="text-xs lg:text-sm text-amber-700 text-center mt-2">
+                <span className="font-medium">Alternative:</span> Use existing user credentials from your Supabase Auth users table
+              </p>
+            </div>
           </div>
         </div>
         
