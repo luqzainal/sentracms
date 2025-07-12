@@ -792,8 +792,17 @@ export const useAppStore = create<AppState>((set, get) => ({
     const invoice = state.invoices.find(inv => inv.id === invoiceId);
     
     if (invoice) {
+      // Find and delete the main package component that matches the invoice package name
+      const packageComponent = state.components.find(comp => 
+        comp.clientId === invoice.clientId && comp.name === invoice.packageName
+      );
+      
       set((state) => ({
         invoices: state.invoices.filter((inv) => inv.id !== invoiceId),
+        // Remove the main package component and all child components for this client
+        components: packageComponent 
+          ? state.components.filter((comp) => comp.clientId !== invoice.clientId)
+          : state.components,
         clients: state.clients.map((client) =>
           client.id === invoice.clientId
             ? {
@@ -801,6 +810,8 @@ export const useAppStore = create<AppState>((set, get) => ({
                 totalSales: Math.max(0, client.totalSales - invoice.amount),
                 balance: Math.max(0, client.balance - invoice.amount),
                 invoiceCount: Math.max(0, client.invoiceCount - 1),
+                // Clear package name if this was the package component
+                packageName: packageComponent ? undefined : client.packageName,
                 updatedAt: new Date().toISOString(),
               }
             : client

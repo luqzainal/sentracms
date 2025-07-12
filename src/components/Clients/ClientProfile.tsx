@@ -240,13 +240,27 @@ const ClientProfile: React.FC<ClientProfileProps> = ({ clientId, onBack, onEdit 
                         <p className="text-sm text-blue-700">Main Package</p>
                       </div>
                     </div>
-                    <button
-                      onClick={() => setShowComponentModal(true)}
-                      className="bg-blue-600 text-white px-3 py-2 rounded-lg flex items-center space-x-2 hover:bg-blue-700 transition-colors text-sm"
-                    >
-                      <Plus className="w-4 h-4" />
-                      <span>Add Component</span>
-                    </button>
+                    <div className="flex items-center space-x-2">
+                      <button
+                        onClick={() => setShowComponentModal(true)}
+                        className="bg-blue-600 text-white px-3 py-2 rounded-lg flex items-center space-x-2 hover:bg-blue-700 transition-colors text-sm"
+                      >
+                        <Plus className="w-4 h-4" />
+                        <span>Add Component</span>
+                      </button>
+                      <button
+                        onClick={() => {
+                          const packageInvoice = invoices.find(inv => inv.packageName === client.packageName);
+                          if (packageInvoice && confirm(`Are you sure you want to delete the "${client.packageName}" package? This will also delete the associated invoice and all child components.`)) {
+                            handleDeleteInvoice(packageInvoice.id);
+                          }
+                        }}
+                        className="p-2 text-red-500 hover:text-red-700 hover:bg-red-50 rounded-lg transition-colors"
+                        title="Delete Package"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </button>
+                    </div>
                   </div>
                 </div>
 
