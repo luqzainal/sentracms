@@ -763,7 +763,31 @@ export const useAppStore = create<AppState>((set, get) => ({
       
       set((state) => ({
         invoices: state.invoices.filter((inv) => inv.id !== invoiceId),
+        // Update client totals
+        clients: state.clients.map((client) =>
+          client.id === payment.clientId
+            ? {
+                ...client,
+                totalCollection: Math.max(0, client.totalCollection - payment.amount),
+                balance: client.balance + payment.amount,
+                updatedAt: new Date().toISOString(),
+              }
+            : client
+        ),
+        // Update invoice totals
+        invoices: state.invoices.map((invoice) =>
+          invoice.id === payment.invoiceId
+            ? {
+                ...invoice,
+                paid: Math.max(0, invoice.paid - payment.amount),
+                due: invoice.due + payment.amount,
+                status: invoice.due + payment.amount > 0 ? 'Partial' : 'Paid',
+                updatedAt: new Date().toISOString(),
+              }
+            : invoice
+        ),
         // Remove the main package component and all child components for this client
+    }
         components: packageComponent 
           ? state.components.filter((comp) => comp.clientId !== invoice.clientId)
           : state.components,
@@ -822,16 +846,49 @@ export const useAppStore = create<AppState>((set, get) => ({
   },
 
   updatePayment: (id, updates) => {
+    const state = get();
+    const payment = state.payments.find(p => p.id === id);
+    const oldAmount = payment ? payment.amount : 0;
+    const newAmount = updates.amount || oldAmount;
+    const amountDifference = newAmount - oldAmount;
+    
     set((state) => ({
       payments: state.payments.map((payment) =>
         payment.id === id
           ? { ...payment, ...updates, updatedAt: new Date().toISOString() }
           : payment
       ),
+      // Update client totals
+      clients: payment ? state.clients.map((client) =>
+        client.id === payment.clientId
+          ? {
+              ...client,
+              totalCollection: client.totalCollection + amountDifference,
+              balance: Math.max(0, client.balance - amountDifference),
+              updatedAt: new Date().toISOString(),
+            }
+          : client
+      ) : state.clients,
+      // Update invoice totals
+      invoices: payment ? state.invoices.map((invoice) =>
+        invoice.id === payment.invoiceId
+          ? {
+              ...invoice,
+              paid: invoice.paid + amountDifference,
+              due: Math.max(0, invoice.due - amountDifference),
+              status: (invoice.due - amountDifference) <= 0 ? 'Paid' : 'Partial',
+              updatedAt: new Date().toISOString(),
+            }
+          : invoice
+      ) : state.invoices,
     }));
   },
 
   deletePayment: (id) => {
+    const state = get();
+    const payment = state.payments.find(p => p.id === id);
+    
+    if (payment) {
     set((state) => ({
       payments: state.payments.filter((payment) => payment.id !== id),
     }));

@@ -354,7 +354,6 @@ const ClientProfile: React.FC<ClientProfileProps> = ({ clientId, onBack, onEdit 
                             <span className="text-sm text-gray-900">{component.name}</span>
                           </div>
                           <div className="flex items-center space-x-2">
-                            <span className="text-sm font-medium text-gray-900">{component.price}</span>
                             <button
                               onClick={() => handleEditComponent(component)}
                               className="text-blue-500 hover:text-blue-700"
