@@ -3,6 +3,10 @@ FROM node:18-alpine as build
 
 WORKDIR /app
 
+# Add build argument for environment variables
+ARG VITE_NEON_DATABASE_URL
+ENV VITE_NEON_DATABASE_URL=$VITE_NEON_DATABASE_URL
+
 # Copy package files
 COPY package*.json ./
 

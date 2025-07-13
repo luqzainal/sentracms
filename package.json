@@ -10,7 +10,10 @@
     "lint": "eslint .",
     "preview": "vite preview",
     "db:setup": "node scripts/setup-database.js",
-    "db:test": "node scripts/test-db-connection.js"
+    "db:test": "node scripts/test-db-connection.js",
+    "db:monitor": "node scripts/monitor-database-performance.js",
+    "verify-deployment": "node scripts/verify-deployment.js",
+    "fix-deployment": "node scripts/fix-deployment.js"
   },
   "dependencies": {
     "@neondatabase/serverless": "^1.0.1",

@@ -11,11 +11,25 @@ import type {
   ChatMessage 
 } from '../types/database';
 
+// Helper function to check if database is available
+const isDatabaseAvailable = () => {
+  return sql !== null && sql !== undefined;
+};
+
+// Helper function to handle database unavailable scenario
+const handleDatabaseUnavailable = (operation: string) => {
+  console.warn(`Database not available for ${operation}. Using fallback.`);
+  return [];
+};
+
 // Clients Services
 export const clientsService = {
   async getAll(): Promise<Client[]> {
+    if (!isDatabaseAvailable()) {
+      return handleDatabaseUnavailable('getAll clients') as Client[];
+    }
     try {
-      const data = await sql`
+      const data = await sql!`
         SELECT * FROM clients
         ORDER BY created_at DESC
       `;
@@ -27,8 +41,12 @@ export const clientsService = {
   },
 
   async getById(id: number): Promise<Client | null> {
+    if (!isDatabaseAvailable()) {
+      console.warn(`Database not available for getById client ${id}. Using fallback.`);
+      return null;
+    }
     try {
-      const data = await sql`
+      const data = await sql!`
         SELECT * FROM clients
         WHERE id = ${id}
         LIMIT 1
@@ -41,8 +59,12 @@ export const clientsService = {
   },
 
   async create(client: Partial<Client>): Promise<Client> {
+    if (!isDatabaseAvailable()) {
+      console.error('Database not available for creating client. Cannot proceed.');
+      throw new Error('Database connection not available. Please check your configuration.');
+    }
     try {
-      const data = await sql`
+      const data = await sql!`
         INSERT INTO clients (
           name, business_name, email, phone, status, pic, 
           total_sales, total_collection, balance, company, 
