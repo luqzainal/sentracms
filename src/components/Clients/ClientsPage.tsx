@@ -4,6 +4,7 @@ import ClientModal from './ClientModal';
 import ClientProfile from './ClientProfile';
 import ClientProgressTracker from './ClientProgressTracker';
 import { useAppStore } from '../../store/AppStore';
+import toast from 'react-hot-toast';
 
 interface ClientsPageProps {
   setActiveTab?: (tab: string) => void;
@@ -91,7 +92,7 @@ const ClientsPage: React.FC<ClientsPageProps> = ({ setActiveTab, onToggleSidebar
     // Tag filtering
     let matchesTag = true;
     if (tagFilter !== 'all') {
-      matchesTag = client.tags && client.tags.includes(tagFilter);
+      matchesTag = Boolean(client.tags && client.tags.includes(tagFilter));
     }
     
     return matchesSearch && matchesStatus && matchesTag;
@@ -135,10 +136,11 @@ const ClientsPage: React.FC<ClientsPageProps> = ({ setActiveTab, onToggleSidebar
     setShowProfile(false);
   };
 
-  const handleSaveClient = (clientData: any) => {
+  const handleSaveClient = async (clientData: any) => {
     if (selectedClient) {
       // Update existing client
       updateClient(selectedClient.id, clientData);
+      toast.success('Client updated successfully!');
     } else {
       // Add new client
       const newClient = {
@@ -153,19 +155,34 @@ const ClientsPage: React.FC<ClientsPageProps> = ({ setActiveTab, onToggleSidebar
         address: 'Kuala Lumpur, Malaysia',
         notes: 'New client'
       };
-      addClient(newClient);
+      
+      const promise = addClient(newClient).then(createdClient => {
+        // Auto-copy any existing components to progress steps for new clients
+        setTimeout(() => {
+          if (createdClient && createdClient.id) {
+            copyComponentsToProgressSteps(createdClient.id);
+          }
+        }, 100);
+        return createdClient;
+      });
 
-      // Auto-copy any existing components to progress steps for new clients
-      setTimeout(() => {
-        copyComponentsToProgressSteps(newClient.id);
-      }, 100);
+      toast.promise(promise, {
+        loading: 'Saving client...',
+        success: <b>Client saved successfully!</b>,
+        error: <b>Could not save client.</b>,
+      });
     }
     setShowModal(false);
   };
 
   const handleDeleteClient = (clientId: number) => {
     if (confirm('Are you sure you want to delete this client? This will also delete all related data.')) {
-      deleteClient(clientId);
+      const promise = deleteClient(clientId);
+      toast.promise(promise, {
+        loading: 'Deleting client...',
+        success: <b>Client deleted successfully!</b>,
+        error: <b>Could not delete client.</b>,
+      });
     }
   };
 

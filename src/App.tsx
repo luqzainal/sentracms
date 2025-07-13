@@ -2,6 +2,7 @@ import React, { Suspense, useState, useEffect } from 'react';
 import { useAppStore } from './store/AppStore';
 import Sidebar from './components/Layout/Sidebar';
 import { DatabaseProvider } from './context/SupabaseContext';
+import { Toaster } from 'react-hot-toast';
 
 // Lazy load components
 const Login = React.lazy(() => import('./components/Auth/Login'));
@@ -113,6 +114,28 @@ function App() {
   return (
     <DatabaseProvider>
       <div className="flex h-screen bg-gray-100">
+        <Toaster 
+          position="top-center"
+          reverseOrder={false}
+          toastOptions={{
+            // Define default options
+            className: '',
+            duration: 5000,
+            style: {
+              background: '#363636',
+              color: '#fff',
+            },
+            
+            // Default options for specific types
+            success: {
+              duration: 3000,
+              iconTheme: {
+                primary: 'green',
+                secondary: 'white',
+              },
+            },
+          }}
+        />
         {/* Backdrop overlay for mobile */}
         {sidebarOpen && (
           <div 

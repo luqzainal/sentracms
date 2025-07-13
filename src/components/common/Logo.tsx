@@ -1,16 +1,17 @@
 import React from 'react';
-import logoImage from '../../assets/AiChatbot (15).png';
+import logoImage from '../../assets/AiChatbot (13).png';
 
 interface LogoProps {
-  size?: 'small' | 'medium' | 'large';
+  size?: 'small' | 'medium' | 'large' | 'xlarge';
   className?: string;
 }
 
 const Logo: React.FC<LogoProps> = ({ size = 'medium', className }) => {
   const sizeClasses = {
-    small: 'w-8 h-8',
-    medium: 'w-12 h-12',
-    large: 'w-16 h-16'
+    small: 'w-10 h-10',
+    medium: 'w-16 h-16',
+    large: 'w-32 h-24', // Adjusted for a wider logo
+    xlarge: 'w-48 h-32' // Adjusted for a wider logo
   };
 
   return (

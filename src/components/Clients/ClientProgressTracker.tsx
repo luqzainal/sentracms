@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { ArrowLeft, Plus, Check, Edit, Trash2, Calendar, Clock, User, MessageCircle, Star, X, Upload, Link, FileText, Trash, Paperclip } from 'lucide-react';
+import { ArrowLeft, Plus, Check, Edit, Trash2, Calendar, Clock, User, MessageCircle, Star, X, Upload, Link, FileText, Trash } from 'lucide-react';
 import { useAppStore } from '../../store/AppStore';
 import { useSupabase } from '../../hooks/useSupabase';
 
@@ -8,10 +8,28 @@ interface ClientProgressTrackerProps {
   onBack: () => void;
 }
 
+interface ProgressStep {
+  id: string;
+  title: string;
+  description?: string;
+  deadline: string;
+  completed: boolean;
+  completedDate?: string;
+  important: boolean;
+  comments: any[]; 
+}
+
 interface ProgressStepWithHierarchy extends ProgressStep {
   isPackage?: boolean;
   packageName?: string;
   children?: ProgressStepWithHierarchy[];
+}
+
+interface AttachedFile {
+  id: string;
+  name: string;
+  size: string;
+  uploadDate: string;
 }
 
 const ClientProgressTracker: React.FC<ClientProgressTrackerProps> = ({ clientId, onBack }) => {
@@ -29,6 +47,8 @@ const ClientProgressTracker: React.FC<ClientProgressTrackerProps> = ({ clientId,
   const [showAddLink, setShowAddLink] = useState(false);
   const [newLinkTitle, setNewLinkTitle] = useState('');
   const [newLinkUrl, setNewLinkUrl] = useState('');
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const fileInputRef = React.useRef<HTMLInputElement>(null);
   
   const [newStep, setNewStep] = useState({
     title: '',
@@ -51,13 +71,19 @@ const ClientProgressTracker: React.FC<ClientProgressTrackerProps> = ({ clientId,
     addProgressStep,
     updateProgressStep,
     deleteProgressStep,
-    copyComponentsToProgressSteps
+    copyComponentsToProgressSteps,
+    fetchClientLinks,
+    addClientLink,
+    deleteClientLink,
+    getClientLinksByClientId,
+    addCommentToStep,
+    deleteCommentFromStep
   } = useAppStore();
 
   const client = getClientById(parseInt(clientId));
-  const [attachedFiles, setAttachedFiles] = useState([]);
+  const [attachedFiles, setAttachedFiles] = useState<AttachedFile[]>([]);
 
-  const [websiteLinks, setWebsiteLinks] = useState([]);
+  const websiteLinks = getClientLinksByClientId(parseInt(clientId));
 
   const progressSteps = getProgressStepsByClientId(parseInt(clientId));
   const clientInvoices = getInvoicesByClientId(parseInt(clientId));
@@ -117,12 +143,13 @@ const ClientProgressTracker: React.FC<ClientProgressTrackerProps> = ({ clientId,
 
   const hierarchicalSteps = createHierarchicalSteps();
 
-  // Auto-sync components to progress steps when component loads
+  // Auto-sync components to progress steps and fetch links when component loads
   useEffect(() => {
     if (client) {
       copyComponentsToProgressSteps(client.id);
+      fetchClientLinks(client.id);
     }
-  }, [client, copyComponentsToProgressSteps]);
+  }, [client, copyComponentsToProgressSteps, fetchClientLinks]);
 
   if (!client) {
     return (
@@ -211,35 +238,76 @@ const ClientProgressTracker: React.FC<ClientProgressTrackerProps> = ({ clientId,
     }
   };
 
-  const handleAddComment = () => {
-    if (!newComment.trim() || !commentingStepId) return;
-    
-    const step = progressSteps.find(s => s.id === commentingStepId);
-    if (step) {
-      const newCommentObj = {
-        id: Date.now().toString(),
-        text: newComment,
-        username: 'Current User',
-        timestamp: new Date().toISOString()
-      };
-      
-      updateProgressStep(commentingStepId, {
-        comments: [...step.comments, newCommentObj]
-      });
+  const handleAddComment = async () => {
+    if (!newComment.trim() && !selectedFile) {
+      alert("Please add a comment or select a file.");
+      return;
     }
-    
-    setNewComment('');
-    setShowCommentModal(false);
-    setCommentingStepId(null);
+    if (!commentingStepId) return;
+
+    let attachmentData: { attachment_url?: string; attachment_type?: string } = {};
+
+    // Handle file upload if a file is selected
+    if (selectedFile) {
+      try {
+        // 1. Get a pre-signed URL from our API
+        const res = await fetch('/api/generate-upload-url', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ fileName: selectedFile.name, fileType: selectedFile.type }),
+        });
+
+        const { uploadUrl, fileUrl } = await res.json();
+
+        if (!res.ok) {
+          throw new Error('Failed to get pre-signed URL.');
+        }
+
+        // 2. Upload the file to DigitalOcean Spaces
+        await fetch(uploadUrl, {
+          method: 'PUT',
+          body: selectedFile,
+          headers: { 'Content-Type': selectedFile.type },
+        });
+
+        attachmentData = {
+          attachment_url: fileUrl,
+          attachment_type: selectedFile.type,
+        };
+
+      } catch (error) {
+        console.error("Failed to upload file:", error);
+        alert("File upload failed. Please try again.");
+        return;
+      }
+    }
+
+    // 3. Save the comment with or without attachment URL to the database
+    try {
+      await addCommentToStep(commentingStepId, {
+        text: newComment,
+        username: user?.name || 'Admin',
+        ...attachmentData,
+      });
+
+      // Reset state
+      setNewComment('');
+      setSelectedFile(null);
+      setShowCommentModal(false);
+      setCommentingStepId(null);
+    } catch (error) {
+      console.error("Failed to add comment:", error);
+      alert("Failed to save comment. Please try again.");
+    }
   };
 
-  const handleDeleteComment = (stepId: string, commentId: string) => {
+  const handleDeleteComment = async (stepId: string, commentId: string) => {
     if (confirm('Are you sure you want to delete this comment?')) {
-      const step = progressSteps.find(s => s.id === stepId);
-      if (step) {
-        updateProgressStep(stepId, {
-          comments: step.comments.filter(c => c.id !== commentId)
-        });
+      try {
+        await deleteCommentFromStep(stepId, commentId);
+      } catch (error) {
+        console.error("Failed to delete comment:", error);
+        // Optionally show a toast for the error
       }
     }
   };
@@ -249,7 +317,7 @@ const ClientProgressTracker: React.FC<ClientProgressTrackerProps> = ({ clientId,
     if (!files) return;
 
     Array.from(files).forEach(file => {
-      const newFile = {
+      const newFile: AttachedFile = {
         id: Date.now().toString() + Math.random().toString(36).substr(2, 9),
         name: file.name,
         size: `${(file.size / 1024 / 1024).toFixed(1)} MB`,
@@ -267,25 +335,37 @@ const ClientProgressTracker: React.FC<ClientProgressTrackerProps> = ({ clientId,
     }
   };
 
-  const handleAddLink = () => {
-    if (!newLinkTitle.trim() || !newLinkUrl.trim()) return;
+  const handleAddLink = async () => {
+    if (!newLinkTitle.trim() || !newLinkUrl.trim() || !client) return;
 
-    const link = {
-      id: Date.now().toString(),
-      title: newLinkTitle,
-      url: newLinkUrl,
-      timestamp: new Date().toISOString()
-    };
+    let correctedUrl = newLinkUrl.trim();
+    if (!correctedUrl.startsWith('http://') && !correctedUrl.startsWith('https://')) {
+      correctedUrl = 'https://' + correctedUrl;
+    }
 
-    setWebsiteLinks(prev => [...prev, link]);
-    setNewLinkTitle('');
-    setNewLinkUrl('');
-    setShowAddLink(false);
+    try {
+      await addClientLink({
+        client_id: client.id,
+        title: newLinkTitle,
+        url: correctedUrl,
+      });
+      setNewLinkTitle('');
+      setNewLinkUrl('');
+      setShowAddLink(false);
+    } catch (error) {
+      console.error("Failed to add link:", error);
+      // You can add a toast notification here to inform the user
+    }
   };
 
-  const handleDeleteLink = (linkId: string) => {
+  const handleDeleteLink = async (linkId: string) => {
     if (confirm('Are you sure you want to delete this link?')) {
-      setWebsiteLinks(links => links.filter(l => l.id !== linkId));
+      try {
+        await deleteClientLink(linkId);
+      } catch (error) {
+        console.error("Failed to delete link:", error);
+        // You can add a toast notification here for the error
+      }
     }
   };
 
@@ -314,7 +394,7 @@ const ClientProgressTracker: React.FC<ClientProgressTrackerProps> = ({ clientId,
           <div className="flex items-start space-x-2 sm:space-x-3 lg:space-x-4 flex-1 min-w-0 overflow-hidden">
             <button
               onClick={() => handleToggleComplete(step.id)}
-             disabled={user && (user.role === 'Client Admin' || user.role === 'Client Team')}
+              disabled={user ? (user.role === 'Client Admin' || user.role === 'Client Team') : false}
               className={`mt-1 w-5 h-5 sm:w-6 sm:h-6 rounded-full border-2 flex items-center justify-center transition-all duration-200 ${
                 step.completed
                   ? 'bg-green-500 border-green-500 text-white shadow-sm'
@@ -475,13 +555,25 @@ const ClientProgressTracker: React.FC<ClientProgressTrackerProps> = ({ clientId,
                             {new Date(comment.timestamp).toLocaleDateString()} {new Date(comment.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                           </span>
                         </div>
-                        <p className="text-xs sm:text-sm text-slate-700 break-words hyphens-auto overflow-wrap-anywhere word-break-break-word leading-relaxed"
+                        {comment.text && <p className="text-xs sm:text-sm text-slate-700 break-words hyphens-auto overflow-wrap-anywhere word-break-break-word leading-relaxed"
                         style={{ 
                           wordWrap: 'break-word',
                           overflowWrap: 'anywhere',
                           wordBreak: 'break-word',
                           hyphens: 'auto'
-                        }}>{comment.text}</p>
+                        }}>{comment.text}</p>}
+                        {comment.attachment_url && (
+                          <div className="mt-2">
+                            {comment.attachment_type?.startsWith('image/') ? (
+                              <img src={comment.attachment_url} alt="Attachment" className="max-w-full h-auto rounded-lg border border-slate-200" />
+                            ) : (
+                              <a href={comment.attachment_url} target="_blank" rel="noopener noreferrer" className="text-xs text-blue-600 hover:underline flex items-center space-x-1">
+                                <Link className="w-3 h-3" />
+                                <span>View Attachment</span>
+                              </a>
+                            )}
+                          </div>
+                        )}
                       </div>
                     ))}
                   </div>
@@ -720,7 +812,7 @@ const ClientProgressTracker: React.FC<ClientProgressTrackerProps> = ({ clientId,
 
         {/* File Upload Modal */}
         {showFileUpload && (
-          <div className="fixed inset-0 w-full h-full bg-black bg-opacity-60 flex items-center justify-center p-4 z-50 backdrop-blur-sm">
+          <div className="fixed inset-0 w-full h-screen bg-black bg-opacity-60 flex items-center justify-center p-4 z-50 backdrop-blur-sm">
             <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md">
               <div className="flex items-center justify-between p-6 border-b border-slate-200">
                 <h3 className="text-xl font-semibold text-slate-900">Upload Files</h3>
@@ -749,7 +841,7 @@ const ClientProgressTracker: React.FC<ClientProgressTrackerProps> = ({ clientId,
 
         {/* Add Link Modal */}
         {showAddLink && (
-          <div className="fixed inset-0 w-full h-full bg-black bg-opacity-60 flex items-center justify-center p-4 z-50 backdrop-blur-sm">
+          <div className="fixed inset-0 w-full h-screen bg-black bg-opacity-60 flex items-center justify-center p-4 z-50 backdrop-blur-sm">
             <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md">
               <div className="flex items-center justify-between p-6 border-b border-slate-200">
                 <h3 className="text-xl font-semibold text-slate-900">Add Website Link</h3>
@@ -810,7 +902,7 @@ const ClientProgressTracker: React.FC<ClientProgressTrackerProps> = ({ clientId,
 
         {/* Completion Date Modal */}
         {showCompletionModal && (
-          <div className="fixed inset-0 w-full h-full bg-black bg-opacity-60 flex items-center justify-center p-4 z-50 backdrop-blur-sm">
+          <div className="fixed inset-0 w-full h-screen bg-black bg-opacity-60 flex items-center justify-center p-4 z-50 backdrop-blur-sm">
             <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md">
               <div className="flex items-center justify-between p-6 border-b border-slate-200">
                 <h3 className="text-xl font-semibold text-slate-900">Mark as Completed</h3>
@@ -857,7 +949,7 @@ const ClientProgressTracker: React.FC<ClientProgressTrackerProps> = ({ clientId,
 
         {/* Add Step Modal */}
         {showAddStep && (
-          <div className="fixed inset-0 w-full h-full bg-black bg-opacity-60 flex items-center justify-center p-4 z-50 backdrop-blur-sm">
+          <div className="fixed inset-0 w-full h-screen bg-black bg-opacity-60 flex items-center justify-center p-4 z-50 backdrop-blur-sm">
             <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg">
               <div className="flex items-center justify-between p-6 border-b border-slate-200">
                 <h3 className="text-xl font-semibold text-slate-900">Add Progress Step</h3>
@@ -946,7 +1038,7 @@ const ClientProgressTracker: React.FC<ClientProgressTrackerProps> = ({ clientId,
 
         {/* Edit Step Modal */}
         {showEditStep && (
-          <div className="fixed inset-0 w-full h-full bg-black bg-opacity-60 flex items-center justify-center p-4 z-50 backdrop-blur-sm">
+          <div className="fixed inset-0 w-full h-screen bg-black bg-opacity-60 flex items-center justify-center p-4 z-50 backdrop-blur-sm">
             <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg">
               <div className="flex items-center justify-between p-6 border-b border-slate-200">
                 <h3 className="text-xl font-semibold text-slate-900">Edit Progress Step</h3>
@@ -1035,7 +1127,7 @@ const ClientProgressTracker: React.FC<ClientProgressTrackerProps> = ({ clientId,
 
         {/* Comment Modal */}
         {showCommentModal && (
-          <div className="fixed inset-0 w-full h-full bg-black bg-opacity-60 flex items-center justify-center p-4 z-50 backdrop-blur-sm">
+          <div className="fixed inset-0 w-full h-screen bg-black bg-opacity-60 flex items-center justify-center p-4 z-50 backdrop-blur-sm">
             <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md">
               <div className="flex items-center justify-between p-6 border-b border-slate-200">
                 <h3 className="text-xl font-semibold text-slate-900">Add Comment</h3>
@@ -1060,6 +1152,29 @@ const ClientProgressTracker: React.FC<ClientProgressTrackerProps> = ({ clientId,
                     placeholder="Enter your comment..."
                   />
                 </div>
+
+                <div className="mt-4">
+                  <input
+                    type="file"
+                    ref={fileInputRef}
+                    onChange={(e) => setSelectedFile(e.target.files ? e.target.files[0] : null)}
+                    className="hidden"
+                  />
+                  <button
+                    onClick={() => fileInputRef.current?.click()}
+                    className="w-full flex items-center justify-center space-x-2 px-4 py-2 border border-dashed border-slate-300 rounded-lg hover:bg-slate-50 transition-colors"
+                  >
+                    <Upload className="w-4 h-4 text-slate-500" />
+                    <span className="text-sm text-slate-600">
+                      {selectedFile ? `Selected: ${selectedFile.name}` : 'Attach a file'}
+                    </span>
+                  </button>
+                  {selectedFile && (
+                    <button onClick={() => setSelectedFile(null)} className="text-xs text-red-500 hover:underline mt-1">
+                      Remove file
+                    </button>
+                  )}
+                </div>
                 
                 <div className="flex justify-end space-x-4 pt-4">
                   <button
@@ -1070,7 +1185,7 @@ const ClientProgressTracker: React.FC<ClientProgressTrackerProps> = ({ clientId,
                   </button>
                   <button
                     onClick={handleAddComment}
-                    disabled={!newComment.trim()}
+                    disabled={!newComment.trim() && !selectedFile}
                     className="px-6 py-3 bg-blue-600 text-white rounded-xl hover:bg-blue-700 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed font-medium"
                   >
                     Add Comment

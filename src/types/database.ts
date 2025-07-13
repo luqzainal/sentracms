@@ -103,6 +103,8 @@ export interface DatabaseProgressStepComment {
   text: string;
   username: string;
   created_at: string;
+  attachment_url?: string;
+  attachment_type?: string;
 }
 
 export interface DatabaseChat {
@@ -124,6 +126,14 @@ export interface DatabaseChatMessage {
   sender: 'client' | 'admin';
   content: string;
   message_type: string;
+  created_at: string;
+}
+
+export interface DatabaseClientLink {
+  id: string;
+  client_id: number;
+  title: string;
+  url: string;
   created_at: string;
 }
 
@@ -161,4 +171,8 @@ export interface Chat extends DatabaseChat {
 
 export interface ChatMessage extends DatabaseChatMessage {
   chat?: Chat;
+} 
+
+export interface ClientLink extends DatabaseClientLink {
+  client?: Client;
 } 

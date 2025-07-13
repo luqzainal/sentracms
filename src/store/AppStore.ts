@@ -1,6 +1,7 @@
 import { create } from 'zustand';
-import { chatService, clientsService, usersService, invoicesService, paymentsService } from '../services/database';
+import { chatService, clientsService, usersService, invoicesService, paymentsService, clientLinksService, progressService } from '../services/database';
 import { generateAvatarUrl } from '../utils/avatarUtils';
+import type { ClientLink as TClientLink } from '../types/database';
 
 export interface Client {
   id: number;
@@ -139,6 +140,8 @@ export interface User {
   updatedAt: string;
 }
 
+export type ClientLink = TClientLink;
+
 interface AppState {
   // Data
   clients: Client[];
@@ -150,6 +153,7 @@ interface AppState {
   chats: Chat[];
   tags: Tag[];
   users: User[];
+  clientLinks: ClientLink[];
 
   // Navigation & User state
   user: User | null;
@@ -171,6 +175,7 @@ interface AppState {
     chats: boolean;
     tags: boolean;
     users: boolean;
+    clientLinks: boolean;
   };
 
   // Actions
@@ -183,6 +188,7 @@ interface AppState {
   fetchChats: () => Promise<void>;
   fetchTags: () => Promise<void>;
   fetchUsers: () => Promise<void>;
+  fetchClientLinks: (clientId: number) => Promise<void>;
 
   // User & Navigation actions
   setUser: (user: User | null) => void;
@@ -202,9 +208,9 @@ interface AppState {
   getUnreadMessagesCount: () => number;
   getChatById: (chatId: number) => Chat | undefined;
 
-  addClient: (client: Omit<Client, 'id' | 'createdAt' | 'updatedAt'>) => void;
+  addClient: (client: Omit<Client, 'id' | 'createdAt' | 'updatedAt'>) => Promise<Client>;
   updateClient: (id: number, updates: Partial<Client>) => void;
-  deleteClient: (id: number) => void;
+  deleteClient: (id: number) => Promise<void>;
   getClientById: (id: number) => Client | undefined;
 
   addInvoice: (invoiceData: { clientId: number; packageName: string; amount: number; invoiceDate: string }) => Promise<void>;
@@ -229,6 +235,9 @@ interface AppState {
   deleteProgressStep: (id: string) => void;
   getProgressStepsByClientId: (clientId: number) => ProgressStep[];
 
+  addCommentToStep: (stepId: string, comment: { text: string; username: string; attachment_url?: string; attachment_type?: string; }) => Promise<void>;
+  deleteCommentFromStep: (stepId: string, commentId: string) => Promise<void>;
+
   addCalendarEvent: (event: Omit<CalendarEvent, 'id' | 'createdAt' | 'updatedAt'>) => void;
   updateCalendarEvent: (id: string, updates: Partial<CalendarEvent>) => void;
   deleteCalendarEvent: (id: string) => void;
@@ -242,6 +251,10 @@ interface AppState {
   deleteUser: (id: string) => Promise<void>;
 
   copyComponentsToProgressSteps: (clientId: number) => void;
+
+  addClientLink: (link: Omit<ClientLink, 'id' | 'createdAt' | 'created_at'> & { client_id: number }) => Promise<void>;
+  deleteClientLink: (id: string) => Promise<void>;
+  getClientLinksByClientId: (clientId: number) => ClientLink[];
 
   // Computed values
   getTotalSales: () => number;
@@ -260,6 +273,7 @@ export const useAppStore = create<AppState>((set, get) => ({
   chats: [],
   tags: [],
   users: [],
+  clientLinks: [],
 
   loading: {
     clients: false,
@@ -271,6 +285,7 @@ export const useAppStore = create<AppState>((set, get) => ({
     chats: false,
     tags: false,
     users: false,
+    clientLinks: false,
   },
 
   // Navigation & User state - Initialize user from localStorage
@@ -540,6 +555,19 @@ export const useAppStore = create<AppState>((set, get) => ({
     }
   },
 
+  fetchClientLinks: async (clientId: number) => {
+    set(state => ({ loading: { ...state.loading, clientLinks: true } }));
+    try {
+      const links = await clientLinksService.getByClientId(clientId);
+      set({ clientLinks: links });
+    } catch (error) {
+      console.error('Failed to fetch client links:', error);
+      set({ clientLinks: [] });
+    } finally {
+      set(state => ({ loading: { ...state.loading, clientLinks: false } }));
+    }
+  },
+
   // User & Navigation actions
   setUser: (user) => {
     set({ user });
@@ -620,6 +648,14 @@ export const useAppStore = create<AppState>((set, get) => ({
       
       // You can add other polling operations here
       // For example: check for new notifications, updates, etc.
+      await get().fetchClients();
+      await get().fetchInvoices();
+      await get().fetchPayments();
+      await get().fetchUsers();
+      const { selectedClient, fetchClientLinks } = get();
+      if (selectedClient) {
+        await fetchClientLinks(selectedClient.id);
+      }
     } catch (error) {
       console.error('Error polling for updates:', error);
     }
@@ -799,16 +835,56 @@ export const useAppStore = create<AppState>((set, get) => ({
     return get().chats.find((chat) => chat.id === chatId);
   },
 
-  addClient: (clientData) => {
-    const newClient: Client = {
-      ...clientData,
-      id: Date.now(),
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString(),
-    };
-    set((state) => ({
-      clients: [...state.clients, newClient],
-    }));
+  addClient: async (clientData) => {
+    try {
+      // First save to database
+      const dbClient = await clientsService.create({
+        name: clientData.name,
+        business_name: clientData.businessName,
+        email: clientData.email,
+        phone: clientData.phone,
+        status: clientData.status as 'Complete' | 'Pending' | 'Inactive',
+        total_sales: clientData.totalSales || 0,
+        total_collection: clientData.totalCollection || 0,
+        balance: clientData.balance || 0,
+        company: clientData.company,
+        address: clientData.address,
+        notes: clientData.notes
+      });
+      
+      // Then update local state with database response
+      const newClient: Client = {
+        id: dbClient.id,
+        name: dbClient.name,
+        businessName: dbClient.business_name,
+        email: dbClient.email,
+        phone: dbClient.phone || '',
+        status: dbClient.status,
+        packageName: clientData.packageName,
+        tags: clientData.tags || [],
+        totalSales: Number(dbClient.total_sales) || 0,
+        totalCollection: Number(dbClient.total_collection) || 0,
+        balance: Number(dbClient.balance) || 0,
+        lastActivity: dbClient.last_activity || new Date().toISOString(),
+        invoiceCount: Number(dbClient.invoice_count) || 0,
+        registeredAt: dbClient.registered_at || dbClient.created_at,
+        company: dbClient.company,
+        address: dbClient.address,
+        notes: dbClient.notes,
+        createdAt: dbClient.created_at,
+        updatedAt: dbClient.updated_at
+      };
+      
+      set((state) => ({
+        clients: [...state.clients, newClient],
+      }));
+      
+      return newClient;
+    } catch (error) {
+      console.error('Error adding client to database:', error);
+      // Re-throw the error to be caught by the component
+      throw error;
+    }
   },
 
   updateClient: (id, updates) => {
@@ -821,16 +897,23 @@ export const useAppStore = create<AppState>((set, get) => ({
     }));
   },
 
-  deleteClient: (id) => {
-    set((state) => ({
-      clients: state.clients.filter((client) => client.id !== id),
-      invoices: state.invoices.filter((invoice) => invoice.clientId !== id),
-      payments: state.payments.filter((payment) => payment.clientId !== id),
-      components: state.components.filter((component) => component.clientId !== id),
-      progressSteps: state.progressSteps.filter((step) => step.clientId !== id),
-      calendarEvents: state.calendarEvents.filter((event) => event.clientId !== id),
-      chats: state.chats.filter((chat) => chat.clientId !== id),
-    }));
+  deleteClient: async (id: number) => {
+    try {
+      await clientsService.delete(id);
+      set((state) => ({
+        clients: state.clients.filter((client) => client.id !== id),
+        invoices: state.invoices.filter((invoice) => invoice.clientId !== id),
+        payments: state.payments.filter((payment) => payment.clientId !== id),
+        components: state.components.filter((component) => component.clientId !== id),
+        progressSteps: state.progressSteps.filter((step) => step.clientId !== id),
+        calendarEvents: state.calendarEvents.filter((event) => event.clientId !== id),
+        chats: state.chats.filter((chat) => chat.clientId !== id),
+        clientLinks: state.clientLinks.filter((link) => link.client_id !== id),
+      }));
+    } catch (error) {
+      console.error('Error deleting client:', error);
+      throw error; // Re-throw to be caught by the component
+    }
   },
 
   getClientById: (id) => {
@@ -1278,57 +1361,57 @@ export const useAppStore = create<AppState>((set, get) => ({
     }));
   },
 
-  deleteProgressStep: (id) => {
-    const state = get();
-    const stepToDelete = state.progressSteps.find(step => step.id === id);
-    
-    if (stepToDelete) {
-      // Check if this is a package step (contains "- Package Setup")
-      const isPackageStep = stepToDelete.title.includes(' - Package Setup');
-      
-      if (isPackageStep) {
-        // Extract package name from title (remove " - Package Setup")
-        const packageName = stepToDelete.title.replace(' - Package Setup', '');
-        
-        // Find all component steps that belong to this package
-        const packageComponentSteps = state.progressSteps.filter(step => 
-          step.clientId === stepToDelete.clientId && 
-          !step.title.includes(' - Package Setup') && // Not another package step
-          state.components.some(comp => 
-            comp.clientId === stepToDelete.clientId && 
-            comp.name === step.title &&
-            state.invoices.some(inv => 
-              inv.clientId === stepToDelete.clientId && 
-              inv.packageName === packageName &&
-              comp.invoiceId === inv.id
-            )
-          )
-        );
-        
-        // Delete package step and all its component steps
-        const stepIdsToDelete = [id, ...packageComponentSteps.map(step => step.id)];
-        
-        set((state) => ({
-          progressSteps: state.progressSteps.filter((step) => !stepIdsToDelete.includes(step.id)),
-          // Keep invoices and components - don't delete them when progress step is deleted
-        }));
-      } else {
-        // Regular step deletion
-        set((state) => ({
-          progressSteps: state.progressSteps.filter((step) => step.id !== id),
-          // Keep invoices and components - don't delete them when progress step is deleted
-        }));
-      }
-    }
+  deleteProgressStep: (id: string) => {
+    set((state) => ({
+      progressSteps: state.progressSteps.filter((step) => step.id !== id),
+    }));
+    progressService.delete(id).catch(err => console.error("Failed to delete progress step on server", err));
   },
 
-  getProgressStepsByClientId: (clientId) => {
+  getProgressStepsByClientId: (clientId: number) => {
     return get().progressSteps.filter((step) => step.clientId === clientId);
   },
 
-  addCalendarEvent: (eventData) => {
+  addCommentToStep: async (stepId, comment) => {
+    const newComment = await progressService.addComment({
+      step_id: stepId,
+      text: comment.text,
+      username: comment.username,
+      attachment_url: comment.attachment_url,
+      attachment_type: comment.attachment_type,
+    });
+
+    set(state => ({
+      progressSteps: state.progressSteps.map(step => {
+        if (step.id === stepId) {
+          return {
+            ...step,
+            comments: [...step.comments, newComment]
+          };
+        }
+        return step;
+      })
+    }));
+  },
+
+  deleteCommentFromStep: async (stepId, commentId) => {
+    await progressService.deleteComment(commentId);
+    set(state => ({
+      progressSteps: state.progressSteps.map(step => {
+        if (step.id === stepId) {
+          return {
+            ...step,
+            comments: step.comments.filter(c => c.id !== commentId)
+          };
+        }
+        return step;
+      })
+    }));
+  },
+
+  addCalendarEvent: (event) => {
     const newEvent: CalendarEvent = {
-      ...eventData,
+      ...event,
       id: `event-${Date.now()}`,
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
@@ -1527,6 +1610,34 @@ export const useAppStore = create<AppState>((set, get) => ({
         }));
       }
     });
+  },
+
+  addClientLink: async (linkData) => {
+    try {
+      const newLink = await clientLinksService.create(linkData);
+      set(state => ({
+        clientLinks: [...state.clientLinks, newLink]
+      }));
+    } catch (error) {
+      console.error('Failed to add client link:', error);
+      throw error;
+    }
+  },
+
+  deleteClientLink: async (id) => {
+    try {
+      await clientLinksService.delete(id);
+      set(state => ({
+        clientLinks: state.clientLinks.filter(link => link.id !== id)
+      }));
+    } catch (error) {
+      console.error('Failed to delete client link:', error);
+      throw error;
+    }
+  },
+
+  getClientLinksByClientId: (clientId) => {
+    return get().clientLinks.filter(link => link.client_id === clientId);
   },
 
   getTotalSales: () => {

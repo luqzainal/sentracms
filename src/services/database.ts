@@ -8,7 +8,8 @@ import type {
   Component, 
   ProgressStep, 
   Chat, 
-  ChatMessage 
+  ChatMessage,
+  ClientLink
 } from '../types/database';
 
 // Helper function to check if database is available
@@ -64,30 +65,46 @@ export const clientsService = {
       throw new Error('Database connection not available. Please check your configuration.');
     }
     try {
+      // Stripped down to the absolute essential columns for debugging
       const data = await sql!`
         INSERT INTO clients (
-          name, business_name, email, phone, status, pic, 
-          total_sales, total_collection, balance, company, 
-          address, notes, username, password
+          name, 
+          business_name, 
+          email, 
+          phone,
+          status,
+          total_sales,
+          total_collection,
+          balance
         ) VALUES (
-          ${client.name}, ${client.business_name}, ${client.email}, 
-          ${client.phone}, ${client.status || 'Pending'}, ${client.pic}, 
-          ${client.total_sales || 0}, ${client.total_collection || 0}, 
-          ${client.balance || 0}, ${client.company}, ${client.address}, 
-          ${client.notes}, ${client.username}, ${client.password}
+          ${client.name}, 
+          ${client.business_name}, 
+          ${client.email}, 
+          ${client.phone},
+          ${client.status || 'Pending'},
+          ${client.total_sales || 0},
+          ${client.total_collection || 0},
+          ${client.balance || 0}
         )
         RETURNING *
       `;
       return data[0] as Client;
-    } catch (error) {
-      console.error('Error creating client:', error);
+    } catch (error: any) {
+      console.error('Detailed error creating client:', JSON.stringify(error, null, 2));
+      if (error.body && error.body.message) {
+        console.error('Error message from database:', error.body.message);
+      }
       throw error;
     }
   },
 
   async update(id: number, updates: Partial<Client>): Promise<Client> {
+    if (!isDatabaseAvailable()) {
+      console.error('Database not available for updating client. Cannot proceed.');
+      throw new Error('Database connection not available. Please check your configuration.');
+    }
     try {
-      const data = await sql`
+      const data = await sql!`
         UPDATE clients
         SET 
           name = COALESCE(${updates.name}, name),
@@ -114,11 +131,19 @@ export const clientsService = {
   },
 
   async delete(id: number): Promise<void> {
+    if (!isDatabaseAvailable()) {
+      console.error('Database not available for deleting client. Cannot proceed.');
+      throw new Error('Database connection not available. Please check your configuration.');
+    }
     try {
-      await sql`
+      const data = await sql!`
         DELETE FROM clients
         WHERE id = ${id}
+        RETURNING *
       `;
+      if (data.length === 0) {
+        throw new Error(`Client with id ${id} not found`);
+      }
     } catch (error) {
       console.error('Error deleting client:', error);
       throw error;
@@ -147,24 +172,26 @@ export const usersService = {
       }
 
       // For future database integration, check the users table
-      try {
-        const data = await sql`
-          SELECT u.*, c.username, c.password 
-          FROM users u 
-          LEFT JOIN clients c ON u.client_id = c.id 
-          WHERE u.email = ${email} 
-          LIMIT 1
-        `;
-        
-        if (data.length > 0) {
-          const user = data[0];
-          // In a real system, you would hash the password and compare
-          if (user.password === password) {
-            return user as DatabaseUser;
+      if (isDatabaseAvailable()) {
+        try {
+          const data = await sql!`
+            SELECT u.*, c.username, c.password 
+            FROM users u 
+            LEFT JOIN clients c ON u.client_id = c.id 
+            WHERE u.email = ${email} 
+            LIMIT 1
+          `;
+          
+          if (data.length > 0) {
+            const user = data[0];
+            // In a real system, you would hash the password and compare
+            if (user.password === password) {
+              return user as DatabaseUser;
+            }
           }
+        } catch (dbError) {
+          console.log('Database not available, using demo mode');
         }
-      } catch (dbError) {
-        console.log('Database not available, using demo mode');
       }
       
       return null;
@@ -175,8 +202,11 @@ export const usersService = {
   },
 
   async getAll(): Promise<DatabaseUser[]> {
+    if (!isDatabaseAvailable()) {
+      return handleDatabaseUnavailable('getAll users') as DatabaseUser[];
+    }
     try {
-      const data = await sql`
+      const data = await sql!`
         SELECT * FROM users
         ORDER BY created_at DESC
       `;
@@ -188,8 +218,12 @@ export const usersService = {
   },
 
   async getById(id: string): Promise<DatabaseUser | null> {
+    if (!isDatabaseAvailable()) {
+      console.warn(`Database not available for getById user ${id}. Using fallback.`);
+      return null;
+    }
     try {
-      const data = await sql`
+      const data = await sql!`
         SELECT * FROM users
         WHERE id = ${id}
         LIMIT 1
@@ -208,7 +242,7 @@ export const usersService = {
     
     try {
       if (user.password) {
-        const data = await sql`
+        const data = await sql!`
           INSERT INTO users (
             name, email, role, status, client_id, permissions, password
           ) VALUES (
@@ -221,7 +255,7 @@ export const usersService = {
         `;
         return data[0] as DatabaseUser;
       } else {
-        const data = await sql`
+        const data = await sql!`
           INSERT INTO users (
             name, email, role, status, client_id, permissions
           ) VALUES (
@@ -240,8 +274,12 @@ export const usersService = {
   },
 
   async update(id: string, updates: Partial<DatabaseUser>): Promise<DatabaseUser> {
+    if (!isDatabaseAvailable()) {
+      console.error('Database not available for updating user. Cannot proceed.');
+      throw new Error('Database connection not available. Please check your configuration.');
+    }
     try {
-      const data = await sql`
+      const data = await sql!`
         UPDATE users
         SET 
           name = COALESCE(${updates.name}, name),
@@ -262,8 +300,12 @@ export const usersService = {
   },
 
   async delete(id: string): Promise<void> {
+    if (!isDatabaseAvailable()) {
+      console.error('Database not available for deleting user. Cannot proceed.');
+      throw new Error('Database connection not available. Please check your configuration.');
+    }
     try {
-      await sql`
+      await sql!`
         DELETE FROM users
         WHERE id = ${id}
       `;
@@ -277,8 +319,14 @@ export const usersService = {
 // Invoices Services
 export const invoicesService = {
   async getAll(): Promise<Invoice[]> {
+    if (!isDatabaseAvailable()) {
+      return handleDatabaseUnavailable('getAll invoices') as Invoice[];
+    }
+    if (!isDatabaseAvailable()) {
+      return handleDatabaseUnavailable('getAll ${service.replace("Service", "s")}') as any[];
+    }
     try {
-      const data = await sql`
+      const data = await sql!`
         SELECT 
           i.*,
           c.name as client_name,
@@ -288,7 +336,7 @@ export const invoicesService = {
         LEFT JOIN clients c ON i.client_id = c.id
         ORDER BY i.created_at DESC
       `;
-      return data.map(row => ({
+      return data.map((row: any) => ({
         id: row.id,
         client_id: row.client_id,
         package_name: row.package_name,
@@ -312,8 +360,11 @@ export const invoicesService = {
   },
 
   async getByClientId(clientId: number): Promise<Invoice[]> {
+    if (!isDatabaseAvailable()) {
+      return handleDatabaseUnavailable('getByClientId invoices') as Invoice[];
+    }
     try {
-      const data = await sql`
+      const data = await sql!`
         SELECT 
           i.*,
           c.name as client_name,
@@ -324,7 +375,7 @@ export const invoicesService = {
         WHERE i.client_id = ${clientId}
         ORDER BY i.created_at DESC
       `;
-      return data.map(row => ({
+      return data.map((row: any) => ({
         id: row.id,
         client_id: row.client_id,
         package_name: row.package_name,
@@ -349,7 +400,7 @@ export const invoicesService = {
 
   async create(invoice: Partial<Invoice>): Promise<Invoice> {
     try {
-      const data = await sql`
+      const data = await sql!`
         INSERT INTO invoices (
           client_id, package_name, amount, paid, due, status
         ) VALUES (
@@ -368,7 +419,7 @@ export const invoicesService = {
 
   async update(id: string, updates: Partial<Invoice>): Promise<Invoice> {
     try {
-      const data = await sql`
+      const data = await sql!`
         UPDATE invoices
         SET 
           package_name = COALESCE(${updates.package_name}, package_name),
@@ -389,7 +440,7 @@ export const invoicesService = {
 
   async delete(id: string): Promise<void> {
     try {
-      await sql`
+      await sql!`
         DELETE FROM invoices
         WHERE id = ${id}
       `;
@@ -403,8 +454,11 @@ export const invoicesService = {
 // Payments Services
 export const paymentsService = {
   async getAll(): Promise<Payment[]> {
+    if (!isDatabaseAvailable()) {
+      return handleDatabaseUnavailable('getAll payments') as Payment[];
+    }
     try {
-      const data = await sql`
+      const data = await sql!`
         SELECT 
           p.*,
           c.name as client_name,
@@ -417,7 +471,7 @@ export const paymentsService = {
         LEFT JOIN invoices i ON p.invoice_id = i.id
         ORDER BY p.created_at DESC
       `;
-      return data.map(row => ({
+      return data.map((row: any) => ({
         id: row.id,
         client_id: row.client_id,
         invoice_id: row.invoice_id,
@@ -447,8 +501,11 @@ export const paymentsService = {
   },
 
   async getByClientId(clientId: number): Promise<Payment[]> {
+    if (!isDatabaseAvailable()) {
+      return handleDatabaseUnavailable('getByClientId payments') as Payment[];
+    }
     try {
-      const data = await sql`
+      const data = await sql!`
         SELECT 
           p.*,
           c.name as client_name,
@@ -462,7 +519,7 @@ export const paymentsService = {
         WHERE p.client_id = ${clientId}
         ORDER BY p.created_at DESC
       `;
-      return data.map(row => ({
+      return data.map((row: any) => ({
         id: row.id,
         client_id: row.client_id,
         invoice_id: row.invoice_id,
@@ -492,8 +549,12 @@ export const paymentsService = {
   },
 
   async create(payment: Partial<Payment>): Promise<Payment> {
+    if (!isDatabaseAvailable()) {
+      console.error('Database not available for creating payment. Cannot proceed.');
+      throw new Error('Database connection not available. Please check your configuration.');
+    }
     try {
-      const data = await sql`
+      const data = await sql!`
         INSERT INTO payments (
           client_id, invoice_id, amount, payment_source, status, paid_at
         ) VALUES (
@@ -512,7 +573,7 @@ export const paymentsService = {
 
   async update(id: string, updates: Partial<Payment>): Promise<Payment> {
     try {
-      const data = await sql`
+      const data = await sql!`
         UPDATE payments
         SET 
           amount = COALESCE(${updates.amount}, amount),
@@ -533,7 +594,7 @@ export const paymentsService = {
 
   async delete(id: string): Promise<void> {
     try {
-      await sql`
+      await sql!`
         DELETE FROM payments
         WHERE id = ${id}
       `;
@@ -547,8 +608,11 @@ export const paymentsService = {
 // Calendar Events Services
 export const calendarService = {
   async getAll(): Promise<CalendarEvent[]> {
+    if (!isDatabaseAvailable()) {
+      return handleDatabaseUnavailable('getAll ${service.replace("Service", "s")}') as any[];
+    }
     try {
-      const data = await sql`
+      const data = await sql!`
         SELECT 
           e.*,
           c.name as client_name,
@@ -558,7 +622,7 @@ export const calendarService = {
         LEFT JOIN clients c ON e.client_id = c.id
         ORDER BY e.start_date ASC
       `;
-      return data.map(row => ({
+      return data.map((row: any) => ({
         id: row.id,
         client_id: row.client_id,
         title: row.title,
@@ -585,7 +649,7 @@ export const calendarService = {
 
   async getByClientId(clientId: number): Promise<CalendarEvent[]> {
     try {
-      const data = await sql`
+      const data = await sql!`
         SELECT 
           e.*,
           c.name as client_name,
@@ -596,7 +660,7 @@ export const calendarService = {
         WHERE e.client_id = ${clientId}
         ORDER BY e.start_date ASC
       `;
-      return data.map(row => ({
+      return data.map((row: any) => ({
         id: row.id,
         client_id: row.client_id,
         title: row.title,
@@ -623,7 +687,7 @@ export const calendarService = {
 
   async create(event: Partial<CalendarEvent>): Promise<CalendarEvent> {
     try {
-      const data = await sql`
+      const data = await sql!`
         INSERT INTO calendar_events (
           client_id, title, start_date, end_date, start_time, 
           end_time, description, type
@@ -643,7 +707,7 @@ export const calendarService = {
 
   async update(id: string, updates: Partial<CalendarEvent>): Promise<CalendarEvent> {
     try {
-      const data = await sql`
+      const data = await sql!`
         UPDATE calendar_events
         SET 
           title = COALESCE(${updates.title}, title),
@@ -666,10 +730,14 @@ export const calendarService = {
 
   async delete(id: string): Promise<void> {
     try {
-      await sql`
+      const result = await sql!`
         DELETE FROM calendar_events
         WHERE id = ${id}
+        RETURNING *
       `;
+      if (!result[0]) {
+        throw new Error('Calendar event not found');
+      }
     } catch (error) {
       console.error('Error deleting calendar event:', error);
       throw error;
@@ -681,7 +749,7 @@ export const calendarService = {
 export const componentsService = {
   async getByClientId(clientId: number): Promise<Component[]> {
     try {
-      const data = await sql`
+      const data = await sql!`
         SELECT 
           comp.*,
           c.name as client_name,
@@ -692,7 +760,7 @@ export const componentsService = {
         WHERE comp.client_id = ${clientId}
         ORDER BY comp.created_at DESC
       `;
-      return data.map(row => ({
+      return data.map((row: any) => ({
         id: row.id,
         client_id: row.client_id,
         name: row.name,
@@ -715,7 +783,7 @@ export const componentsService = {
 
   async create(component: Partial<Component>): Promise<Component> {
     try {
-      const data = await sql`
+      const data = await sql!`
         INSERT INTO components (
           client_id, name, price, active
         ) VALUES (
@@ -733,7 +801,7 @@ export const componentsService = {
 
   async update(id: string, updates: Partial<Component>): Promise<Component> {
     try {
-      const data = await sql`
+      const data = await sql!`
         UPDATE components
         SET 
           name = COALESCE(${updates.name}, name),
@@ -752,7 +820,7 @@ export const componentsService = {
 
   async delete(id: string): Promise<void> {
     try {
-      await sql`
+      await sql!`
         DELETE FROM components
         WHERE id = ${id}
       `;
@@ -767,7 +835,7 @@ export const componentsService = {
 export const progressService = {
   async getByClientId(clientId: number): Promise<ProgressStep[]> {
     try {
-      const data = await sql`
+      const data = await sql!`
         SELECT 
           ps.*,
           c.name as client_name,
@@ -782,7 +850,7 @@ export const progressService = {
       // Get comments for each step
       const stepsWithComments = await Promise.all(
         data.map(async (row) => {
-          const comments = await sql`
+          const comments = await sql!`
             SELECT * FROM progress_step_comments
             WHERE step_id = ${row.id}
             ORDER BY created_at DESC
@@ -819,7 +887,7 @@ export const progressService = {
 
   async create(step: Partial<ProgressStep>): Promise<ProgressStep> {
     try {
-      const data = await sql`
+      const data = await sql!`
         INSERT INTO progress_steps (
           client_id, title, description, deadline, completed, important
         ) VALUES (
@@ -837,7 +905,7 @@ export const progressService = {
 
   async update(id: string, updates: Partial<ProgressStep>): Promise<ProgressStep> {
     try {
-      const data = await sql`
+      const data = await sql!`
         UPDATE progress_steps
         SET 
           title = COALESCE(${updates.title}, title),
@@ -859,12 +927,38 @@ export const progressService = {
 
   async delete(id: string): Promise<void> {
     try {
-      await sql`
+      await sql!`
         DELETE FROM progress_steps
         WHERE id = ${id}
       `;
     } catch (error) {
       console.error('Error deleting progress step:', error);
+      throw error;
+    }
+  },
+
+  async addComment(comment: { step_id: string; text: string; username: string; attachment_url?: string; attachment_type?: string; }): Promise<any> {
+    try {
+      const data = await sql!`
+        INSERT INTO progress_step_comments (step_id, text, username, attachment_url, attachment_type)
+        VALUES (${comment.step_id}, ${comment.text}, ${comment.username}, ${comment.attachment_url || null}, ${comment.attachment_type || null})
+        RETURNING *
+      `;
+      return data[0];
+    } catch (error) {
+      console.error('Error adding comment:', error);
+      throw error;
+    }
+  },
+
+  async deleteComment(id: string): Promise<void> {
+    try {
+      await sql!`
+        DELETE FROM progress_step_comments
+        WHERE id = ${id}
+      `;
+    } catch (error) {
+      console.error('Error deleting comment:', error);
       throw error;
     }
   }
@@ -897,8 +991,14 @@ export const chatService = {
       ] as Chat[];
     }
 
+    if (!isDatabaseAvailable()) {
+      return handleDatabaseUnavailable('getAll ${service.replace("Service", "s")}') as any[];
+    }
+    if (!isDatabaseAvailable()) {
+      return handleDatabaseUnavailable('getAll ${service.replace("Service", "s")}') as any[];
+    }
     try {
-      const data = await sql`
+      const data = await sql!`
         SELECT 
           ch.*,
           c.name as client_name,
@@ -908,7 +1008,7 @@ export const chatService = {
         LEFT JOIN clients c ON ch.client_id = c.id
         ORDER BY ch.last_message_at DESC
       `;
-      return data.map(row => ({
+      return data.map((row: any) => ({
         id: row.id,
         client_id: row.client_id,
         client_name: row.client_name,
@@ -956,7 +1056,7 @@ export const chatService = {
     }
 
     try {
-      const data = await sql`
+      const data = await sql!`
         SELECT * FROM chat_messages
         WHERE chat_id = ${chatId}
         ORDER BY created_at ASC
@@ -990,7 +1090,7 @@ export const chatService = {
     }
 
     try {
-      const data = await sql`
+      const data = await sql!`
         INSERT INTO chat_messages (
           chat_id, sender, content, message_type, created_at
         ) VALUES (
@@ -1003,7 +1103,7 @@ export const chatService = {
       const newMessage = data[0] as ChatMessage;
       
       // Update chat last message
-      await sql`
+      await sql!`
         UPDATE chats 
         SET last_message = ${message.content}, 
             last_message_at = NOW(),
@@ -1028,7 +1128,7 @@ export const chatService = {
     }
 
     try {
-      await sql`
+      await sql!`
         UPDATE chats 
         SET unread_count = 0 
         WHERE id = ${chatId}
@@ -1047,7 +1147,7 @@ export const chatService = {
         client_id: clientId,
         client_name: 'New Client',
         avatar: 'NC',
-        last_message: null,
+        last_message: undefined,
         last_message_at: new Date().toISOString(),
         unread_count: 0,
         online: false,
@@ -1058,7 +1158,7 @@ export const chatService = {
 
     try {
       // Get client info
-      const clientData = await sql`
+      const clientData = await sql!`
         SELECT name, business_name, email FROM clients WHERE id = ${clientId}
       `;
       
@@ -1069,7 +1169,7 @@ export const chatService = {
       const client = clientData[0];
       const initials = client.name.split(' ').map((n: string) => n[0]).join('').toUpperCase();
       
-      const data = await sql`
+      const data = await sql!`
         INSERT INTO chats (
           client_id, client_name, avatar, last_message_at, unread_count, online, created_at, updated_at
         ) VALUES (
@@ -1091,7 +1191,7 @@ export const chatService = {
     }
 
     try {
-      await sql`
+      await sql!`
         UPDATE chats 
         SET online = ${online}, updated_at = NOW()
         WHERE id = ${chatId}
@@ -1108,7 +1208,7 @@ export const chatService = {
     }
 
     try {
-      const data = await sql`
+      const data = await sql!`
         SELECT SUM(unread_count) as total_unread 
         FROM chats
       `;
@@ -1125,7 +1225,7 @@ export const chatService = {
     }
 
     try {
-      await sql`
+      await sql!`
         DELETE FROM chat_messages 
         WHERE id = ${messageId}
       `;
@@ -1146,7 +1246,7 @@ export const chatService = {
     }
 
     try {
-      const data = await sql`
+      const data = await sql!`
         UPDATE chats 
         SET client_name = COALESCE(${updates.client_name}, client_name),
             avatar = COALESCE(${updates.avatar}, avatar),
@@ -1225,6 +1325,67 @@ export const dashboardService = {
       };
     } catch (error) {
       console.error('Error fetching dashboard stats:', error);
+      throw error;
+    }
+  }
+}; 
+
+// Client Links Services
+export const clientLinksService = {
+  async getByClientId(clientId: number): Promise<ClientLink[]> {
+    if (!isDatabaseAvailable()) {
+      return handleDatabaseUnavailable('getByClientId clientLinks') as ClientLink[];
+    }
+    try {
+      const data = await sql!`
+        SELECT * FROM client_links
+        WHERE client_id = ${clientId}
+        ORDER BY created_at DESC
+      `;
+      return data as ClientLink[];
+    } catch (error) {
+      console.error('Error fetching client links:', error);
+      throw error;
+    }
+  },
+
+  async create(link: Partial<ClientLink>): Promise<ClientLink> {
+    if (!isDatabaseAvailable()) {
+      console.error('Database not available for creating client link. Cannot proceed.');
+      throw new Error('Database connection not available. Please check your configuration.');
+    }
+    try {
+      const data = await sql!`
+        INSERT INTO client_links (
+          client_id, title, url
+        ) VALUES (
+          ${link.client_id}, ${link.title}, ${link.url}
+        )
+        RETURNING *
+      `;
+      return data[0] as ClientLink;
+    } catch (error) {
+      console.error('Error creating client link:', error);
+      throw error;
+    }
+  },
+
+  async delete(id: string): Promise<void> {
+    if (!isDatabaseAvailable()) {
+      console.error('Database not available for deleting client link. Cannot proceed.');
+      throw new Error('Database connection not available. Please check your configuration.');
+    }
+    try {
+      const data = await sql!`
+        DELETE FROM client_links
+        WHERE id = ${id}
+        RETURNING *
+      `;
+      if (data.length === 0) {
+        throw new Error(`Link with id ${id} not found`);
+      }
+    } catch (error) {
+      console.error('Error deleting client link:', error);
       throw error;
     }
   }

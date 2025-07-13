@@ -1,12 +1,61 @@
 import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
+import { ServerResponse, IncomingMessage } from 'http';
+
+interface RequestWithBody extends IncomingMessage {
+  body?: any;
+}
 
 // https://vitejs.dev/config/
 export default defineConfig({
-  plugins: [react()],
+  plugins: [
+    react(),
+    {
+      name: 'api-middleware',
+      configureServer(server) {
+        server.middlewares.use('/api/generate-upload-url', async (req, res, next) => {
+          const apiReq = req as RequestWithBody;
+          const apiRes = res as ServerResponse & { status: (code: number) => any, json: (data: any) => void };
+
+          try {
+            const module = await server.ssrLoadModule('./api/generate-upload-url.mjs');
+            const handler = module.default;
+            
+            let body = '';
+            apiReq.on('data', chunk => {
+              body += chunk.toString();
+            });
+
+            apiReq.on('end', async () => {
+              if (body) {
+                apiReq.body = JSON.parse(body);
+              }
+              
+              // Mock res.status() and res.json()
+              apiRes.status = (statusCode: number) => {
+                apiRes.statusCode = statusCode;
+                return apiRes;
+              };
+              apiRes.json = (data: any) => {
+                apiRes.setHeader('Content-Type', 'application/json');
+                apiRes.end(JSON.stringify(data));
+              };
+
+              await handler(apiReq, apiRes);
+            });
+
+          } catch (error) {
+            console.error(error);
+            apiRes.statusCode = 500;
+            apiRes.end('Internal Server Error');
+          }
+        });
+      }
+    }
+  ],
   server: {
-    port: 3000,
-    host: true, // Allow external connections
+    host: true,
+    port: 3000
   },
   preview: {
     port: 8080,
