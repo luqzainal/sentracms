@@ -6,6 +6,11 @@ export default defineConfig({
   plugins: [react()],
   server: {
     port: 3000,
+    host: true, // Allow external connections
+  },
+  preview: {
+    port: 8080,
+    host: true,
   },
   build: {
     rollupOptions: {
