@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useEffect } from 'react';
-import { Users, DollarSign, TrendingUp, Calendar, ArrowUpRight, ArrowDownRight, MessageSquare, UserPlus, Filter, Database, CreditCard, Clock, BarChart3, Activity, Menu } from 'lucide-react';
+import { Users, DollarSign, TrendingUp, Calendar, MessageSquare, UserPlus, Filter, Database, CreditCard, Clock, BarChart3, Activity, Menu } from 'lucide-react';
 import { useAppStore } from '../../store/AppStore';
 
 interface DashboardProps {
@@ -225,9 +225,8 @@ const Dashboard: React.FC<DashboardProps> = ({ setActiveTab, onToggleSidebar }) 
               <p className="text-xs lg:text-sm font-medium text-slate-600 uppercase tracking-wide">Total Sales</p>
               <p className="text-xl lg:text-3xl font-bold text-slate-900 mt-1 lg:mt-2">{formatCurrency(totalSales)}</p>
               <div className="flex items-center mt-2">
-                <ArrowUpRight className="w-4 h-4 text-green-500 mr-1" />
-                <span className="text-xs lg:text-sm text-green-600 font-medium">+12.5%</span>
-                <span className="text-xs lg:text-sm text-slate-500 ml-1">vs last month</span>
+                <Database className="w-4 h-4 text-blue-500 mr-1" />
+                <span className="text-xs lg:text-sm text-slate-500">Total Sales Revenue</span>
               </div>
             </div>
             <div className="w-12 h-12 lg:w-16 lg:h-16 bg-blue-50 rounded-xl flex items-center justify-center">
@@ -242,9 +241,8 @@ const Dashboard: React.FC<DashboardProps> = ({ setActiveTab, onToggleSidebar }) 
               <p className="text-xs lg:text-sm font-medium text-slate-600 uppercase tracking-wide">Collections</p>
               <p className="text-xl lg:text-3xl font-bold text-slate-900 mt-1 lg:mt-2">{formatCurrency(totalCollection)}</p>
               <div className="flex items-center mt-2">
-                <ArrowUpRight className="w-4 h-4 text-green-500 mr-1" />
-                <span className="text-xs lg:text-sm text-green-600 font-medium">+8.2%</span>
-                <span className="text-xs lg:text-sm text-slate-500 ml-1">vs last month</span>
+                <CreditCard className="w-4 h-4 text-green-500 mr-1" />
+                <span className="text-xs lg:text-sm text-slate-500">Total Collections</span>
               </div>
             </div>
             <div className="w-12 h-12 lg:w-16 lg:h-16 bg-green-50 rounded-xl flex items-center justify-center">
@@ -259,9 +257,8 @@ const Dashboard: React.FC<DashboardProps> = ({ setActiveTab, onToggleSidebar }) 
               <p className="text-xs lg:text-sm font-medium text-slate-600 uppercase tracking-wide">Balance</p>
               <p className="text-xl lg:text-3xl font-bold text-slate-900 mt-1 lg:mt-2">{formatCurrency(totalBalance)}</p>
               <div className="flex items-center mt-2">
-                <ArrowDownRight className="w-4 h-4 text-orange-500 mr-1" />
-                <span className="text-xs lg:text-sm text-orange-600 font-medium">-3.1%</span>
-                <span className="text-xs lg:text-sm text-slate-500 ml-1">vs last month</span>
+                <DollarSign className="w-4 h-4 text-orange-500 mr-1" />
+                <span className="text-xs lg:text-sm text-slate-500">Outstanding Balance</span>
               </div>
             </div>
             <div className="w-12 h-12 lg:w-16 lg:h-16 bg-orange-50 rounded-xl flex items-center justify-center">
