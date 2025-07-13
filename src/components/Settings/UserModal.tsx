@@ -346,7 +346,9 @@ const UserModal: React.FC<UserModalProps> = ({ user, onClose, onSave }) => {
         return ['all'];
       case 'Team':
         return ['clients', 'calendar', 'chat', 'reports', 'dashboard'];
-      case 'Client':
+      case 'Client Admin':
+        return ['client_dashboard', 'client_profile', 'client_messages', 'client_admin'];
+      case 'Client Team':
         return ['client_dashboard', 'client_profile', 'client_messages'];
       default:
         return [];

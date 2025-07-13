@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { useEffect } from 'react';
 import { Plus, Search, Edit, Trash2, Shield, Users, Key, Eye, EyeOff, UserCheck, UserX, Crown, Briefcase, User, Menu, ExternalLink } from 'lucide-react';
 import UserModal from './UserModal';
-import ClientPortalDashboard from '../ClientPortal/ClientPortalDashboard';
+import UserProfileView from './UserProfileView';
 import { useAppStore } from '../../store/AppStore';
 
 interface SettingsPageProps {
@@ -16,8 +16,8 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ onToggleSidebar }) => {
   const [statusFilter, setStatusFilter] = useState('all');
   const [showUserModal, setShowUserModal] = useState(false);
   const [selectedUser, setSelectedUser] = useState<any>(null);
-  const [showClientPortal, setShowClientPortal] = useState(false);
-  const [selectedClientUser, setSelectedClientUser] = useState<any>(null);
+  const [showUserProfile, setShowUserProfile] = useState(false);
+  const [selectedUserForProfile, setSelectedUserForProfile] = useState<any>(null);
 
   const { 
     users, 
@@ -86,7 +86,7 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ onToggleSidebar }) => {
     setShowUserModal(true);
   };
 
-  const handleEditUser = (user: User) => {
+  const handleEditUser = (user: any) => {
     setSelectedUser(user);
     setShowUserModal(true);
   };
@@ -111,14 +111,14 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ onToggleSidebar }) => {
     setShowUserModal(false);
   };
 
-  const handleViewClientPortal = (user: any) => {
-    setSelectedClientUser(user);
-    setShowClientPortal(true);
+  const handleViewUserProfile = (user: any) => {
+    setSelectedUserForProfile(user);
+    setShowUserProfile(true);
   };
 
-  const handleBackFromClientPortal = () => {
-    setShowClientPortal(false);
-    setSelectedClientUser(null);
+  const handleBackFromUserProfile = () => {
+    setShowUserProfile(false);
+    setSelectedUserForProfile(null);
   };
 
   const roleStats = {
@@ -130,11 +130,11 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ onToggleSidebar }) => {
 
   const totalUsers = users.length;
 
-  if (showClientPortal && selectedClientUser) {
+  if (showUserProfile && selectedUserForProfile) {
     return (
-      <ClientPortalDashboard
-        user={selectedClientUser}
-        onBack={handleBackFromClientPortal}
+      <UserProfileView
+        user={selectedUserForProfile}
+        onBack={handleBackFromUserProfile}
       />
     );
   }
@@ -306,15 +306,13 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ onToggleSidebar }) => {
                       </td>
                       <td className="py-3 lg:py-4 px-3 lg:px-6 text-center">
                         <div className="flex flex-col lg:flex-row items-center justify-center space-y-1 lg:space-y-0 lg:space-x-2">
-                          {(user.role === 'Client Admin' || user.role === 'Client Team') && (
-                            <button 
-                              onClick={() => handleViewClientPortal(user)}
-                              className="p-1.5 lg:p-2 text-green-500 hover:text-green-700 hover:bg-green-50 rounded-lg transition-all duration-200"
-                              title="View Client Portal"
-                            >
-                              <Eye className="w-3 h-3 lg:w-4 lg:h-4" />
-                            </button>
-                          )}
+                          <button 
+                            onClick={() => handleViewUserProfile(user)}
+                            className="p-1.5 lg:p-2 text-green-500 hover:text-green-700 hover:bg-green-50 rounded-lg transition-all duration-200"
+                            title="View User Profile"
+                          >
+                            <Eye className="w-3 h-3 lg:w-4 lg:h-4" />
+                          </button>
                           <button 
                             onClick={() => handleEditUser(user)}
                             className="p-1.5 lg:p-2 text-blue-500 hover:text-blue-700 hover:bg-blue-50 rounded-lg transition-all duration-200"

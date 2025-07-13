@@ -80,12 +80,21 @@ const ClientPortalDashboard: React.FC<ClientPortalDashboardProps> = ({ user, onB
   // Get the actual package name from invoices if available
   const actualPackageName = invoices.length > 0 ? invoices[0].packageName : 'No Package Assigned';
 
-  const handleSendMessage = () => {
-    if (message.trim()) {
-      // Add message logic here
-      console.log('Sending message:', message);
-      setMessage('');
+  const handleSendMessage = async () => {
+    if (message.trim() && clientChat) {
+      try {
+        // Import sendMessage from useAppStore
+        const { sendMessage } = useAppStore.getState();
+        await sendMessage(clientChat.id, message.trim(), 'client');
+        setMessage('');
+      } catch (error) {
+        console.error('Error sending message:', error);
+      }
     }
+  };
+
+  const formatTime = (timestamp: string) => {
+    return new Date(timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
   };
 
   // Show Progress Tracker
@@ -469,12 +478,12 @@ const ClientPortalDashboard: React.FC<ClientPortalDashboardProps> = ({ user, onB
                   <div className="flex-1">
                     <p className="text-sm font-medium text-blue-900">Live Chat</p>
                     <p className="text-xs text-blue-700">
-                      {clientChat.unread > 0 ? `${clientChat.unread} new messages` : 'No new messages'}
+                      {clientChat.unread_count > 0 ? `${clientChat.unread_count} new messages` : 'No new messages'}
                     </p>
                   </div>
-                  {clientChat.unread > 0 && (
+                  {clientChat.unread_count > 0 && (
                     <div className="w-5 h-5 bg-blue-500 rounded-full flex items-center justify-center">
-                      <span className="text-xs text-white font-medium">{clientChat.unread}</span>
+                      <span className="text-xs text-white font-medium">{clientChat.unread_count}</span>
                     </div>
                   )}
                 </div>
@@ -524,7 +533,7 @@ const ClientPortalDashboard: React.FC<ClientPortalDashboardProps> = ({ user, onB
                       <p className={`text-xs mt-1 ${
                         msg.sender === 'client' ? 'text-blue-100' : 'text-slate-500'
                       }`}>
-                        {msg.timestamp}
+                        {formatTime(msg.created_at)}
                       </p>
                     </div>
                   </div>

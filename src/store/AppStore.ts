@@ -1,8 +1,8 @@
 import { create } from 'zustand';
-// Removed imports for supabaseService, as it's no longer used
-// import { clientService, invoiceService, paymentService, componentService, progressStepService, calendarEventService, chatService, tagService, userService } from '../services/supabaseService';
+import { chatService, clientsService, usersService, invoicesService, paymentsService } from '../services/database';
+import { generateAvatarUrl } from '../utils/avatarUtils';
 
-interface Client {
+export interface Client {
   id: number;
   name: string;
   businessName: string;
@@ -24,7 +24,7 @@ interface Client {
   updatedAt: string;
 }
 
-interface Invoice {
+export interface Invoice {
   id: string;
   clientId: number;
   packageName: string;
@@ -36,7 +36,7 @@ interface Invoice {
   updatedAt: string;
 }
 
-interface Payment {
+export interface Payment {
   id: string;
   clientId: number;
   invoiceId: string;
@@ -49,7 +49,7 @@ interface Payment {
   updatedAt: string;
 }
 
-interface Component {
+export interface Component {
   id: string;
   clientId: number;
   name: string;
@@ -60,7 +60,7 @@ interface Component {
   updatedAt: string;
 }
 
-interface ProgressStep {
+export interface ProgressStep {
   id: string;
   clientId: number;
   title: string;
@@ -74,14 +74,14 @@ interface ProgressStep {
   updatedAt: string;
 }
 
-interface Comment {
+export interface Comment {
   id: string;
   text: string;
   username: string;
   timestamp: string;
 }
 
-interface CalendarEvent {
+export interface CalendarEvent {
   id: string;
   clientId: number;
   title: string;
@@ -95,7 +95,7 @@ interface CalendarEvent {
   updatedAt: string;
 }
 
-interface Chat {
+export interface Chat {
   id: number;
   clientId: number;
   client: string;
@@ -109,15 +109,16 @@ interface Chat {
   updatedAt: string;
 }
 
-interface ChatMessage {
+export interface ChatMessage {
   id: number;
-  sender: string;
+  chat_id: number;
+  sender: 'client' | 'admin';
   content: string;
-  messageType: string;
-  timestamp: string;
+  message_type: string;
+  created_at: string;
 }
 
-interface Tag {
+export interface Tag {
   id: string;
   name: string;
   color: string;
@@ -125,7 +126,7 @@ interface Tag {
   updatedAt: string;
 }
 
-interface User {
+export interface User {
   id: string;
   name: string;
   email: string;
@@ -149,6 +150,15 @@ interface AppState {
   chats: Chat[];
   tags: Tag[];
   users: User[];
+
+  // Navigation & User state
+  user: User | null;
+  activeTab: string;
+  selectedClient: Client | null;
+
+  // Real-time polling
+  isPolling: boolean;
+  pollingInterval: NodeJS.Timeout | null;
 
   // Loading states
   loading: {
@@ -174,17 +184,35 @@ interface AppState {
   fetchTags: () => Promise<void>;
   fetchUsers: () => Promise<void>;
 
+  // User & Navigation actions
+  setUser: (user: User | null) => void;
+  setActiveTab: (tab: string) => void;
+  setSelectedClient: (client: Client | null) => void;
+
+  // Real-time polling actions
+  startPolling: () => void;
+  stopPolling: () => void;
+  pollForUpdates: () => Promise<void>;
+
+  // Chat actions
+  sendMessage: (chatId: number, content: string, sender: 'client' | 'admin') => Promise<void>;
+  loadChatMessages: (chatId: number) => Promise<void>;
+  markChatAsRead: (chatId: number) => Promise<void>;
+  createChatForClient: (clientId: number) => Promise<void>;
+  getUnreadMessagesCount: () => number;
+  getChatById: (chatId: number) => Chat | undefined;
+
   addClient: (client: Omit<Client, 'id' | 'createdAt' | 'updatedAt'>) => void;
   updateClient: (id: number, updates: Partial<Client>) => void;
   deleteClient: (id: number) => void;
   getClientById: (id: number) => Client | undefined;
 
-  addInvoice: (invoiceData: { clientId: number; packageName: string; amount: number; invoiceDate: string }) => void;
+  addInvoice: (invoiceData: { clientId: number; packageName: string; amount: number; invoiceDate: string }) => Promise<void>;
   updateInvoice: (id: string, updates: Partial<Invoice>) => void;
   deleteInvoice: (invoiceId: string) => void;
   getInvoicesByClientId: (clientId: number) => Invoice[];
 
-  addPayment: (payment: Omit<Payment, 'id' | 'createdAt' | 'updatedAt'>) => void;
+  addPayment: (payment: Omit<Payment, 'id' | 'createdAt' | 'updatedAt'>) => Promise<void>;
   updatePayment: (id: string, updates: Partial<Payment>) => void;
   deletePayment: (id: string) => void;
   getPaymentsByClientId: (clientId: number) => Payment[];
@@ -209,9 +237,9 @@ interface AppState {
   updateTag: (id: string, updates: Partial<Tag>) => Promise<void>;
   deleteTag: (id: string) => Promise<void>;
 
-  addUser: (user: Omit<User, 'id' | 'createdAt' | 'updatedAt'>) => void;
-  updateUser: (id: string, updates: Partial<User>) => void;
-  deleteUser: (id: string) => void;
+  addUser: (user: Omit<User, 'id' | 'createdAt' | 'updatedAt'>) => Promise<void>;
+  updateUser: (id: string, updates: Partial<User>) => Promise<void>;
+  deleteUser: (id: string) => Promise<void>;
 
   copyComponentsToProgressSteps: (clientId: number) => void;
 
@@ -222,313 +250,16 @@ interface AppState {
 }
 
 export const useAppStore = create<AppState>((set, get) => ({
-  // Initial state
-  clients: [
-    {
-      id: 1,
-      name: 'Nik Salwani Bt.Nik Ab Rahman',
-      businessName: 'Ahmad Tech Solutions',
-      email: 'client@sentra.com',
-      phone: '+60 12-345 6789',
-      status: 'Complete',
-      packageName: undefined,
-      tags: ['VIP', 'Priority'],
-      totalSales: 15000,
-      totalCollection: 12000,
-      balance: 3000,
-      lastActivity: new Date().toISOString().split('T')[0],
-      invoiceCount: 2,
-      registeredAt: '2024-01-15T00:00:00Z',
-      company: 'Ahmad Tech Solutions',
-      address: 'Kuala Lumpur, Malaysia',
-      notes: 'Demo client for testing',
-      createdAt: '2024-01-15T00:00:00Z',
-      updatedAt: new Date().toISOString()
-    },
-    {
-      id: 2,
-      name: 'Sarah Johnson',
-      businessName: 'Johnson Enterprises',
-      email: 'sarah@johnson.com',
-      phone: '+60 12-987 6543',
-      status: 'Pending',
-      packageName: undefined,
-      tags: ['New Client'],
-      totalSales: 8000,
-      totalCollection: 5000,
-      balance: 3000,
-      lastActivity: new Date().toISOString().split('T')[0],
-      invoiceCount: 1,
-      registeredAt: '2024-02-01T00:00:00Z',
-      company: 'Johnson Enterprises',
-      address: 'Petaling Jaya, Malaysia',
-      notes: 'New client onboarding',
-      createdAt: '2024-02-01T00:00:00Z',
-      updatedAt: new Date().toISOString()
-    }
-  ],
-
-  invoices: [
-    {
-      id: 'INV-001',
-      clientId: 1,
-      packageName: 'Kuasa 360',
-      amount: 15000,
-      paid: 12000,
-      due: 3000,
-      status: 'Partial',
-      createdAt: '2024-01-15T00:00:00Z',
-      updatedAt: new Date().toISOString()
-    },
-    {
-      id: 'INV-002',
-      clientId: 2,
-      packageName: 'Basic Package',
-      amount: 8000,
-      paid: 5000,
-      due: 3000,
-      status: 'Partial',
-      createdAt: '2024-02-01T00:00:00Z',
-      updatedAt: new Date().toISOString()
-    }
-  ],
-
-  payments: [
-    {
-      id: 'PAY-001',
-      clientId: 1,
-      invoiceId: 'INV-001',
-      amount: 12000,
-      paymentSource: 'Online Transfer',
-      status: 'Paid',
-      paidAt: '2024-01-20T00:00:00Z',
-      createdAt: '2024-01-20T00:00:00Z',
-      updatedAt: new Date().toISOString()
-    },
-    {
-      id: 'PAY-002',
-      clientId: 2,
-      invoiceId: 'INV-002',
-      amount: 5000,
-      paymentSource: 'Bank Transfer',
-      status: 'Paid',
-      paidAt: '2024-02-05T00:00:00Z',
-      createdAt: '2024-02-05T00:00:00Z',
-      updatedAt: new Date().toISOString()
-    }
-  ],
-
-  components: [
-    {
-      id: 'comp-001',
-      clientId: 1,
-      name: 'Website Development',
-      price: 'RM 5,000',
-      active: true,
-      invoiceId: 'INV-001',
-      createdAt: '2024-01-15T00:00:00Z',
-      updatedAt: new Date().toISOString()
-    },
-    {
-      id: 'comp-002',
-      clientId: 1,
-      name: 'Mobile App Development',
-      price: 'RM 8,000',
-      active: true,
-      invoiceId: 'INV-001',
-      createdAt: '2024-01-15T00:00:00Z',
-      updatedAt: new Date().toISOString()
-    },
-    {
-      id: 'comp-003',
-      clientId: 1,
-      name: 'SEO Optimization',
-      price: 'RM 2,000',
-      active: true,
-      invoiceId: 'INV-001',
-      createdAt: '2024-01-15T00:00:00Z',
-      updatedAt: new Date().toISOString()
-    }
-  ],
-
-  progressSteps: [
-   ],
-  calendarEvents: [
-    {
-      id: 'event-001',
-      clientId: 1,
-      title: 'Project Kickoff Meeting',
-      startDate: '2024-01-20',
-      endDate: '2024-01-20',
-      startTime: '10:00',
-      endTime: '11:30',
-      description: 'Initial project discussion and planning',
-      type: 'meeting',
-      createdAt: '2024-01-15T00:00:00Z',
-      updatedAt: new Date().toISOString()
-    },
-    {
-      id: 'event-002',
-      clientId: 1,
-      title: 'Design Review',
-      startDate: '2024-02-05',
-      endDate: '2024-02-05',
-      startTime: '14:00',
-      endTime: '15:00',
-      description: 'Review and approve design mockups',
-      type: 'meeting',
-      createdAt: '2024-01-15T00:00:00Z',
-      updatedAt: new Date().toISOString()
-    }
-  ],
-
-  chats: [
-    {
-      id: 1,
-      clientId: 1,
-      client: 'Ahmad Tech Solutions',
-      avatar: 'AT',
-      lastMessage: 'Thank you for the project update',
-      lastMessageAt: '2024-01-20T10:30:00Z',
-      unread_count: 2, // Changed from 'unread' to 'unread_count' to match DB schema
-      online: true,
-      messages: [
-        {
-          id: 1,
-          sender: 'client',
-          content: 'Hi! I want to check our project progress.',
-          messageType: 'text',
-          timestamp: '10:15 AM'
-        },
-        {
-          id: 2,
-          sender: 'admin',
-          content: 'Hello! The project is going well. We\'ve completed the design phase and are now moving to development.',
-          messageType: 'text',
-          timestamp: '10:18 AM'
-        },
-        {
-          id: 3,
-          sender: 'client',
-          content: 'Great! Can you share some screenshots?',
-          messageType: 'text',
-          timestamp: '10:20 AM'
-        },
-        {
-          id: 4,
-          sender: 'admin',
-          content: 'Sure! I\'ll send them shortly. The UI looks very clean and modern.',
-          messageType: 'text',
-          timestamp: '10:22 AM'
-        },
-        {
-          id: 5,
-          sender: 'client',
-          content: 'Thank you for the project update',
-          messageType: 'text',
-          timestamp: '10:30 AM'
-        }
-      ],
-      createdAt: '2024-01-15T00:00:00Z',
-      updatedAt: new Date().toISOString()
-    },
-    {
-      id: 2,
-      clientId: 2,
-      client: 'Johnson Enterprises',
-      avatar: 'JE',
-      lastMessage: 'Looking forward to getting started!',
-      lastMessageAt: '2024-02-01T15:45:00Z',
-      unread_count: 0, // Changed from 'unread' to 'unread_count' to match DB schema
-      online: false,
-      messages: [
-        {
-          id: 1,
-          sender: 'client',
-          content: 'Hello! I\'m excited about our new project.',
-          messageType: 'text',
-          timestamp: '3:30 PM'
-        },
-        {
-          id: 2,
-          sender: 'admin',
-          content: 'Welcome! We\'re excited to work with you. Let\'s schedule a kickoff meeting.',
-          messageType: 'text',
-          timestamp: '3:35 PM'
-        },
-        {
-          id: 3,
-          sender: 'client',
-          content: 'Looking forward to getting started!',
-          messageType: 'text',
-          timestamp: '3:45 PM'
-        }
-      ],
-      createdAt: '2024-02-01T00:00:00Z',
-      updatedAt: new Date().toISOString()
-    }
-  ],
-
-  tags: [
-    {
-      id: 'tag-001',
-      name: 'VIP',
-      color: '#FFD700',
-      createdAt: '2024-01-01T00:00:00Z',
-      updatedAt: new Date().toISOString()
-    },
-    {
-      id: 'tag-002',
-      name: 'Priority',
-      color: '#FF6B6B',
-      createdAt: '2024-01-01T00:00:00Z',
-      updatedAt: new Date().toISOString()
-    },
-    {
-      id: 'tag-003',
-      name: 'New Client',
-      color: '#4ECDC4',
-      createdAt: '2024-01-01T00:00:00Z',
-      updatedAt: new Date().toISOString()
-    }
-  ],
-
-  users: [
-    {
-      id: 'user-001',
-      name: 'Admin User',
-      email: 'admin@sentra.com',
-      role: 'Super Admin',
-      status: 'Active',
-      lastLogin: '2024-01-20T08:00:00Z',
-      permissions: ['all'],
-      createdAt: '2024-01-01T00:00:00Z',
-      updatedAt: new Date().toISOString()
-    },
-    {
-      id: 'user-002',
-      name: 'Nik Salwani Bt.Nik Ab Rahman',
-      email: 'client@sentra.com',
-      role: 'Client Admin',
-      status: 'Active',
-      lastLogin: '2024-01-19T14:30:00Z',
-      clientId: 1,
-      permissions: ['client_dashboard', 'client_profile', 'client_messages'],
-      createdAt: '2024-01-15T00:00:00Z',
-      updatedAt: new Date().toISOString()
-    },
-    {
-      id: 'user-003',
-      name: 'Team Member',
-      email: 'team@sentra.com',
-      role: 'Team',
-      status: 'Active',
-      lastLogin: '2024-01-20T09:15:00Z',
-      permissions: ['clients', 'calendar', 'chat', 'reports', 'dashboard'],
-      createdAt: '2024-01-10T00:00:00Z',
-      updatedAt: new Date().toISOString()
-    }
-  ],
+  // Initial state - all empty arrays for production
+  clients: [],
+  invoices: [],
+  payments: [],
+  components: [],
+  progressSteps: [],
+  calendarEvents: [],
+  chats: [],
+  tags: [],
+  users: [],
 
   loading: {
     clients: false,
@@ -542,68 +273,530 @@ export const useAppStore = create<AppState>((set, get) => ({
     users: false,
   },
 
+  // Navigation & User state - Initialize user from localStorage
+  user: (() => {
+    if (typeof window !== 'undefined') {
+      const savedUser = localStorage.getItem('demoUser');
+      if (savedUser) {
+        try {
+          const parsedUser = JSON.parse(savedUser);
+          // Convert from SupabaseContext format to AppStore format
+          return {
+            id: parsedUser.id,
+            name: parsedUser.name,
+            email: parsedUser.email,
+            role: parsedUser.role,
+            status: 'Active',
+            lastLogin: new Date().toISOString(),
+            clientId: parsedUser.clientId,
+            permissions: parsedUser.permissions || ['all'],
+            createdAt: new Date().toISOString(),
+            updatedAt: new Date().toISOString()
+          };
+        } catch (error) {
+          console.error('Error parsing user from localStorage:', error);
+          localStorage.removeItem('demoUser');
+        }
+      }
+    }
+    return null;
+  })(),
+  activeTab: 'dashboard',
+  selectedClient: null,
+
+  // Real-time polling
+  isPolling: false,
+  pollingInterval: null,
+
   // Actions
   fetchClients: async () => {
     set((state) => ({ loading: { ...state.loading, clients: true } }));
-    // Simulate API call delay
-    await new Promise(resolve => setTimeout(resolve, 300));
-    set((state) => ({ loading: { ...state.loading, clients: false } }));
+    try {
+      const dbClients = await clientsService.getAll();
+      // Convert database Client type to store Client type
+      const clients: Client[] = dbClients.map((dbClient) => ({
+        id: dbClient.id,
+        name: dbClient.name,
+        businessName: dbClient.business_name || dbClient.name,
+        email: dbClient.email,
+        phone: dbClient.phone || '',
+        status: dbClient.status,
+        packageName: undefined,
+        tags: [],
+        totalSales: Number(dbClient.total_sales) || 0,
+        totalCollection: Number(dbClient.total_collection) || 0,
+        balance: Number(dbClient.balance) || 0,
+        lastActivity: dbClient.last_activity || new Date().toISOString(),
+        invoiceCount: Number(dbClient.invoice_count) || 0,
+        registeredAt: dbClient.registered_at || dbClient.created_at,
+        company: dbClient.company,
+        address: dbClient.address,
+        notes: dbClient.notes,
+        createdAt: dbClient.created_at,
+        updatedAt: dbClient.updated_at
+      }));
+      
+      // Debug log to check client data
+      console.log('Fetched clients:', clients);
+      console.log('Sample client financial data:', clients.length > 0 ? {
+        totalSales: clients[0].totalSales,
+        totalCollection: clients[0].totalCollection,
+        balance: clients[0].balance
+      } : 'No clients found');
+      
+      set({ clients });
+    } catch (error) {
+      console.error('Error fetching clients:', error);
+      // Keep empty array for production
+      set({ clients: [] });
+    } finally {
+      set((state) => ({ loading: { ...state.loading, clients: false } }));
+    }
   },
 
   fetchInvoices: async () => {
     set((state) => ({ loading: { ...state.loading, invoices: true } }));
-    // Simulate API call delay
-    await new Promise(resolve => setTimeout(resolve, 300));
-    set((state) => ({ loading: { ...state.loading, invoices: false } }));
+    try {
+      const dbInvoices = await invoicesService.getAll();
+      // Convert database Invoice type to store Invoice type
+      const invoices: Invoice[] = dbInvoices.map((dbInvoice) => ({
+        id: dbInvoice.id,
+        clientId: dbInvoice.client_id,
+        packageName: dbInvoice.package_name,
+        amount: dbInvoice.amount,
+        paid: dbInvoice.paid,
+        due: dbInvoice.due,
+        status: dbInvoice.status,
+        createdAt: dbInvoice.created_at,
+        updatedAt: dbInvoice.updated_at
+      }));
+      set({ invoices });
+    } catch (error) {
+      console.error('Error fetching invoices:', error);
+      // Keep empty array for production
+      set({ invoices: [] });
+    } finally {
+      set((state) => ({ loading: { ...state.loading, invoices: false } }));
+    }
   },
 
   fetchPayments: async () => {
     set((state) => ({ loading: { ...state.loading, payments: true } }));
-    // Simulate API call delay
-    await new Promise(resolve => setTimeout(resolve, 300));
-    set((state) => ({ loading: { ...state.loading, payments: false } }));
+    try {
+      const dbPayments = await paymentsService.getAll();
+      // Convert database Payment type to store Payment type
+      const payments: Payment[] = dbPayments.map((dbPayment) => ({
+        id: dbPayment.id,
+        clientId: dbPayment.client_id,
+        invoiceId: dbPayment.invoice_id,
+        amount: dbPayment.amount,
+        paymentSource: dbPayment.payment_source,
+        status: dbPayment.status,
+        paidAt: dbPayment.paid_at,
+        receiptFileUrl: dbPayment.receipt_file_url,
+        createdAt: dbPayment.created_at,
+        updatedAt: dbPayment.updated_at
+      }));
+      set({ payments });
+    } catch (error) {
+      console.error('Error fetching payments:', error);
+      // Keep empty array for production
+      set({ payments: [] });
+    } finally {
+      set((state) => ({ loading: { ...state.loading, payments: false } }));
+    }
   },
 
   fetchComponents: async () => {
     set((state) => ({ loading: { ...state.loading, components: true } }));
-    // Simulate API call delay
-    await new Promise(resolve => setTimeout(resolve, 300));
-    set((state) => ({ loading: { ...state.loading, components: false } }));
+    try {
+      // For now, keep empty until proper component service is implemented
+      set({ components: [] });
+    } catch (error) {
+      console.error('Error fetching components:', error);
+      set({ components: [] });
+    } finally {
+      set((state) => ({ loading: { ...state.loading, components: false } }));
+    }
   },
 
   fetchProgressSteps: async () => {
     set((state) => ({ loading: { ...state.loading, progressSteps: true } }));
-    // Simulate API call delay
-    await new Promise(resolve => setTimeout(resolve, 300));
-    set((state) => ({ loading: { ...state.loading, progressSteps: false } }));
+    try {
+      // For now, keep empty until proper progress service is implemented
+      set({ progressSteps: [] });
+    } catch (error) {
+      console.error('Error fetching progress steps:', error);
+      set({ progressSteps: [] });
+    } finally {
+      set((state) => ({ loading: { ...state.loading, progressSteps: false } }));
+    }
   },
 
   fetchCalendarEvents: async () => {
     set((state) => ({ loading: { ...state.loading, calendarEvents: true } }));
-    // Simulate API call delay
-    await new Promise(resolve => setTimeout(resolve, 300));
-    set((state) => ({ loading: { ...state.loading, calendarEvents: false } }));
+    try {
+      // For now, keep empty until proper calendar service is implemented
+      set({ calendarEvents: [] });
+    } catch (error) {
+      console.error('Error fetching calendar events:', error);
+      set({ calendarEvents: [] });
+    } finally {
+      set((state) => ({ loading: { ...state.loading, calendarEvents: false } }));
+    }
   },
 
   fetchChats: async () => {
     set((state) => ({ loading: { ...state.loading, chats: true } }));
-    // Simulate API call delay
-    await new Promise(resolve => setTimeout(resolve, 300));
-    set((state) => ({ loading: { ...state.loading, chats: false } }));
+    try {
+      const dbChats = await chatService.getAll();
+      const chats: Chat[] = dbChats.map((dbChat) => {
+        // Find existing chat to preserve messages
+        const existingChat = get().chats.find(chat => chat.id === dbChat.id);
+        
+        return {
+          id: dbChat.id,
+          clientId: dbChat.client_id,
+          client: dbChat.client_name,
+          avatar: generateAvatarUrl(dbChat.client_name),
+          lastMessage: dbChat.last_message,
+          lastMessageAt: dbChat.last_message_at,
+          unread_count: dbChat.unread_count || 0,
+          online: dbChat.online || false,
+          messages: existingChat ? existingChat.messages : [], // Preserve existing messages
+          createdAt: dbChat.created_at,
+          updatedAt: dbChat.updated_at
+        };
+      });
+      set({ chats });
+      
+      // Load messages for all chats
+      console.log('Loading messages for all chats...');
+      for (const chat of chats) {
+        try {
+          const messages = await chatService.getMessages(chat.id);
+          console.log(`Loaded ${messages.length} messages for chat ${chat.id} (${chat.client})`);
+          
+          // Update the specific chat with messages
+          set((state) => ({
+            chats: state.chats.map((c) =>
+              c.id === chat.id
+                ? {
+                    ...c,
+                    messages: messages,
+                    updatedAt: new Date().toISOString(),
+                  }
+                : c
+            ),
+          }));
+        } catch (error) {
+          console.error(`Error loading messages for chat ${chat.id}:`, error);
+        }
+      }
+      
+    } catch (error) {
+      console.error('Error fetching chats:', error);
+      set({ chats: [] });
+    } finally {
+      set((state) => ({ loading: { ...state.loading, chats: false } }));
+    }
   },
 
   fetchTags: async () => {
     set((state) => ({ loading: { ...state.loading, tags: true } }));
-    // Simulate API call delay
-    await new Promise(resolve => setTimeout(resolve, 300));
-    set((state) => ({ loading: { ...state.loading, tags: false } }));
+    try {
+      // For now, keep empty until proper tag service is implemented
+      set({ tags: [] });
+    } catch (error) {
+      console.error('Error fetching tags:', error);
+      set({ tags: [] });
+    } finally {
+      set((state) => ({ loading: { ...state.loading, tags: false } }));
+    }
   },
 
   fetchUsers: async () => {
     set((state) => ({ loading: { ...state.loading, users: true } }));
-    // Simulate API call delay
-    await new Promise(resolve => setTimeout(resolve, 300));
-    set((state) => ({ loading: { ...state.loading, users: false } }));
+    try {
+      const dbUsers = await usersService.getAll();
+      // Map DatabaseUser to store User format
+      const users: User[] = dbUsers.map(dbUser => ({
+        id: dbUser.id,
+        name: dbUser.name,
+        email: dbUser.email,
+        role: dbUser.role,
+        status: dbUser.status,
+        lastLogin: dbUser.last_login || '',
+        clientId: dbUser.client_id,
+        permissions: dbUser.permissions,
+        createdAt: dbUser.created_at,
+        updatedAt: dbUser.updated_at
+      }));
+      set({ users });
+    } catch (error) {
+      console.error('Error fetching users:', error);
+    } finally {
+      set((state) => ({ loading: { ...state.loading, users: false } }));
+    }
+  },
+
+  // User & Navigation actions
+  setUser: (user) => {
+    set({ user });
+    // Sync with localStorage
+    if (typeof window !== 'undefined') {
+      if (user) {
+        // Convert AppStore format to SupabaseContext format for localStorage
+        const supabaseUser = {
+          id: user.id,
+          name: user.name,
+          email: user.email,
+          role: user.role,
+          clientId: user.clientId,
+          permissions: user.permissions
+        };
+        localStorage.setItem('demoUser', JSON.stringify(supabaseUser));
+      } else {
+        localStorage.removeItem('demoUser');
+      }
+    }
+  },
+  setActiveTab: (tab) => {
+    set({ activeTab: tab });
+  },
+  setSelectedClient: (client) => {
+    set({ selectedClient: client });
+  },
+
+  // Real-time polling actions
+  startPolling: () => {
+    const currentState = get();
+    if (!currentState.isPolling) {
+      const intervalId = setInterval(() => {
+        get().pollForUpdates();
+      }, 3000); // Poll every 3 seconds for real-time chat
+      set({ isPolling: true, pollingInterval: intervalId });
+    }
+  },
+  
+  stopPolling: () => {
+    const currentState = get();
+    if (currentState.pollingInterval) {
+      clearInterval(currentState.pollingInterval);
+      set({ isPolling: false, pollingInterval: null });
+    }
+  },
+  
+  pollForUpdates: async () => {
+    try {
+      // Refresh chat data to get latest messages and unread counts
+      await get().fetchChats();
+      
+      // Reload messages for all chats that have been loaded previously
+      const currentChats = get().chats;
+      const chatsWithMessages = currentChats.filter(chat => chat.messages && chat.messages.length > 0);
+      
+      // Reload messages for active chats to ensure real-time sync
+      for (const chat of chatsWithMessages) {
+        try {
+          await get().loadChatMessages(chat.id);
+        } catch (error) {
+          console.error(`Error reloading messages for chat ${chat.id}:`, error);
+        }
+      }
+      
+      // Also reload messages for any chats that are currently being viewed
+      // (even if they don't have messages yet)
+      const allChats = get().chats;
+      for (const chat of allChats) {
+        if (chat.messages && chat.messages.length === 0) {
+          try {
+            await get().loadChatMessages(chat.id);
+          } catch (error) {
+            console.error(`Error loading initial messages for chat ${chat.id}:`, error);
+          }
+        }
+      }
+      
+      // You can add other polling operations here
+      // For example: check for new notifications, updates, etc.
+    } catch (error) {
+      console.error('Error polling for updates:', error);
+    }
+  },
+
+  // Chat actions
+  sendMessage: async (chatId, content, sender) => {
+    try {
+      const newMessage = await chatService.sendMessage({
+        chat_id: chatId,
+        sender: sender,
+        content: content,
+        message_type: 'text'
+      });
+      
+      // Update local state immediately for responsive UI
+      set((state) => ({
+        chats: state.chats.map((chat) =>
+          chat.id === chatId
+            ? {
+                ...chat,
+                messages: [...chat.messages, newMessage],
+                lastMessage: newMessage.content,
+                lastMessageAt: newMessage.created_at,
+                unread_count: sender === 'client' ? chat.unread_count + 1 : chat.unread_count,
+                updatedAt: new Date().toISOString(),
+              }
+            : chat
+        ),
+      }));
+      
+      // Force immediate reload of messages for this chat to ensure sync
+      setTimeout(async () => {
+        await get().loadChatMessages(chatId);
+        get().fetchChats();
+      }, 500);
+      
+    } catch (error) {
+      console.error('Error sending message:', error);
+      // Fallback to local state update for offline mode
+      const mockMessage: ChatMessage = {
+        id: Date.now(),
+        chat_id: chatId,
+        sender: sender,
+        content: content,
+        message_type: 'text',
+        created_at: new Date().toISOString(),
+      };
+      
+      set((state) => ({
+        chats: state.chats.map((chat) =>
+          chat.id === chatId
+            ? {
+                ...chat,
+                messages: [...chat.messages, mockMessage],
+                lastMessage: mockMessage.content,
+                lastMessageAt: mockMessage.created_at,
+                unread_count: sender === 'client' ? chat.unread_count + 1 : chat.unread_count,
+                updatedAt: new Date().toISOString(),
+              }
+            : chat
+        ),
+      }));
+    }
+  },
+  
+  loadChatMessages: async (chatId) => {
+    try {
+      console.log(`Loading messages for chat ${chatId}...`);
+      const messages = await chatService.getMessages(chatId);
+      console.log(`Loaded ${messages.length} messages for chat ${chatId}:`, messages);
+      
+      set((state) => ({
+        chats: state.chats.map((chat) =>
+          chat.id === chatId
+            ? {
+                ...chat,
+                messages: messages,
+                updatedAt: new Date().toISOString(),
+              }
+            : chat
+        ),
+      }));
+      
+      // Log the updated state
+      const updatedChat = get().chats.find(c => c.id === chatId);
+      console.log(`Updated chat ${chatId} messages:`, updatedChat?.messages);
+      
+    } catch (error) {
+      console.error('Error loading chat messages:', error);
+      throw error;
+    }
+  },
+  
+  markChatAsRead: async (chatId) => {
+    try {
+      await chatService.markAsRead(chatId);
+      set((state) => ({
+        chats: state.chats.map((chat) =>
+          chat.id === chatId
+            ? {
+                ...chat,
+                unread_count: 0,
+                updatedAt: new Date().toISOString(),
+              }
+            : chat
+        ),
+      }));
+    } catch (error) {
+      console.error('Error marking chat as read:', error);
+      // Fallback to local state update
+      set((state) => ({
+        chats: state.chats.map((chat) =>
+          chat.id === chatId
+            ? {
+                ...chat,
+                unread_count: 0,
+                updatedAt: new Date().toISOString(),
+              }
+            : chat
+        ),
+      }));
+    }
+  },
+  
+  createChatForClient: async (clientId) => {
+    try {
+      const newChat = await chatService.createChat(clientId);
+      
+      // Convert database chat to local chat format
+      const localChat: Chat = {
+        id: newChat.id,
+        clientId: newChat.client_id,
+        client: newChat.client_name,
+        avatar: newChat.avatar,
+        lastMessage: newChat.last_message,
+        lastMessageAt: newChat.last_message_at,
+        unread_count: newChat.unread_count,
+        online: newChat.online,
+        messages: [],
+        createdAt: newChat.created_at,
+        updatedAt: newChat.updated_at,
+      };
+      
+      set((state) => ({
+        chats: [...state.chats, localChat],
+      }));
+    } catch (error) {
+      console.error('Error creating chat for client:', error);
+      // Fallback to mock chat creation
+      const client = get().clients.find(c => c.id === clientId);
+      const mockChat: Chat = {
+        id: Date.now(),
+        clientId: clientId,
+        client: client?.name || 'Unknown Client',
+        avatar: generateAvatarUrl(client?.name || 'Unknown Client'),
+        lastMessage: undefined,
+        lastMessageAt: undefined,
+        unread_count: 0,
+        online: false,
+        messages: [],
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+      };
+      
+      set((state) => ({
+        chats: [...state.chats, mockChat],
+      }));
+    }
+  },
+  
+  getUnreadMessagesCount: () => {
+    return get().chats.reduce((sum, chat) => sum + chat.unread_count, 0);
+  },
+  
+  getChatById: (chatId) => {
+    return get().chats.find((chat) => chat.id === chatId);
   },
 
   addClient: (clientData) => {
@@ -644,66 +837,120 @@ export const useAppStore = create<AppState>((set, get) => ({
     return get().clients.find((client) => client.id === id);
   },
 
-  addInvoice: (invoiceData) => {
-    const newInvoice: Invoice = {
-      id: `INV-${Date.now()}`,
-      clientId: invoiceData.clientId,
-      packageName: invoiceData.packageName,
-      amount: invoiceData.amount,
-      paid: 0,
-      due: invoiceData.amount,
-      status: 'Pending',
-      createdAt: invoiceData.invoiceDate,
-      updatedAt: new Date().toISOString(),
-    };
-    
-    set((state) => ({
-      invoices: [...state.invoices, newInvoice],
-      clients: state.clients.map((client) =>
-        client.id === invoiceData.clientId
-          ? {
-              ...client,
-              packageName: invoiceData.packageName, // Update client's package name
-              totalSales: client.totalSales + invoiceData.amount,
-              balance: client.balance + invoiceData.amount,
-              invoiceCount: client.invoiceCount + 1,
-              // Auto-assign the package tag to the client
-              tags: client.tags && client.tags.includes(invoiceData.packageName) 
-                ? client.tags 
-                : [...(client.tags || []), invoiceData.packageName],
+  addInvoice: async (invoiceData) => {
+    try {
+      // Create invoice in database
+      const newDbInvoice = await invoicesService.create({
+        client_id: invoiceData.clientId,
+        package_name: invoiceData.packageName,
+        amount: invoiceData.amount,
+        paid: 0,
+        due: invoiceData.amount,
+        status: 'Pending'
+      });
+      
+      // Convert to store format
+      const newInvoice: Invoice = {
+        id: newDbInvoice.id,
+        clientId: newDbInvoice.client_id,
+        packageName: newDbInvoice.package_name,
+        amount: newDbInvoice.amount,
+        paid: newDbInvoice.paid,
+        due: newDbInvoice.due,
+        status: newDbInvoice.status,
+        createdAt: newDbInvoice.created_at,
+        updatedAt: newDbInvoice.updated_at,
+      };
+      
+      // Update local state
+      set((state) => ({
+        invoices: [...state.invoices, newInvoice],
+        clients: state.clients.map((client) =>
+          client.id === invoiceData.clientId
+            ? {
+                ...client,
+                packageName: invoiceData.packageName, // Update client's package name
+                totalSales: client.totalSales + invoiceData.amount,
+                balance: client.balance + invoiceData.amount,
+                invoiceCount: client.invoiceCount + 1,
+                // Auto-assign the package tag to the client
+                tags: client.tags && client.tags.includes(invoiceData.packageName) 
+                  ? client.tags 
+                  : [...(client.tags || []), invoiceData.packageName],
+                updatedAt: new Date().toISOString(),
+              }
+            : client
+        ),
+        // Auto-create tag with package name if it doesn't exist
+        tags: state.tags.some(tag => tag.name === invoiceData.packageName) 
+          ? state.tags 
+          : [...state.tags, {
+              id: `tag-${Date.now()}`,
+              name: invoiceData.packageName,
+              color: '#3B82F6', // Default blue color
+              createdAt: new Date().toISOString(),
               updatedAt: new Date().toISOString(),
-            }
-          : client
-      ),
-      // Auto-create tag with package name if it doesn't exist
-      tags: state.tags.some(tag => tag.name === invoiceData.packageName) 
-        ? state.tags 
-        : [...state.tags, {
-            id: `tag-${Date.now()}`,
-            name: invoiceData.packageName,
-            color: '#3B82F6', // Default blue color
-            createdAt: new Date().toISOString(),
-            updatedAt: new Date().toISOString(),
-          }]
-    }));
-    
-    // Auto-create a progress step for the package
-    const packageProgressStep: ProgressStep = {
-      id: `step-${Date.now()}-package`,
-      clientId: invoiceData.clientId,
-      title: `${invoiceData.packageName} - Package Setup`,
-      description: `Complete the setup and delivery of ${invoiceData.packageName} package`,
-      deadline: new Date(Date.now() + 60 * 24 * 60 * 60 * 1000).toISOString(), // 60 days from now
-      completed: false,
-      important: true, // Mark package steps as important
-      comments: [],
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString(),
-    };
-    
-    set((state) => ({
-      progressSteps: [...state.progressSteps, packageProgressStep],
-    }));
+            }]
+      }));
+      
+      // Auto-create a progress step for the package
+      const packageProgressStep: ProgressStep = {
+        id: `step-${Date.now()}-package`,
+        clientId: invoiceData.clientId,
+        title: `${invoiceData.packageName} - Package Setup`,
+        description: `Complete the setup and delivery of ${invoiceData.packageName} package`,
+        deadline: new Date(Date.now() + 60 * 24 * 60 * 60 * 1000).toISOString(), // 60 days from now
+        completed: false,
+        important: true, // Mark package steps as important
+        comments: [],
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+      };
+      
+      set((state) => ({
+        progressSteps: [...state.progressSteps, packageProgressStep],
+      }));
+      
+      // Refresh data to ensure sync
+      setTimeout(() => {
+        get().fetchInvoices();
+        get().fetchClients();
+      }, 1000);
+      
+    } catch (error) {
+      console.error('Error adding invoice:', error);
+      // Fallback to local state only
+      const newInvoice: Invoice = {
+        id: `INV-${Date.now()}`,
+        clientId: invoiceData.clientId,
+        packageName: invoiceData.packageName,
+        amount: invoiceData.amount,
+        paid: 0,
+        due: invoiceData.amount,
+        status: 'Pending',
+        createdAt: invoiceData.invoiceDate,
+        updatedAt: new Date().toISOString(),
+      };
+      
+      set((state) => ({
+        invoices: [...state.invoices, newInvoice],
+        clients: state.clients.map((client) =>
+          client.id === invoiceData.clientId
+            ? {
+                ...client,
+                packageName: invoiceData.packageName,
+                totalSales: client.totalSales + invoiceData.amount,
+                balance: client.balance + invoiceData.amount,
+                invoiceCount: client.invoiceCount + 1,
+                tags: client.tags && client.tags.includes(invoiceData.packageName) 
+                  ? client.tags 
+                  : [...(client.tags || []), invoiceData.packageName],
+                updatedAt: new Date().toISOString(),
+              }
+            : client
+        ),
+      }));
+    }
   },
 
   updateInvoice: (id, updates) => {
@@ -746,37 +993,106 @@ export const useAppStore = create<AppState>((set, get) => ({
     return get().invoices.filter((invoice) => invoice.clientId === clientId);
   },
 
-  addPayment: (paymentData) => {
-    const newPayment: Payment = {
-      ...paymentData,
-      id: `PAY-${Date.now()}`,
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString(),
-    };
-    set((state) => ({
-      payments: [...state.payments, newPayment],
-      clients: state.clients.map((client) =>
-        client.id === paymentData.clientId
-          ? {
-              ...client,
-              totalCollection: client.totalCollection + paymentData.amount,
-              balance: Math.max(0, client.balance - paymentData.amount),
-              updatedAt: new Date().toISOString(),
-            }
-          : client
-      ),
-      invoices: state.invoices.map((invoice) =>
-        invoice.id === paymentData.invoiceId
-          ? {
-              ...invoice,
-              paid: invoice.paid + paymentData.amount,
-              due: Math.max(0, invoice.due - paymentData.amount),
-              status: invoice.due - paymentData.amount <= 0 ? 'Paid' : 'Partial',
-              updatedAt: new Date().toISOString(),
-            }
-          : invoice
-      ),
-    }));
+  addPayment: async (paymentData) => {
+    try {
+      // Create payment in database
+      const newDbPayment = await paymentsService.create({
+        client_id: paymentData.clientId,
+        invoice_id: paymentData.invoiceId,
+        amount: paymentData.amount,
+        payment_source: paymentData.paymentSource,
+        status: (paymentData.status || 'Paid') as 'Paid' | 'Pending' | 'Failed' | 'Refunded',
+        paid_at: paymentData.paidAt || new Date().toISOString()
+      });
+      
+      // Convert to store format
+      const newPayment: Payment = {
+        id: newDbPayment.id,
+        clientId: newDbPayment.client_id,
+        invoiceId: newDbPayment.invoice_id,
+        amount: newDbPayment.amount,
+        paymentSource: newDbPayment.payment_source,
+        status: newDbPayment.status,
+        paidAt: newDbPayment.paid_at,
+        receiptFileUrl: newDbPayment.receipt_file_url,
+        createdAt: newDbPayment.created_at,
+        updatedAt: newDbPayment.updated_at,
+      };
+      
+      // Update local state
+      set((state) => ({
+        payments: [...state.payments, newPayment],
+        clients: state.clients.map((client) =>
+          client.id === paymentData.clientId
+            ? {
+                ...client,
+                totalCollection: client.totalCollection + paymentData.amount,
+                balance: Math.max(0, client.balance - paymentData.amount),
+                updatedAt: new Date().toISOString(),
+              }
+            : client
+        ),
+        invoices: state.invoices.map((invoice) =>
+          invoice.id === paymentData.invoiceId
+            ? {
+                ...invoice,
+                paid: invoice.paid + paymentData.amount,
+                due: Math.max(0, invoice.due - paymentData.amount),
+                status: invoice.due - paymentData.amount <= 0 ? 'Paid' : 'Partial',
+                updatedAt: new Date().toISOString(),
+              }
+            : invoice
+        ),
+      }));
+      
+      // Refresh data to ensure sync
+      setTimeout(() => {
+        get().fetchPayments();
+        get().fetchInvoices();
+        get().fetchClients();
+      }, 1000);
+      
+    } catch (error) {
+      console.error('Error adding payment:', error);
+      // Fallback to local state only
+      const newPayment: Payment = {
+        id: `PAY-${Date.now()}`,
+        clientId: paymentData.clientId,
+        invoiceId: paymentData.invoiceId,
+        amount: paymentData.amount,
+        paymentSource: paymentData.paymentSource,
+        status: paymentData.status || 'Paid',
+        paidAt: paymentData.paidAt || new Date().toISOString(),
+        receiptFileUrl: paymentData.receiptFileUrl,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+      };
+      
+      set((state) => ({
+        payments: [...state.payments, newPayment],
+        clients: state.clients.map((client) =>
+          client.id === paymentData.clientId
+            ? {
+                ...client,
+                totalCollection: client.totalCollection + paymentData.amount,
+                balance: Math.max(0, client.balance - paymentData.amount),
+                updatedAt: new Date().toISOString(),
+              }
+            : client
+        ),
+        invoices: state.invoices.map((invoice) =>
+          invoice.id === paymentData.invoiceId
+            ? {
+                ...invoice,
+                paid: invoice.paid + paymentData.amount,
+                due: Math.max(0, invoice.due - paymentData.amount),
+                status: invoice.due - paymentData.amount <= 0 ? 'Paid' : 'Partial',
+                updatedAt: new Date().toISOString(),
+              }
+            : invoice
+        ),
+      }));
+    }
   },
 
   updatePayment: (id, updates) => {
@@ -1066,32 +1382,93 @@ export const useAppStore = create<AppState>((set, get) => ({
     }));
   },
 
-  addUser: (userData) => {
-    const newUser: User = {
-      ...userData,
-      id: `user-${Date.now()}`,
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString(),
-    };
-    set((state) => ({
-      users: [...state.users, newUser],
-    }));
+  addUser: async (userData) => {
+    try {
+      // Map store User format to DatabaseUser format
+      const dbUserData = {
+        name: userData.name,
+        email: userData.email,
+        role: userData.role as 'Super Admin' | 'Team' | 'Client Admin' | 'Client Team',
+        status: userData.status as 'Active' | 'Inactive',
+        client_id: userData.clientId,
+        permissions: userData.permissions,
+        password: (userData as any).dashboardAccess?.password || (userData as any).portalAccess?.password || 'defaultpass123'
+      };
+      
+      const newDbUser = await usersService.create(dbUserData);
+      
+      // Map back to store format
+      const newUser: User = {
+        id: newDbUser.id,
+        name: newDbUser.name,
+        email: newDbUser.email,
+        role: newDbUser.role,
+        status: newDbUser.status,
+        lastLogin: newDbUser.last_login || '',
+        clientId: newDbUser.client_id,
+        permissions: newDbUser.permissions,
+        createdAt: newDbUser.created_at,
+        updatedAt: newDbUser.updated_at
+      };
+      
+      set((state) => ({
+        users: [...state.users, newUser],
+      }));
+    } catch (error) {
+      console.error('Error adding user:', error);
+      throw error;
+    }
   },
 
-  updateUser: (id, updates) => {
-    set((state) => ({
-      users: state.users.map((user) =>
-        user.id === id
-          ? { ...user, ...updates, updatedAt: new Date().toISOString() }
-          : user
-      ),
-    }));
+  updateUser: async (id, updates) => {
+    try {
+      // Map store updates to database format
+      const dbUpdates = {
+        name: updates.name,
+        email: updates.email,
+        role: updates.role as 'Super Admin' | 'Team' | 'Client Admin' | 'Client Team' | undefined,
+        status: updates.status as 'Active' | 'Inactive' | undefined,
+        client_id: updates.clientId,
+        permissions: updates.permissions
+      };
+      
+      const updatedDbUser = await usersService.update(id, dbUpdates);
+      
+      // Map back to store format and update state
+      const updatedUser = {
+        id: updatedDbUser.id,
+        name: updatedDbUser.name,
+        email: updatedDbUser.email,
+        role: updatedDbUser.role,
+        status: updatedDbUser.status,
+        lastLogin: updatedDbUser.last_login || '',
+        clientId: updatedDbUser.client_id,
+        permissions: updatedDbUser.permissions,
+        createdAt: updatedDbUser.created_at,
+        updatedAt: updatedDbUser.updated_at
+      };
+      
+      set((state) => ({
+        users: state.users.map((user) =>
+          user.id === id ? updatedUser : user
+        ),
+      }));
+    } catch (error) {
+      console.error('Error updating user:', error);
+      throw error;
+    }
   },
 
-  deleteUser: (id) => {
-    set((state) => ({
-      users: state.users.filter((user) => user.id !== id),
-    }));
+  deleteUser: async (id) => {
+    try {
+      await usersService.delete(id);
+      set((state) => ({
+        users: state.users.filter((user) => user.id !== id),
+      }));
+    } catch (error) {
+      console.error('Error deleting user:', error);
+      throw error;
+    }
   },
 
   copyComponentsToProgressSteps: (clientId) => {
@@ -1153,14 +1530,23 @@ export const useAppStore = create<AppState>((set, get) => ({
   },
 
   getTotalSales: () => {
-    return get().clients.reduce((total, client) => total + client.totalSales, 0);
+    return get().clients.reduce((total, client) => {
+      const clientSales = Number(client.totalSales) || 0;
+      return total + clientSales;
+    }, 0);
   },
 
   getTotalCollection: () => {
-    return get().clients.reduce((total, client) => total + client.totalCollection, 0);
+    return get().clients.reduce((total, client) => {
+      const clientCollection = Number(client.totalCollection) || 0;
+      return total + clientCollection;
+    }, 0);
   },
 
   getTotalBalance: () => {
-    return get().clients.reduce((total, client) => total + client.balance, 0);
+    return get().clients.reduce((total, client) => {
+      const clientBalance = Number(client.balance) || 0;
+      return total + clientBalance;
+    }, 0);
   },
 }));

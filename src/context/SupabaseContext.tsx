@@ -1,4 +1,14 @@
 import React, { createContext, useContext, useEffect, useState, ReactNode } from 'react';
+import { neon } from '@neondatabase/serverless';
+
+// Initialize Neon client with fallback
+const neonConnectionString = import.meta.env.VITE_NEON_DATABASE_URL;
+const isDatabaseAvailable = neonConnectionString && neonConnectionString.length > 0;
+
+// Only initialize Neon client if database URL is available
+export const sql = isDatabaseAvailable ? neon(neonConnectionString, {
+  disableWarningInBrowsers: true // Disable browser warning
+}) : null;
 
 export interface AuthUser {
   id: string;
@@ -9,10 +19,11 @@ export interface AuthUser {
   permissions: string[];
 }
 
-interface SupabaseContextType {
+interface DatabaseContextType {
   user: AuthUser | null;
   loading: boolean;
   isAuthenticated: boolean;
+  isDatabaseConnected: boolean;
   signIn: (email: string, password: string) => Promise<{ data: any; error: any }>;
   signOut: () => Promise<{ error: any }>;
   signUp: (email: string, password: string, userData: {
@@ -24,37 +35,32 @@ interface SupabaseContextType {
   setDemoUser: (demoUser: AuthUser) => void;
 }
 
-const SupabaseContext = createContext<SupabaseContextType | undefined>(undefined);
+const DatabaseContext = createContext<DatabaseContextType | undefined>(undefined);
 
-interface SupabaseProviderProps {
+interface DatabaseProviderProps {
   children: ReactNode;
 }
 
-export const SupabaseProvider: React.FC<SupabaseProviderProps> = ({ children }) => {
+export const DatabaseProvider: React.FC<DatabaseProviderProps> = ({ children }) => {
   const [user, setUser] = useState<AuthUser | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     let mounted = true;
     const demoUser = localStorage.getItem('demoUser');
-    console.log('SupabaseProvider: useEffect - demoUser from localStorage:', demoUser);
     if (demoUser) {
       try {
         const parsedUser = JSON.parse(demoUser);
         if (mounted) {
           setUser(parsedUser);
-          console.log('SupabaseProvider: User restored from localStorage:', parsedUser);
         }
       } catch (error) {
-        console.error('Error parsing demo user from localStorage:', error);
         localStorage.removeItem('demoUser');
       }
     }
     if (mounted) {
       setLoading(false);
-      console.log('SupabaseProvider: Initial load complete. User:', user, 'Loading:', false);
     }
-
     return () => {
       mounted = false;
     };
@@ -62,77 +68,66 @@ export const SupabaseProvider: React.FC<SupabaseProviderProps> = ({ children }) 
 
   const signIn = async (email: string, password: string) => {
     setLoading(true);
-    console.log('SupabaseProvider: signIn called with email:', email);
-    try {
-      // Simulate API call delay
-      await new Promise(resolve => setTimeout(resolve, 500));
-
-      // Hardcoded demo credentials
-      if (email === 'admin@sentra.com' && password === 'password123') {
-        const mockUser: AuthUser = {
-          id: 'admin-user-id',
-          email: 'admin@sentra.com',
-          name: 'Admin User',
-          role: 'Super Admin',
-          permissions: ['all']
-        };
-        localStorage.setItem('demoUser', JSON.stringify(mockUser));
-        setUser(mockUser);
-        console.log('SupabaseProvider: Admin user set to', mockUser);
-        return { data: { user: mockUser }, error: null };
-      } else if (email === 'client@sentra.com' && password === 'password123') {
-        const mockUser: AuthUser = {
-          id: 'client-user-id',
-          email: 'client@sentra.com',
-          name: 'Nik Salwani Bt.Nik Ab Rahman',
-          role: 'Client Admin',
-          clientId: 1,
-          permissions: ['client_dashboard', 'client_profile', 'client_messages']
-        };
-        localStorage.setItem('demoUser', JSON.stringify(mockUser));
-        setUser(mockUser);
-        console.log('SupabaseProvider: Client user set to', mockUser);
-        return { data: { user: mockUser }, error: null };
-      } else if (email === 'team@sentra.com' && password === 'password123') {
-        const mockUser: AuthUser = {
-          id: 'team-user-id',
-          email: 'team@sentra.com',
-          name: 'Team Member',
-          role: 'Team',
-          permissions: ['clients', 'calendar', 'chat', 'reports', 'dashboard']
-        };
-        localStorage.setItem('demoUser', JSON.stringify(mockUser));
-        setUser(mockUser);
-        console.log('SupabaseProvider: Team user set to', mockUser);
-        return { data: { user: mockUser }, error: null };
-      } else {
-        console.log('SupabaseProvider: Invalid credentials provided');
-        throw new Error('Invalid credentials');
-      }
-    } catch (error: any) {
-      console.log('SupabaseProvider: signIn error:', error);
-      return { data: null, error: { message: error.message || 'Sign in failed' } };
-    } finally {
+    
+    // Mock authentication for Super Admin
+    if (email === 'superadmin@sentra.com' && password === 'password123') {
+      const mockUser: AuthUser = {
+        id: '1',
+        email: 'superadmin@sentra.com',
+        name: 'Super Admin',
+        role: 'Super Admin',
+        permissions: ['all']
+      };
+      
+      setUser(mockUser);
+      localStorage.setItem('demoUser', JSON.stringify(mockUser));
       setLoading(false);
-      console.log('SupabaseProvider: signIn completed, loading set to false');
+      return { data: { user: mockUser }, error: null };
     }
+
+    // Try database authentication if available
+    if (isDatabaseAvailable && sql) {
+      try {
+        const result = await sql`
+          SELECT id, email, name, role, client_id, permissions 
+          FROM users 
+          WHERE email = ${email} 
+          AND password = crypt(${password}, password)
+          AND status = 'Active'
+          LIMIT 1
+        `;
+        
+        if (result.length > 0) {
+          const dbUser = result[0];
+          const authUser: AuthUser = {
+            id: dbUser.id,
+            email: dbUser.email,
+            name: dbUser.name,
+            role: dbUser.role,
+            clientId: dbUser.client_id,
+            permissions: dbUser.permissions || []
+          };
+          
+          setUser(authUser);
+          localStorage.setItem('demoUser', JSON.stringify(authUser));
+          setLoading(false);
+          return { data: { user: authUser }, error: null };
+        }
+      } catch (error) {
+        // Database error - fallback to mock data
+        console.warn('Database connection failed, using mock data');
+      }
+    }
+
+    // Invalid credentials
+    setLoading(false);
+    return { data: null, error: { message: 'Invalid credentials' } };
   };
 
   const signOut = async () => {
-    setLoading(true);
-    console.log('SupabaseProvider: signOut called');
-    try {
-      // Simulate API call delay
-      await new Promise(resolve => setTimeout(resolve, 300));
-      localStorage.removeItem('demoUser');
-      setUser(null);
-      console.log('SupabaseProvider: User signed out, set to null');
-      return { error: null };
-    } catch (error: any) {
-      return { error: { message: error.message || 'Sign out failed' } };
-    } finally {
-      setLoading(false);
-    }
+    setUser(null);
+    localStorage.removeItem('demoUser');
+    return { error: null };
   };
 
   const signUp = async (email: string, password: string, userData: {
@@ -142,36 +137,60 @@ export const SupabaseProvider: React.FC<SupabaseProviderProps> = ({ children }) 
     permissions: string[];
   }) => {
     setLoading(true);
-    try {
-      // Simulate API call delay
-      await new Promise(resolve => setTimeout(resolve, 500));
-      // In a real app, you'd store this user data. For this local setup, we just mock success.
-      console.log('Mock signUp successful for:', email, userData);
-      return { data: { user: { id: 'mock-id', email } }, error: null };
-    } catch (error: any) {
-      return { data: null, error: { message: error.message || 'Sign up failed' } };
-    } finally {
-      setLoading(false);
+    
+    if (isDatabaseAvailable && sql) {
+      try {
+        const result = await sql`
+          INSERT INTO users (email, password, name, role, client_id, permissions, status, created_at, updated_at)
+          VALUES (
+            ${email}, 
+            crypt(${password}, gen_salt('bf')), 
+            ${userData.name}, 
+            ${userData.role}, 
+            ${userData.clientId || null}, 
+            ${userData.permissions}, 
+            'active', 
+            NOW(), 
+            NOW()
+          )
+          RETURNING id, email, name, role, client_id, permissions
+        `;
+        
+        if (result.length > 0) {
+          const dbUser = result[0];
+          const authUser: AuthUser = {
+            id: dbUser.id,
+            email: dbUser.email,
+            name: dbUser.name,
+            role: dbUser.role,
+            clientId: dbUser.client_id,
+            permissions: dbUser.permissions || []
+          };
+          
+          setLoading(false);
+          return { data: { user: authUser }, error: null };
+        }
+      } catch (error) {
+        setLoading(false);
+        return { data: null, error: { message: 'Failed to create user' } };
+      }
     }
+    
+    // Mock mode - just return success
+    setLoading(false);
+    return { data: { user: userData }, error: null };
   };
 
   const setDemoUser = (demoUser: AuthUser) => {
-    console.log('SupabaseProvider: setDemoUser called with:', demoUser);
-    localStorage.setItem('demoUser', JSON.stringify(demoUser));
     setUser(demoUser);
-    setLoading(false);
-    console.log('SupabaseProvider: Demo user set to', demoUser);
-    console.log('SupabaseProvider: isAuthenticated after setDemoUser:', !!demoUser);
+    localStorage.setItem('demoUser', JSON.stringify(demoUser));
   };
 
-  const isAuthenticated = !!user;
-
-  console.log('SupabaseProvider: Current state - User:', user, 'Loading:', loading, 'isAuthenticated:', isAuthenticated);
-
-  const value = {
+  const value: DatabaseContextType = {
     user,
     loading,
-    isAuthenticated,
+    isAuthenticated: !!user,
+    isDatabaseConnected: isDatabaseAvailable,
     signIn,
     signOut,
     signUp,
@@ -179,16 +198,19 @@ export const SupabaseProvider: React.FC<SupabaseProviderProps> = ({ children }) 
   };
 
   return (
-    <SupabaseContext.Provider value={value}>
+    <DatabaseContext.Provider value={value}>
       {children}
-    </SupabaseContext.Provider>
+    </DatabaseContext.Provider>
   );
 };
 
-export const useSupabase = () => {
-  const context = useContext(SupabaseContext);
+export const useDatabase = () => {
+  const context = useContext(DatabaseContext);
   if (context === undefined) {
-    throw new Error('useSupabase must be used within a SupabaseProvider');
+    throw new Error('useDatabase must be used within a DatabaseProvider');
   }
   return context;
 };
+
+// Legacy exports for backward compatibility
+export const useSupabase = useDatabase;

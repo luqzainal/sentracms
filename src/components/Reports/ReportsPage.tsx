@@ -1,14 +1,272 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Download, Filter, TrendingUp, DollarSign, Users, Calendar, Database, CreditCard, UserX, CheckCircle, Clock, Menu } from 'lucide-react';
-import jsPDF from 'jspdf';
-import html2canvas from 'html2canvas';
 import { useAppStore } from '../../store/AppStore';
+import logoImage from '../../assets/AiChatbot (15).png';
+
+// Lazy load PDF libraries
+const loadPDFLibraries = async () => {
+  const [{ default: jsPDF }, { default: autoTable }] = await Promise.all([
+    import('jspdf'),
+    import('jspdf-autotable')
+  ]);
+  return { jsPDF, autoTable };
+};
 
 interface ReportsPageProps {
-  onToggleSidebar?: () => void;
+  onToggleSidebar: () => void;
 }
 
 const ReportsPage: React.FC<ReportsPageProps> = ({ onToggleSidebar }) => {
+  const [isGeneratingPDF, setIsGeneratingPDF] = useState(false);
+
+  const generatePDFReport = async () => {
+    setIsGeneratingPDF(true);
+    try {
+      const { jsPDF, autoTable } = await loadPDFLibraries();
+      
+      const doc = new jsPDF();
+      const pageWidth = doc.internal.pageSize.width;
+      const pageHeight = doc.internal.pageSize.height;
+      let yPos = 20;
+
+      // Add logo to PDF
+      try {
+        // Convert image to base64 for PDF
+        const img = new Image();
+        img.crossOrigin = 'anonymous';
+        await new Promise((resolve, reject) => {
+          img.onload = resolve;
+          img.onerror = reject;
+          img.src = logoImage;
+        });
+        
+        const canvas = document.createElement('canvas');
+        const ctx = canvas.getContext('2d');
+        canvas.width = img.width;
+        canvas.height = img.height;
+        ctx!.drawImage(img, 0, 0);
+        const logoBase64 = canvas.toDataURL('image/png');
+        
+        // Add logo to PDF (centered, 20x20 size)
+        doc.addImage(logoBase64, 'PNG', (pageWidth - 20) / 2, yPos, 20, 20);
+        yPos += 25;
+      } catch (error) {
+        console.warn('Could not add logo to PDF:', error);
+        yPos += 5; // Small spacing even without logo
+      }
+
+      // Header
+      doc.setFontSize(24);
+      doc.setFont('helvetica', 'bold');
+      doc.text('SENTRA CMS', pageWidth / 2, yPos, { align: 'center' });
+      
+      yPos += 10;
+      doc.setFontSize(16);
+      doc.setFont('helvetica', 'normal');
+      doc.text('Business Performance Report', pageWidth / 2, yPos, { align: 'center' });
+      
+      yPos += 5;
+      doc.setFontSize(12);
+      doc.text(`Generated on: ${new Date().toLocaleDateString('en-MY')}`, pageWidth / 2, yPos, { align: 'center' });
+      
+      // Add line separator
+      yPos += 10;
+      doc.setDrawColor(0, 0, 0);
+      doc.line(20, yPos, pageWidth - 20, yPos);
+      yPos += 15;
+
+      // Executive Summary
+      doc.setFontSize(16);
+      doc.setFont('helvetica', 'bold');
+      doc.text('Executive Summary', 20, yPos);
+      yPos += 10;
+
+      // Key Metrics Table
+      const summaryData = [
+        ['Total Clients', totalClients.toString()],
+        ['Total Sales', formatCurrency(totalSales)],
+        ['Total Collection', formatCurrency(totalCollection)],
+        ['Outstanding Balance', formatCurrency(totalBalance)],
+        ['Collection Rate', `${collectionRate.toFixed(1)}%`],
+        ['Client Completion Rate', `${clientCompletionRate.toFixed(1)}%`],
+        ['Client Dropout Rate', `${dropoutRate.toFixed(1)}%`]
+      ];
+
+      autoTable(doc, {
+        startY: yPos,
+        head: [['Metric', 'Value']],
+        body: summaryData,
+        theme: 'grid',
+        styles: {
+          fontSize: 10,
+          cellPadding: 5,
+        },
+        headStyles: {
+          fillColor: [59, 130, 246], // Blue color
+          textColor: 255,
+          fontSize: 11,
+          fontStyle: 'bold'
+        },
+        alternateRowStyles: {
+          fillColor: [249, 250, 251] // Light gray
+        },
+        margin: { left: 20, right: 20 }
+      });
+
+      yPos = doc.lastAutoTable.finalY + 20;
+
+      // Client Performance Analysis
+      if (yPos > pageHeight - 50) {
+        doc.addPage();
+        yPos = 20;
+      }
+
+      doc.setFontSize(16);
+      doc.setFont('helvetica', 'bold');
+      doc.text('Client Performance Analysis', 20, yPos);
+      yPos += 10;
+
+      // Client details table
+      const clientTableData = filteredClients.map(client => [
+        client.name,
+        client.status,
+        formatCurrency(client.totalSales),
+        formatCurrency(client.totalCollection),
+        formatCurrency(client.balance),
+        `${client.totalSales > 0 ? ((client.totalCollection / client.totalSales) * 100).toFixed(1) : 0}%`
+      ]);
+
+      autoTable(doc, {
+        startY: yPos,
+        head: [['Client Name', 'Status', 'Total Sales', 'Collection', 'Balance', 'Collection Rate']],
+        body: clientTableData,
+        theme: 'grid',
+        styles: {
+          fontSize: 9,
+          cellPadding: 3,
+        },
+        headStyles: {
+          fillColor: [59, 130, 246],
+          textColor: 255,
+          fontSize: 10,
+          fontStyle: 'bold'
+        },
+        alternateRowStyles: {
+          fillColor: [249, 250, 251]
+        },
+        margin: { left: 20, right: 20 },
+        columnStyles: {
+          0: { cellWidth: 40 }, // Client Name
+          1: { cellWidth: 20 }, // Status
+          2: { cellWidth: 30 }, // Total Sales
+          3: { cellWidth: 30 }, // Collection
+          4: { cellWidth: 25 }, // Balance
+          5: { cellWidth: 25 }  // Collection Rate
+        }
+      });
+
+      yPos = doc.lastAutoTable.finalY + 20;
+
+      // Monthly Sales Analysis
+      if (yPos > pageHeight - 50) {
+        doc.addPage();
+        yPos = 20;
+      }
+
+      doc.setFontSize(16);
+      doc.setFont('helvetica', 'bold');
+      doc.text('Monthly Sales Analysis', 20, yPos);
+      yPos += 10;
+
+      const monthlyTableData = monthlyData.map(month => [
+        month.month,
+        month.displayValue,
+        month.sales === 0 ? 'No Activity' : 'Active'
+      ]);
+
+      autoTable(doc, {
+        startY: yPos,
+        head: [['Month', 'Sales Amount', 'Status']],
+        body: monthlyTableData,
+        theme: 'grid',
+        styles: {
+          fontSize: 10,
+          cellPadding: 4,
+        },
+        headStyles: {
+          fillColor: [59, 130, 246],
+          textColor: 255,
+          fontSize: 11,
+          fontStyle: 'bold'
+        },
+        alternateRowStyles: {
+          fillColor: [249, 250, 251]
+        },
+        margin: { left: 20, right: 20 }
+      });
+
+      yPos = doc.lastAutoTable.finalY + 20;
+
+      // Status Distribution
+      if (yPos > pageHeight - 50) {
+        doc.addPage();
+        yPos = 20;
+      }
+
+      doc.setFontSize(16);
+      doc.setFont('helvetica', 'bold');
+      doc.text('Client Status Distribution', 20, yPos);
+      yPos += 10;
+
+      const statusData = [
+        ['Complete', completeClients.length, `${clientCompletionRate.toFixed(1)}%`],
+        ['Pending', filteredClients.filter(c => c.status === 'Pending').length, `${((filteredClients.filter(c => c.status === 'Pending').length / totalClients) * 100).toFixed(1)}%`],
+        ['Inactive', inactiveClients, `${dropoutRate.toFixed(1)}%`]
+      ];
+
+      autoTable(doc, {
+        startY: yPos,
+        head: [['Status', 'Count', 'Percentage']],
+        body: statusData,
+        theme: 'grid',
+        styles: {
+          fontSize: 11,
+          cellPadding: 5,
+        },
+        headStyles: {
+          fillColor: [59, 130, 246],
+          textColor: 255,
+          fontSize: 12,
+          fontStyle: 'bold'
+        },
+        alternateRowStyles: {
+          fillColor: [249, 250, 251]
+        },
+        margin: { left: 20, right: 20 }
+      });
+
+      // Footer on each page
+      const pageCount = (doc.internal as any).getNumberOfPages();
+      for (let i = 1; i <= pageCount; i++) {
+        doc.setPage(i);
+        doc.setFontSize(8);
+        doc.setFont('helvetica', 'normal');
+        doc.text(`Page ${i} of ${pageCount}`, pageWidth / 2, pageHeight - 10, { align: 'center' });
+        doc.text('© 2024 Sentra CMS - Confidential Business Report', pageWidth / 2, pageHeight - 5, { align: 'center' });
+      }
+
+      // Save the PDF
+      const fileName = `Sentra-CMS-Report-${new Date().toISOString().split('T')[0]}.pdf`;
+      doc.save(fileName);
+
+    } catch (error) {
+      console.error('Error generating PDF:', error);
+      alert('Error generating PDF report. Please try again.');
+    } finally {
+      setIsGeneratingPDF(false);
+    }
+  };
+
   const [dateFilter, setDateFilter] = useState('month');
   const [customDateStart, setCustomDateStart] = useState('');
   const [customDateEnd, setCustomDateEnd] = useState('');
@@ -36,9 +294,9 @@ const ReportsPage: React.FC<ReportsPageProps> = ({ onToggleSidebar }) => {
   const filteredClients = getFilteredClients();
 
   // Calculate metrics
-  const totalSales = filteredClients.reduce((sum, client) => sum + client.totalSales, 0);
-  const totalCollection = filteredClients.reduce((sum, client) => sum + client.totalCollection, 0);
-  const totalBalance = filteredClients.reduce((sum, client) => sum + client.balance, 0);
+  const totalSales = filteredClients.reduce((sum, client) => sum + (Number(client.totalSales) || 0), 0);
+  const totalCollection = filteredClients.reduce((sum, client) => sum + (Number(client.totalCollection) || 0), 0);
+  const totalBalance = filteredClients.reduce((sum, client) => sum + (Number(client.balance) || 0), 0);
   const collectionRate = totalSales > 0 ? (totalCollection / totalSales) * 100 : 0;
   
   const totalClients = filteredClients.length;
@@ -50,9 +308,15 @@ const ReportsPage: React.FC<ReportsPageProps> = ({ onToggleSidebar }) => {
   const completeClients = filteredClients.filter(c => c.status === 'Complete');
   const clientCompletionRate = activeClients.length > 0 ? (completeClients.length / activeClients.length) * 100 : 0;
 
+  // Format currency helper function
+  const formatCurrency = (amount: number) => {
+    const validAmount = Number(amount) || 0;
+    return `RM ${validAmount.toLocaleString()}`;
+  };
+
   // Monthly sales data - distribute total sales to January for demonstration
   const monthlyData = [
-    { month: 'January', sales: totalSales, displayValue: `RM ${totalSales.toLocaleString()}` },
+    { month: 'January', sales: totalSales, displayValue: formatCurrency(totalSales) },
     { month: 'February', sales: 0, displayValue: 'RM 0' },
     { month: 'March', sales: 0, displayValue: 'RM 0' },
     { month: 'April', sales: 0, displayValue: 'RM 0' },
@@ -68,19 +332,21 @@ const ReportsPage: React.FC<ReportsPageProps> = ({ onToggleSidebar }) => {
 
   const maxSales = Math.max(...monthlyData.map(d => d.sales));
 
-  const clientPerformanceData = filteredClients.map(client => ({
-    name: client.name,
-    status: client.status,
-    totalSales: client.totalSales,
-    totalCollection: client.totalCollection,
-    balance: client.balance,
-    collectionRate: client.totalSales > 0 ? (client.totalCollection / client.totalSales) * 100 : 0,
-    clientCompletion: client.status === 'Complete' ? 100 : client.status === 'Pending' ? 50 : 0
-  }));
-
-  const formatCurrency = (amount: number) => {
-    return `RM ${amount.toLocaleString()}`;
-  };
+  const clientPerformanceData = filteredClients.map(client => {
+    const clientSales = Number(client.totalSales) || 0;
+    const clientCollection = Number(client.totalCollection) || 0;
+    const clientBalance = Number(client.balance) || 0;
+    
+    return {
+      name: client.name,
+      status: client.status,
+      totalSales: clientSales,
+      totalCollection: clientCollection,
+      balance: clientBalance,
+      collectionRate: clientSales > 0 ? (clientCollection / clientSales) * 100 : 0,
+      clientCompletion: client.status === 'Complete' ? 100 : client.status === 'Pending' ? 50 : 0
+    };
+  });
 
   const getStatusColor = (status: string) => {
     switch (status) {
@@ -92,127 +358,6 @@ const ReportsPage: React.FC<ReportsPageProps> = ({ onToggleSidebar }) => {
         return 'bg-red-100 text-red-800';
       default:
         return 'bg-gray-100 text-gray-800';
-    }
-  };
-
-  const handleExportReport = async () => {
-    try {
-      const reportElement = document.getElementById('report-content');
-      if (!reportElement) return;
-
-      // Create a temporary container for better PDF layout
-      const tempContainer = document.createElement('div');
-      tempContainer.style.position = 'fixed';
-      tempContainer.style.top = '-9999px';
-      tempContainer.style.left = '-9999px';
-      tempContainer.style.width = '1200px'; // Wider for better content fit
-      tempContainer.style.backgroundColor = 'white';
-      tempContainer.style.padding = '20px';
-      tempContainer.style.fontFamily = 'Arial, sans-serif';
-      tempContainer.style.boxSizing = 'border-box';
-      document.body.appendChild(tempContainer);
-
-      // Clone the report content
-      const clonedContent = reportElement.cloneNode(true) as HTMLElement;
-      clonedContent.style.width = '100%';
-      clonedContent.style.maxWidth = 'none';
-      clonedContent.style.fontSize = '12px';
-      clonedContent.style.lineHeight = '1.3';
-      
-      tempContainer.appendChild(clonedContent);
-
-      // Add header to the report
-      const header = document.createElement('div');
-      header.innerHTML = `
-        <div style="margin-bottom: 20px; border-bottom: 2px solid #e2e8f0; padding-bottom: 15px; text-align: center;">
-          <h1 style="font-size: 24px; font-weight: bold; color: #1e293b; margin: 0; line-height: 1.2;">Sentra CMS - Business Reports</h1>
-          <p style="color: #64748b; margin: 8px 0 0 0; font-size: 14px; line-height: 1.3;">Generated on ${new Date().toLocaleDateString('en-MY', {
-            weekday: 'long',
-            year: 'numeric',
-            month: 'long',
-            day: 'numeric'
-          })}</p>
-          <p style="color: #64748b; margin: 5px 0 0 0; font-size: 12px; line-height: 1.3;">
-            ${dateFilter === 'custom' && customDateStart && customDateEnd ? 
-              `Report Period: ${new Date(customDateStart).toLocaleDateString('en-MY')} - ${new Date(customDateEnd).toLocaleDateString('en-MY')}` : 
-              `Report Period: ${dateFilter === 'week' ? 'This Week' : 'This Month'}`
-            }
-          </p>
-        </div>
-      `;
-      tempContainer.insertBefore(header, clonedContent);
-
-      // Generate canvas with proper dimensions
-      const canvas = await html2canvas(tempContainer, {
-        width: 1200,
-        height: tempContainer.scrollHeight + 100, // Add padding
-        scale: 1,
-        useCORS: true,
-        backgroundColor: 'white',
-        logging: false
-      });
-      
-      // Create PDF
-      const pdf = new jsPDF({
-        orientation: 'portrait',
-        unit: 'mm',
-        format: 'a4',
-        compress: false
-      });
-
-      // Calculate dimensions for A4
-      const imgWidth = 210; // A4 width in mm
-      const pageHeight = 297; // A4 height in mm
-      const margin = 15; // 15mm margin
-      const contentWidth = imgWidth - (margin * 2); // 180mm content width
-      const imgHeight = (canvas.height * imgWidth) / canvas.width;
-
-      const contentHeight = pageHeight - (margin * 2); // 267mm content height
-      
-      let heightLeft = imgHeight;
-      let position = 0;
-
-      // First page
-      pdf.addImage(
-        canvas.toDataURL('image/png', 1.0), 
-        'PNG', 
-        margin, 
-        margin, 
-        contentWidth, 
-        Math.min(imgHeight, contentHeight)
-      );
-      
-      heightLeft -= contentHeight;
-      
-      // Add additional pages if needed
-      while (heightLeft > 0) {
-        pdf.addPage();
-        position += contentHeight;
-        
-        pdf.addImage(
-          canvas.toDataURL('image/png', 1.0), 
-          'PNG', 
-          margin, 
-          margin - position, 
-          contentWidth, 
-          imgHeight
-        );
-        
-        heightLeft -= contentHeight;
-      }
-
-      // Generate filename and save
-      const currentDate = new Date().toISOString().split('T')[0];
-      const filename = `sentra-business-report-${currentDate}.pdf`;
-
-      pdf.save(filename);
-
-      // Clean up
-      document.body.removeChild(tempContainer);
-      
-    } catch (error) {
-      console.error('Error exporting report:', error);
-      alert('Error exporting report. Please try again.');
     }
   };
 
@@ -266,11 +411,12 @@ const ReportsPage: React.FC<ReportsPageProps> = ({ onToggleSidebar }) => {
           )}
           
           <button 
-            onClick={handleExportReport}
-            className="bg-blue-600 text-white px-3 lg:px-4 py-2 rounded-lg flex items-center space-x-2 hover:bg-blue-700 transition-colors text-sm lg:text-base"
+            onClick={generatePDFReport}
+            disabled={isGeneratingPDF}
+            className="bg-blue-600 text-white px-3 lg:px-4 py-2 rounded-lg flex items-center space-x-2 hover:bg-blue-700 transition-colors text-sm lg:text-base disabled:opacity-50 disabled:cursor-not-allowed"
           >
             <Download className="w-4 h-4" />
-            <span>Export PDF</span>
+            <span>{isGeneratingPDF ? 'Generating...' : 'Export PDF'}</span>
           </button>
         </div>
       </div>

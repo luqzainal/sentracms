@@ -17,13 +17,15 @@ const Dashboard: React.FC<DashboardProps> = ({ setActiveTab, onToggleSidebar }) 
     clients,
     chats,
     tags,
+    invoices,
     loading,
     fetchClients,
     fetchChats,
     fetchTags,
     getTotalSales, 
     getTotalCollection, 
-    getTotalBalance 
+    getTotalBalance,
+    getUnreadMessagesCount
   } = useAppStore();
 
   useEffect(() => {
@@ -40,30 +42,37 @@ const Dashboard: React.FC<DashboardProps> = ({ setActiveTab, onToggleSidebar }) 
   const totalClients = clients.length;
   const completeClients = clients.filter(c => c.status === 'Complete').length;
 
-  // Get all messages and sort by most recent, then take first 10
-  const allMessages = chats.flatMap(chat => 
-    chat.messages.map(message => ({
-      ...message,
-      client: chat.client,
-      avatar: chat.avatar,
-      chatId: chat.id,
-      isUnread: chat.unread > 0 && message.id === Math.max(...chat.messages.map(m => m.id))
-    }))
-  ).sort((a, b) => {
-    // Simple timestamp sorting - in real app, you'd use proper date comparison
-    const timeA = a.timestamp.includes('AM') || a.timestamp.includes('PM') ? 
-      (a.timestamp.includes('10:') ? 10 : 9) : 0;
-    const timeB = b.timestamp.includes('AM') || b.timestamp.includes('PM') ? 
-      (b.timestamp.includes('10:') ? 10 : 9) : 0;
-    return timeB - timeA;
-  }).slice(0, 10);
+  // Get latest message for each client (unique clients only)
+  const latestMessagesPerClient = chats
+    .filter(chat => chat.messages && chat.messages.length > 0)
+    .map(chat => {
+      const latestMessage = chat.messages.sort((a, b) => 
+        new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+      )[0];
+      
+      return {
+        ...latestMessage,
+        client: chat.client,
+        avatar: chat.avatar,
+        chatId: chat.id,
+        isUnread: chat.unread_count > 0,
+        lastMessageAt: chat.lastMessageAt || latestMessage.created_at
+      };
+    })
+    .sort((a, b) => {
+      // Sort by last message timestamp
+      const timeA = new Date(a.lastMessageAt).getTime();
+      const timeB = new Date(b.lastMessageAt).getTime();
+      return timeB - timeA;
+    })
+    .slice(0, 5); // Show only 5 latest clients
 
-  // Calculate total unread messages
-  const totalUnreadMessages = chats.reduce((total, chat) => total + chat.unread, 0);
+  // Calculate total unread messages using the store function
+  const totalUnreadMessages = getUnreadMessagesCount();
 
   // Monthly sales data - distribute total sales to January for demonstration
   const monthlyData = [
-    { month: 'January', sales: totalSales, displayValue: `RM ${totalSales.toLocaleString()}` },
+    { month: 'January', sales: totalSales, displayValue: `RM ${(Number(totalSales) || 0).toLocaleString()}` },
     { month: 'February', sales: 0, displayValue: 'RM 0' },
     { month: 'March', sales: 0, displayValue: 'RM 0' },
     { month: 'April', sales: 0, displayValue: 'RM 0' },
@@ -76,6 +85,18 @@ const Dashboard: React.FC<DashboardProps> = ({ setActiveTab, onToggleSidebar }) 
     { month: 'November', sales: 0, displayValue: 'RM 0' },
     { month: 'December', sales: 0, displayValue: 'RM 0' },
   ];
+
+  // Filter data based on date range
+  const filteredData = monthlyData.filter(item => {
+    if (dateFilter === 'month') {
+      return item.month === 'January';
+    } else if (dateFilter === 'week') {
+      return item.month === 'January';
+    } else if (dateFilter === 'custom' && customDateStart && customDateEnd) {
+      return item.month === 'January';
+    }
+    return true;
+  });
 
   const maxSales = Math.max(...monthlyData.map(d => d.sales));
 
@@ -95,7 +116,16 @@ const Dashboard: React.FC<DashboardProps> = ({ setActiveTab, onToggleSidebar }) 
   };
 
   const formatCurrency = (amount: number) => {
-    return `RM ${amount.toLocaleString()}`;
+    const validAmount = Number(amount) || 0;
+    return new Intl.NumberFormat('en-MY', {
+      style: 'currency',
+      currency: 'MYR',
+      minimumFractionDigits: 2
+    }).format(validAmount);
+  };
+
+  const formatTime = (timestamp: string) => {
+    return new Date(timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
   };
 
   if (loading.clients || loading.chats) {
@@ -358,47 +388,73 @@ const Dashboard: React.FC<DashboardProps> = ({ setActiveTab, onToggleSidebar }) 
               View All
             </button>
           </div>
-          <div className="space-y-3 lg:space-y-5">
+          <div className="space-y-3 lg:space-y-4">
             {recentClients.map((client) => {
-              const progressPercentage = client.totalSales > 0 ? 
-                Math.round((client.totalCollection / client.totalSales) * 100) : 0;
+              // Calculate project progress based on completion status
+              const projectProgress = client.status === 'Complete' ? 100 
+                : client.status === 'Pending' ? 50 
+                : 0;
+              
+                             // Get client's package from invoices if available
+               const clientInvoices = invoices.filter(inv => inv.clientId === client.id);
+              const packageName = clientInvoices.length > 0 ? clientInvoices[0].packageName : null;
+              
+              // Get progress color based on status
+              const getProgressColor = (status: string) => {
+                switch (status) {
+                  case 'Complete':
+                    return 'bg-green-500';
+                  case 'Pending':
+                    return 'bg-yellow-500';
+                  case 'Inactive':
+                    return 'bg-red-300';
+                  default:
+                    return 'bg-slate-300';
+                }
+              };
               
               return (
-                <div key={client.id} className="flex items-center justify-between p-3 lg:p-4 bg-slate-50 rounded-lg hover:bg-slate-100 transition-colors border border-slate-100">
-                  <div className="flex-1">
-                    <h4 className="font-semibold text-slate-900 text-sm lg:text-base truncate">{client.businessName}</h4>
+                <div key={client.id} className="flex items-center space-x-3 lg:space-x-4 p-3 lg:p-4 bg-slate-50 rounded-lg hover:bg-slate-100 transition-colors border border-slate-100">
+                  {/* Client Avatar */}
+                  <div className="w-8 h-8 lg:w-10 lg:h-10 bg-blue-500 rounded-full flex items-center justify-center text-white text-xs lg:text-sm font-medium flex-shrink-0">
+                    {client.name.split(' ').map(n => n[0]).join('').toUpperCase()}
+                  </div>
+                  
+                  {/* Client Info */}
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center justify-between">
+                      <h4 className="font-semibold text-slate-900 text-sm lg:text-base truncate">{client.name}</h4>
+                      <span className={`px-2 py-1 rounded-full text-xs font-medium ${getStatusColor(client.status)} ml-2`}>
+                        {client.status}
+                      </span>
+                    </div>
                     <p className="text-xs lg:text-sm text-slate-500 truncate">{client.email}</p>
-                    <p className="text-xs text-slate-500 truncate">Package: {client.packageName || 'Not assigned'}</p>
-                    {client.tags && client.tags.length > 0 && (
-                      <div className="flex flex-wrap gap-1 mt-1">
-                        {client.tags.slice(0, 2).map((tag, index) => (
-                          <span key={index} className="px-1.5 py-0.5 bg-blue-100 text-blue-700 text-xs rounded-full">
-                            {tag}
-                          </span>
-                        ))}
-                        {client.tags.length > 2 && (
-                          <span className="text-xs text-slate-500">+{client.tags.length - 2}</span>
-                        )}
-                      </div>
+                    {packageName && (
+                      <p className="text-xs text-blue-600 font-medium truncate">Package: {packageName}</p>
                     )}
                   </div>
-                  <div className="flex items-center space-x-2 lg:space-x-3 ml-2">
-                    <div className="flex items-center space-x-2 lg:space-x-3">
-                      <div className="w-12 lg:w-20 bg-slate-200 rounded-full h-2">
-                        <div
-                          className="bg-slate-600 h-2 rounded-full transition-all duration-300"
-                          style={{ width: `${progressPercentage}%` }}
-                        />
-                      </div>
-                      <span className="text-xs font-medium text-slate-600 w-6 lg:w-8">{progressPercentage}%</span>
+                  
+                  {/* Progress */}
+                  <div className="flex items-center space-x-2 lg:space-x-3">
+                    <div className="w-16 lg:w-20 bg-slate-200 rounded-full h-2">
+                      <div
+                        className={`h-2 rounded-full transition-all duration-300 ${getProgressColor(client.status)}`}
+                        style={{ width: `${projectProgress}%` }}
+                      />
                     </div>
-                    <span className={`px-2 lg:px-3 py-1 rounded-full text-xs font-medium ${getStatusColor(client.status)} hidden sm:inline`}>
-                      {client.status}
-                    </span>
+                    <span className="text-xs font-medium text-slate-600 w-8">{projectProgress}%</span>
                   </div>
                 </div>
               );
             })}
+            
+            {recentClients.length === 0 && (
+              <div className="text-center py-6 lg:py-8">
+                <Users className="w-8 h-8 lg:w-12 lg:h-12 text-slate-400 mx-auto mb-2 lg:mb-3" />
+                <p className="text-slate-500 text-sm">No clients yet</p>
+                <p className="text-slate-400 text-xs">Add clients to start managing projects</p>
+              </div>
+            )}
           </div>
         </div>
 
@@ -409,7 +465,7 @@ const Dashboard: React.FC<DashboardProps> = ({ setActiveTab, onToggleSidebar }) 
               <div className="bg-slate-100 rounded-lg p-1.5 lg:p-2">
                 <MessageSquare className="w-5 h-5 text-slate-600" />
               </div>
-              <h3 className="text-base lg:text-lg font-semibold text-slate-900">Latest Messages</h3>
+              <h3 className="text-base lg:text-lg font-semibold text-slate-900">Latest Client Messages</h3>
               {totalUnreadMessages > 0 && (
                 <span className="bg-red-500 text-white text-xs px-1.5 lg:px-2 py-1 rounded-full font-medium">
                   {totalUnreadMessages}
@@ -424,35 +480,40 @@ const Dashboard: React.FC<DashboardProps> = ({ setActiveTab, onToggleSidebar }) 
             </button>
           </div>
           <div className="space-y-3 lg:space-y-4 max-h-60 lg:max-h-80 overflow-y-auto">
-            {allMessages.map((message, index) => (
+                            {latestMessagesPerClient.map((message, index) => (
               <div key={`${message.chatId}-${message.id}`} className={`p-3 lg:p-4 rounded-lg border transition-colors ${
-                message.isUnread ? 'bg-slate-50 border-slate-300' : 'bg-slate-25 border-slate-200'
+                message.isUnread ? 'bg-blue-50 border-blue-200' : 'bg-slate-50 border-slate-200'
               }`}>
                 <div className="flex items-start space-x-2 lg:space-x-3">
-                  <div className="w-6 h-6 lg:w-8 lg:h-8 bg-slate-600 rounded-full flex items-center justify-center text-white text-xs font-medium flex-shrink-0">
-                    {message.avatar}
+                  <div className="w-6 h-6 lg:w-8 lg:h-8 bg-blue-500 rounded-full flex items-center justify-center text-white text-xs font-medium flex-shrink-0">
+                    {message.client.split(' ').map(n => n[0]).join('').toUpperCase()}
                   </div>
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center justify-between mb-1 gap-2">
                       <h4 className="text-xs lg:text-sm font-semibold text-slate-900 truncate">{message.client}</h4>
                       <div className="flex items-center space-x-1">
                         <Clock className="w-3 h-3 text-slate-400 flex-shrink-0" />
-                        <span className="text-xs text-slate-500 whitespace-nowrap">{message.timestamp}</span>
+                        <span className="text-xs text-slate-500 whitespace-nowrap">{formatTime(message.created_at)}</span>
                       </div>
                     </div>
-                    <p className="text-xs lg:text-sm text-slate-600 line-clamp-2">{message.content}</p>
-                    {message.isUnread && (
-                      <div className="mt-1">
-                        <span className="inline-flex items-center px-1.5 lg:px-2 py-1 rounded-full text-xs font-medium bg-red-50 text-red-700 border border-red-200">
-                          Unread
+                    <p className="text-xs lg:text-sm text-slate-600 line-clamp-1">
+                      {message.content.length > 50 ? message.content.substring(0, 50) + '...' : message.content}
+                    </p>
+                    <div className="flex items-center justify-between mt-2">
+                      <span className="text-xs text-slate-500">
+                        {message.sender === 'admin' ? 'Team replied' : 'Client sent message'}
+                      </span>
+                      {message.isUnread && (
+                        <span className="inline-flex items-center px-1.5 py-0.5 rounded-full text-xs font-medium bg-blue-50 text-blue-700 border border-blue-200">
+                          New
                         </span>
-                      </div>
-                    )}
+                      )}
+                    </div>
                   </div>
                 </div>
               </div>
             ))}
-            {allMessages.length === 0 && (
+                            {latestMessagesPerClient.length === 0 && (
               <div className="text-center py-6 lg:py-8">
                 <MessageSquare className="w-8 h-8 lg:w-12 lg:h-12 text-slate-400 mx-auto mb-2 lg:mb-3" />
                 <p className="text-slate-500 text-sm">No messages yet</p>

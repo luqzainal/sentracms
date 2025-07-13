@@ -1,113 +1,138 @@
-import React, { useState, useEffect } from 'react';
-import { useSupabase } from './context/SupabaseContext';
-import Login from './components/Auth/Login';
+import React, { Suspense, useState, useEffect } from 'react';
+import { useAppStore } from './store/AppStore';
 import Sidebar from './components/Layout/Sidebar';
-import Dashboard from './components/Dashboard/Dashboard';
-import ClientsPage from './components/Clients/ClientsPage';
-import CalendarPage from './components/Calendar/CalendarPage';
-import ChatPage from './components/Chat/ChatPage';
-import ReportsPage from './components/Reports/ReportsPage';
-import SettingsPage from './components/Settings/SettingsPage';
-import ClientDashboard from './components/ClientPortal/ClientDashboard';
+import { DatabaseProvider } from './context/SupabaseContext';
+
+// Lazy load components
+const Login = React.lazy(() => import('./components/Auth/Login'));
+const Dashboard = React.lazy(() => import('./components/Dashboard/Dashboard'));
+const ClientsPage = React.lazy(() => import('./components/Clients/ClientsPage'));
+const ClientProfile = React.lazy(() => import('./components/Clients/ClientProfile'));
+const PaymentsPage = React.lazy(() => import('./components/Payments/PaymentsPage'));
+const CalendarPage = React.lazy(() => import('./components/Calendar/CalendarPage'));
+const ChatPage = React.lazy(() => import('./components/Chat/ChatPage'));
+const ReportsPage = React.lazy(() => import('./components/Reports/ReportsPage'));
+const SettingsPage = React.lazy(() => import('./components/Settings/SettingsPage'));
+const ClientPortalDashboard = React.lazy(() => import('./components/ClientPortal/ClientPortalDashboard'));
+
+// Loading component
+const LoadingSpinner = () => (
+  <div className="min-h-screen flex items-center justify-center">
+    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+  </div>
+);
 
 function App() {
-  const { user, loading, signOut, isAuthenticated } = useSupabase();
-  console.log('App.tsx: Component rendered. Loading:', loading, 'isAuthenticated:', isAuthenticated, 'User:', user);
-  
-  const [activeTab, setActiveTab] = useState('dashboard');
-  const [sidebarOpen, setSidebarOpen] = useState(false);
+  const { user, activeTab, selectedClient, setActiveTab, setUser, setSelectedClient } = useAppStore();
+  const [sidebarOpen, setSidebarOpen] = useState(() => {
+    // Default to open on desktop (lg breakpoint is 1024px), closed on mobile
+    if (typeof window !== 'undefined') {
+      return window.innerWidth >= 1024;
+    }
+    return false;
+  });
 
-  // Add a useEffect to explicitly log when isAuthenticated changes
+  // Handle window resize to adjust sidebar state
   useEffect(() => {
-    console.log(`App.tsx: useEffect triggered - isAuthenticated: ${isAuthenticated}, User: ${user ? user.email : 'null'}`);
-  }, [isAuthenticated, user]);
+    const handleResize = () => {
+      const isDesktop = window.innerWidth >= 1024;
+      setSidebarOpen(isDesktop);
+    };
 
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
 
   const handleLogout = () => {
-    signOut();
+    setUser(null);
     setActiveTab('dashboard');
-    setSidebarOpen(false);
+    setSelectedClient(null);
   };
 
-  const toggleSidebar = () => {
+  if (!user) {
+    return (
+      <DatabaseProvider>
+        <Suspense fallback={<LoadingSpinner />}>
+          <Login />
+        </Suspense>
+      </DatabaseProvider>
+    );
+  }
+
+  if (user.role === 'Client Admin' || user.role === 'Client Team') {
+    return (
+      <DatabaseProvider>
+        <Suspense fallback={<LoadingSpinner />}>
+          <ClientPortalDashboard user={user} onBack={handleLogout} />
+        </Suspense>
+      </DatabaseProvider>
+    );
+  }
+
+  const handleToggleSidebar = () => {
     setSidebarOpen(!sidebarOpen);
   };
 
   const renderContent = () => {
-    // If user is Client Admin or Client Team, show client dashboard
-    if (user && (user.role === 'Client Admin' || user.role === 'Client Team')) {
-      return (
-        <ClientDashboard
-          user={user}
-          onBack={handleLogout}
-        />
-      );
-    }
+    const content = (() => {
+      switch (activeTab) {
+        case 'dashboard':
+          return <Dashboard setActiveTab={setActiveTab} onToggleSidebar={handleToggleSidebar} />;
+        case 'clients':
+          return <ClientsPage setActiveTab={setActiveTab} onToggleSidebar={handleToggleSidebar} />;
+                  case 'client-profile':
+            return selectedClient ? (
+              <ClientProfile 
+                clientId={selectedClient.id.toString()} 
+                onBack={() => setActiveTab('clients')}
+                onEdit={() => {}} // Can be implemented later
+              />
+            ) : <ClientsPage setActiveTab={setActiveTab} onToggleSidebar={handleToggleSidebar} />;
+        case 'payments':
+          return <PaymentsPage />;
+        case 'calendar':
+          return <CalendarPage onToggleSidebar={handleToggleSidebar} />;
+        case 'chat':
+          return <ChatPage onToggleSidebar={handleToggleSidebar} />;
+        case 'reports':
+          return <ReportsPage onToggleSidebar={handleToggleSidebar} />;
+        case 'settings':
+          return <SettingsPage onToggleSidebar={handleToggleSidebar} />;
+        default:
+          return <Dashboard setActiveTab={setActiveTab} onToggleSidebar={handleToggleSidebar} />;
+      }
+    })();
 
-    // Otherwise show admin/team dashboard with sidebar
-    switch (activeTab) {
-      case 'dashboard':
-        return <Dashboard setActiveTab={setActiveTab} onToggleSidebar={toggleSidebar} />;
-      case 'clients':
-        return <ClientsPage setActiveTab={setActiveTab} onToggleSidebar={toggleSidebar} />;
-      case 'calendar':
-        return <CalendarPage onToggleSidebar={toggleSidebar} />;
-      case 'chat':
-        return <ChatPage onToggleSidebar={toggleSidebar} />;
-      case 'reports':
-        return <ReportsPage onToggleSidebar={toggleSidebar} />;
-      case 'settings':
-        return <SettingsPage onToggleSidebar={toggleSidebar} />;
-      default:
-        return <Dashboard setActiveTab={setActiveTab} onToggleSidebar={toggleSidebar} />;
-    }
+    return (
+      <Suspense fallback={<LoadingSpinner />}>
+        {content}
+      </Suspense>
+    );
   };
 
-  if (loading) {
-    console.log('App.tsx: Loading state is true, showing loading spinner.');
-    return (
-      <div className="min-h-screen bg-slate-100 flex items-center justify-center">
-        <div className="text-center">
-          <div className="w-16 h-16 border-4 border-blue-600 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
-          <p className="text-slate-600">Loading application...</p>
-          <p className="text-slate-500 text-sm mt-2">If this takes too long, please refresh the page</p>
+  return (
+    <DatabaseProvider>
+      <div className="flex h-screen bg-gray-100">
+        {/* Backdrop overlay for mobile */}
+        {sidebarOpen && (
+          <div 
+            className="fixed inset-0 bg-black bg-opacity-50 z-40 lg:hidden"
+            onClick={handleToggleSidebar}
+          />
+        )}
+        
+        <Sidebar 
+          activeTab={activeTab} 
+          setActiveTab={setActiveTab} 
+          onLogout={handleLogout}
+          isOpen={sidebarOpen}
+          onToggle={handleToggleSidebar}
+        />
+        <div className="flex-1 overflow-auto">
+          {renderContent()}
         </div>
       </div>
-    );
-  }
-  // This is the critical part. If isAuthenticated is false, it should render Login.
-  // If it becomes true, it should proceed to render the main app content.
-  if (!isAuthenticated) {
-    console.log('App.tsx: isAuthenticated is false, rendering Login component.');
-    return <Login />;
-  }
-
-  
-  // If user is Client Admin or Client Team, show only the client dashboard (no sidebar)
-  if (user && (user.role === 'Client Admin' || user.role === 'Client Team')) {
-    console.log('App.tsx: Rendering Client Dashboard for client user.');
-    return (
-      <div className="min-h-screen bg-slate-100">
-        {renderContent()}
-      </div>
-    );
-  }
-
-  // For Super Admin and Team users, show the full dashboard with sidebar
-  console.log('App.tsx: Rendering main dashboard for admin/team user.');
-  return (
-    <div className="flex h-screen bg-slate-100 overflow-hidden">
-      <Sidebar 
-        activeTab={activeTab} 
-        setActiveTab={setActiveTab} 
-        onLogout={handleLogout}
-        isOpen={sidebarOpen}
-        onToggle={toggleSidebar}
-      />
-      <main className="flex-1 overflow-y-auto lg:ml-0">
-        {renderContent()}
-      </main>
-    </div>
+    </DatabaseProvider>
   );
 }
 

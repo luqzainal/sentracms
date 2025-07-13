@@ -86,25 +86,33 @@ const ClientProfile: React.FC<ClientProfileProps> = ({ clientId, onBack, onEdit 
   const packageNames = clientInvoices.map(invoice => invoice.packageName).filter(Boolean);
   const displayPackageName = packageNames.length > 0 ? packageNames.join(', ') : 'No package assigned yet';
 
-  const handleSaveInvoice = (invoiceData: Partial<Invoice>) => {
-    addInvoice({
-      clientId: client.id,
-      packageName: invoiceData.packageName || '',
-      amount: invoiceData.amount || 0,
-      invoiceDate: invoiceData.invoiceDate || new Date().toISOString()
-    });
-    setShowInvoiceModal(false);
+  const handleSaveInvoice = async (invoiceData: Partial<Invoice>) => {
+    try {
+      await addInvoice({
+        clientId: client.id,
+        packageName: invoiceData.packageName || '',
+        amount: invoiceData.amount || 0,
+        invoiceDate: invoiceData.invoiceDate || new Date().toISOString()
+      });
+      setShowInvoiceModal(false);
+    } catch (error) {
+      console.error('Error saving invoice:', error);
+    }
   };
 
-  const handleSavePayment = (paymentData: Partial<Payment>) => {
+  const handleSavePayment = async (paymentData: Partial<Payment>) => {
     if (selectedInvoiceForPayment) {
-      addPayment({
-        ...paymentData,
-        clientId: client.id,
-        invoiceId: selectedInvoiceForPayment.id,
-      } as Payment);
-      setShowPaymentModal(false);
-      setSelectedInvoiceForPayment(null);
+      try {
+        await addPayment({
+          ...paymentData,
+          clientId: client.id,
+          invoiceId: selectedInvoiceForPayment.id,
+        } as Payment);
+        setShowPaymentModal(false);
+        setSelectedInvoiceForPayment(null);
+      } catch (error) {
+        console.error('Error saving payment:', error);
+      }
     }
   };
 

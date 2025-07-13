@@ -2,12 +2,12 @@ import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
 import App from './App.tsx';
 import './index.css';
-import { SupabaseProvider } from './context/SupabaseContext';
+import { DatabaseProvider } from './context/SupabaseContext';
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
-    <SupabaseProvider>
+    <DatabaseProvider>
       <App />
-    </SupabaseProvider>
+    </DatabaseProvider>
   </StrictMode>
 );
