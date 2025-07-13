@@ -3,7 +3,7 @@ services:
 - name: web
   source_dir: /
   github:
-    repo: your-username/sentracms
+    repo: luqzainal/sentracms
     branch: main
     deploy_on_push: true
   build_command: npm run build
@@ -14,13 +14,15 @@ services:
   http_port: 8080
   health_check:
     http_path: /
-    initial_delay_seconds: 10
-    period_seconds: 10
-    timeout_seconds: 5
+    initial_delay_seconds: 30
+    period_seconds: 30
+    timeout_seconds: 10
     success_threshold: 1
     failure_threshold: 3
   routes:
   - path: /
   env:
   - key: NODE_ENV
-    value: "production" 
+    value: "production"
+  - key: PORT
+    value: "8080" 
