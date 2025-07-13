@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { useEffect } from 'react';
 import { Users, DollarSign, TrendingUp, Calendar, MessageSquare, UserPlus, Filter, Database, CreditCard, Clock, BarChart3, Activity, Menu } from 'lucide-react';
 import { useAppStore } from '../../store/AppStore';
+import { dbConnectionStatus } from '../../context/SupabaseContext';
 
 interface DashboardProps {
   setActiveTab?: (tab: string) => void;
@@ -216,6 +217,22 @@ const Dashboard: React.FC<DashboardProps> = ({ setActiveTab, onToggleSidebar }) 
           </div>
         </div>
       </div>
+
+      {/* Debug Section - Show only in production for troubleshooting */}
+      {import.meta.env.MODE === 'production' && (
+        <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
+          <div className="flex items-center space-x-2 mb-2">
+            <Database className="w-5 h-5 text-yellow-600" />
+            <h3 className="font-semibold text-yellow-800">Database Connection Debug</h3>
+          </div>
+          <div className="text-sm text-yellow-700 space-y-1">
+            <p>• Database Available: {dbConnectionStatus.isAvailable ? '✅' : '❌'}</p>
+            <p>• Has Connection String: {dbConnectionStatus.hasConnectionString ? '✅' : '❌'}</p>
+            <p>• Connection String Length: {dbConnectionStatus.connectionStringLength}</p>
+            <p>• Environment: {import.meta.env.MODE}</p>
+          </div>
+        </div>
+      )}
 
       {/* Top Stats Row */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 lg:gap-8">

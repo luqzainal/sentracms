@@ -5,10 +5,25 @@ import { neon } from '@neondatabase/serverless';
 const neonConnectionString = import.meta.env.VITE_NEON_DATABASE_URL;
 const isDatabaseAvailable = neonConnectionString && neonConnectionString.length > 0;
 
+// Debug logging for production
+console.log('🔍 Database Environment Check:', {
+  hasEnvVar: !!neonConnectionString,
+  envVarLength: neonConnectionString?.length || 0,
+  isDatabaseAvailable,
+  env: import.meta.env.MODE
+});
+
 // Only initialize Neon client if database URL is available
 export const sql = isDatabaseAvailable ? neon(neonConnectionString, {
   disableWarningInBrowsers: true // Disable browser warning
 }) : null;
+
+// Export database connection status for debugging
+export const dbConnectionStatus = {
+  isAvailable: isDatabaseAvailable,
+  hasConnectionString: !!neonConnectionString,
+  connectionStringLength: neonConnectionString?.length || 0
+};
 
 export interface AuthUser {
   id: string;
