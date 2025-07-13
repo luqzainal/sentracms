@@ -77,24 +77,6 @@ const Dashboard: React.FC<DashboardProps> = ({ setActiveTab, onToggleSidebar }) 
   // Calculate total unread messages using the store function
   const totalUnreadMessages = getUnreadMessagesCount();
 
-  // Calculate percentage changes (showing 0% when values are 0)
-  const salesPercentage = totalSales > 0 ? "+12.5%" : "0%";
-  const collectionPercentage = totalCollection > 0 ? "+8.2%" : "0%";
-  const balancePercentage = totalBalance > 0 ? "-3.1%" : "0%";
-
-  // Get appropriate icons and colors based on values
-  const getSalesIcon = () => totalSales > 0 ? ArrowUpRight : Activity;
-  const getCollectionIcon = () => totalCollection > 0 ? ArrowUpRight : Activity;
-  const getBalanceIcon = () => totalBalance > 0 ? ArrowDownRight : Activity;
-
-  const getSalesColor = () => totalSales > 0 ? "text-green-600" : "text-slate-500";
-  const getCollectionColor = () => totalCollection > 0 ? "text-green-600" : "text-slate-500";
-  const getBalanceColor = () => totalBalance > 0 ? "text-orange-600" : "text-slate-500";
-
-  const getSalesIconColor = () => totalSales > 0 ? "text-green-500" : "text-slate-400";
-  const getCollectionIconColor = () => totalCollection > 0 ? "text-green-500" : "text-slate-400";
-  const getBalanceIconColor = () => totalBalance > 0 ? "text-orange-500" : "text-slate-400";
-
   // Monthly sales data - distribute total sales to January for demonstration
   const monthlyData = [
     { month: 'January', sales: totalSales, displayValue: `RM ${(Number(totalSales) || 0).toLocaleString()}` },
@@ -243,8 +225,8 @@ const Dashboard: React.FC<DashboardProps> = ({ setActiveTab, onToggleSidebar }) 
               <p className="text-xs lg:text-sm font-medium text-slate-600 uppercase tracking-wide">Total Sales</p>
               <p className="text-xl lg:text-3xl font-bold text-slate-900 mt-1 lg:mt-2">{formatCurrency(totalSales)}</p>
               <div className="flex items-center mt-2">
-                {React.createElement(getSalesIcon(), { className: `w-4 h-4 ${getSalesIconColor()} mr-1` })}
-                <span className={`text-xs lg:text-sm ${getSalesColor()} font-medium`}>{salesPercentage}</span>
+                <ArrowUpRight className="w-4 h-4 text-green-500 mr-1" />
+                <span className="text-xs lg:text-sm text-green-600 font-medium">+12.5%</span>
                 <span className="text-xs lg:text-sm text-slate-500 ml-1">vs last month</span>
               </div>
             </div>
@@ -260,8 +242,8 @@ const Dashboard: React.FC<DashboardProps> = ({ setActiveTab, onToggleSidebar }) 
               <p className="text-xs lg:text-sm font-medium text-slate-600 uppercase tracking-wide">Collections</p>
               <p className="text-xl lg:text-3xl font-bold text-slate-900 mt-1 lg:mt-2">{formatCurrency(totalCollection)}</p>
               <div className="flex items-center mt-2">
-                {React.createElement(getCollectionIcon(), { className: `w-4 h-4 ${getCollectionIconColor()} mr-1` })}
-                <span className={`text-xs lg:text-sm ${getCollectionColor()} font-medium`}>{collectionPercentage}</span>
+                <ArrowUpRight className="w-4 h-4 text-green-500 mr-1" />
+                <span className="text-xs lg:text-sm text-green-600 font-medium">+8.2%</span>
                 <span className="text-xs lg:text-sm text-slate-500 ml-1">vs last month</span>
               </div>
             </div>
@@ -277,8 +259,8 @@ const Dashboard: React.FC<DashboardProps> = ({ setActiveTab, onToggleSidebar }) 
               <p className="text-xs lg:text-sm font-medium text-slate-600 uppercase tracking-wide">Balance</p>
               <p className="text-xl lg:text-3xl font-bold text-slate-900 mt-1 lg:mt-2">{formatCurrency(totalBalance)}</p>
               <div className="flex items-center mt-2">
-                {React.createElement(getBalanceIcon(), { className: `w-4 h-4 ${getBalanceIconColor()} mr-1` })}
-                <span className={`text-xs lg:text-sm ${getBalanceColor()} font-medium`}>{balancePercentage}</span>
+                <ArrowDownRight className="w-4 h-4 text-orange-500 mr-1" />
+                <span className="text-xs lg:text-sm text-orange-600 font-medium">-3.1%</span>
                 <span className="text-xs lg:text-sm text-slate-500 ml-1">vs last month</span>
               </div>
             </div>
@@ -505,7 +487,7 @@ const Dashboard: React.FC<DashboardProps> = ({ setActiveTab, onToggleSidebar }) 
             </button>
           </div>
           <div className="space-y-3 lg:space-y-4 max-h-60 lg:max-h-80 overflow-y-auto">
-                            {latestMessagesPerClient.map((message, index) => (
+            {latestMessagesPerClient.map((message, index) => (
               <div key={`${message.chatId}-${message.id}`} className={`p-3 lg:p-4 rounded-lg border transition-colors ${
                 message.isUnread ? 'bg-blue-50 border-blue-200' : 'bg-slate-50 border-slate-200'
               }`}>
@@ -538,10 +520,12 @@ const Dashboard: React.FC<DashboardProps> = ({ setActiveTab, onToggleSidebar }) 
                 </div>
               </div>
             ))}
-                            {latestMessagesPerClient.length === 0 && (
+            
+            {latestMessagesPerClient.length === 0 && (
               <div className="text-center py-6 lg:py-8">
                 <MessageSquare className="w-8 h-8 lg:w-12 lg:h-12 text-slate-400 mx-auto mb-2 lg:mb-3" />
                 <p className="text-slate-500 text-sm">No messages yet</p>
+                <p className="text-slate-400 text-xs">Start a conversation with your clients</p>
               </div>
             )}
           </div>
