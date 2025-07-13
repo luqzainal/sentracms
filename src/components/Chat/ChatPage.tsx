@@ -36,7 +36,7 @@ function getColorForName(name: string): { bg: string; text: string } {
 const ChatPage: React.FC<ChatPageProps> = ({ onToggleSidebar }) => {
   const [activeChat, setActiveChat] = useState<number | null>(null);
   const [message, setMessage] = useState('');
-  const [searchTerm, setSearchTerm] = useState('');
+  // const [searchTerm, setSearchTerm] = useState('');
   const [showChatView, setShowChatView] = useState(false);
   const pollingInitialized = useRef(false);
 
@@ -121,9 +121,9 @@ const ChatPage: React.FC<ChatPageProps> = ({ onToggleSidebar }) => {
     return new Date(timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
   };
 
-  const formatDate = (timestamp: string) => {
-    return new Date(timestamp).toLocaleDateString();
-  };
+  // const formatDate = (timestamp: string) => {
+  //   return new Date(timestamp).toLocaleDateString();
+  // };
 
   return (
     <div className="p-4 lg:p-6 h-screen lg:h-[calc(100vh-8rem)]">

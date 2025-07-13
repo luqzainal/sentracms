@@ -1,5 +1,5 @@
-import React, { useState, useEffect } from 'react';
-import { Download, Filter, TrendingUp, DollarSign, Users, Calendar, Database, CreditCard, UserX, CheckCircle, Clock, Menu } from 'lucide-react';
+import React, { useState } from 'react';
+import { Download, Filter, TrendingUp, DollarSign, Users, Database, CreditCard, UserX, CheckCircle, Clock, Menu } from 'lucide-react';
 import { useAppStore } from '../../store/AppStore';
 import logoImage from '../../assets/AiChatbot (15).png';
 
@@ -272,10 +272,10 @@ const ReportsPage: React.FC<ReportsPageProps> = ({ onToggleSidebar }) => {
   const [customDateEnd, setCustomDateEnd] = useState('');
 
   const { 
-    clients, 
-    getTotalSales, 
-    getTotalCollection, 
-    getTotalBalance 
+    clients
+    // getTotalSales, 
+    // getTotalCollection, 
+    // getTotalBalance 
   } = useAppStore();
 
   // Filter clients based on date range if custom dates are selected

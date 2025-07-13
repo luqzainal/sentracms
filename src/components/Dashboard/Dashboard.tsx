@@ -16,7 +16,6 @@ const Dashboard: React.FC<DashboardProps> = ({ setActiveTab, onToggleSidebar }) 
   const { 
     clients,
     chats,
-    tags,
     invoices,
     loading,
     fetchClients,
@@ -87,16 +86,16 @@ const Dashboard: React.FC<DashboardProps> = ({ setActiveTab, onToggleSidebar }) 
   ];
 
   // Filter data based on date range
-  const filteredData = monthlyData.filter(item => {
-    if (dateFilter === 'month') {
-      return item.month === 'January';
-    } else if (dateFilter === 'week') {
-      return item.month === 'January';
-    } else if (dateFilter === 'custom' && customDateStart && customDateEnd) {
-      return item.month === 'January';
-    }
-    return true;
-  });
+  // const filteredData = monthlyData.filter(item => {
+  //   if (dateFilter === 'month') {
+  //     return item.month === 'January';
+  //   } else if (dateFilter === 'week') {
+  //     return item.month === 'January';
+  //   } else if (dateFilter === 'custom' && customDateStart && customDateEnd) {
+  //     return item.month === 'January';
+  //   }
+  //   return true;
+  // });
 
   const maxSales = Math.max(...monthlyData.map(d => d.sales));
 

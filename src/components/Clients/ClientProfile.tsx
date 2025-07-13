@@ -1,7 +1,7 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { useAppStore } from '../../store/AppStore';
 import { Client, Invoice, Payment, Component, CalendarEvent } from '../../store/AppStore';
-import { Edit, Calendar, FileText, DollarSign, Package, Plus, Trash2, ArrowLeft } from 'lucide-react';
+import { Edit, Calendar, FileText, Package, Plus, Trash2, ArrowLeft } from 'lucide-react';
 import AddInvoiceModal from './AddInvoiceModal';
 import AddPaymentModal from './AddPaymentModal';
 import AddComponentModal from './AddComponentModal';
@@ -15,7 +15,7 @@ import EditPaymentModal from './EditPaymentModal';
 interface ClientProfileProps {
   clientId: string;
   onBack: () => void;
-  onEdit: (client: Client) => void;
+  onEdit?: (client: Client) => void;
 }
 
 const ClientProfile: React.FC<ClientProfileProps> = ({ clientId, onBack, onEdit }) => {
@@ -42,6 +42,22 @@ const ClientProfile: React.FC<ClientProfileProps> = ({ clientId, onBack, onEdit 
     updatePayment
   } = useAppStore();
 
+  // All React hooks must be at the top level
+  const [showInvoiceModal, setShowInvoiceModal] = useState(false);
+  const [showPaymentModal, setShowPaymentModal] = useState(false);
+  const [showComponentModal, setShowComponentModal] = useState<string | null>(null);
+  const [showEditModal, setShowEditModal] = useState(false);
+  const [showEventModal, setShowEventModal] = useState(false);
+  const [showEditInvoiceModal, setShowEditInvoiceModal] = useState(false);
+  const [showEditComponentModal, setShowEditComponentModal] = useState(false);
+  const [showEditEventModal, setShowEditEventModal] = useState(false);
+  const [editingInvoice, setEditingInvoice] = useState<Invoice | null>(null);
+  const [editingComponent, setEditingComponent] = useState<Component | null>(null);
+  const [editingEvent, setEditingEvent] = useState<CalendarEvent | null>(null);
+  const [showEditPaymentModal, setShowEditPaymentModal] = useState(false);
+  const [editingPayment, setEditingPayment] = useState<Payment | null>(null);
+  const [selectedInvoiceForPayment, setSelectedInvoiceForPayment] = useState<Invoice | null>(null);
+
   // Get client by ID
   const client = clients.find(c => c.id === parseInt(clientId));
 
@@ -63,20 +79,7 @@ const ClientProfile: React.FC<ClientProfileProps> = ({ clientId, onBack, onEdit 
     );
   }
 
-  const [showInvoiceModal, setShowInvoiceModal] = useState(false);
-  const [showPaymentModal, setShowPaymentModal] = useState(false);
-  const [showComponentModal, setShowComponentModal] = useState<string | null>(null);
-  const [showEditModal, setShowEditModal] = useState(false);
-  const [showEventModal, setShowEventModal] = useState(false);
-  const [showEditInvoiceModal, setShowEditInvoiceModal] = useState(false);
-  const [showEditComponentModal, setShowEditComponentModal] = useState(false);
-  const [showEditEventModal, setShowEditEventModal] = useState(false);
-  const [editingInvoice, setEditingInvoice] = useState<Invoice | null>(null);
-  const [editingComponent, setEditingComponent] = useState<Component | null>(null);
-  const [editingEvent, setEditingEvent] = useState<CalendarEvent | null>(null);
- const [showEditPaymentModal, setShowEditPaymentModal] = useState(false);
- const [editingPayment, setEditingPayment] = useState<Payment | null>(null);
-  const [selectedInvoiceForPayment, setSelectedInvoiceForPayment] = useState<Invoice | null>(null);
+
 
   const clientInvoices = invoices.filter(invoice => invoice.clientId === client.id);
   const clientPayments = payments.filter(payment => payment.clientId === client.id);
