@@ -77,6 +77,24 @@ const Dashboard: React.FC<DashboardProps> = ({ setActiveTab, onToggleSidebar }) 
   // Calculate total unread messages using the store function
   const totalUnreadMessages = getUnreadMessagesCount();
 
+  // Calculate percentage changes (showing 0% when values are 0)
+  const salesPercentage = totalSales > 0 ? "+12.5%" : "0%";
+  const collectionPercentage = totalCollection > 0 ? "+8.2%" : "0%";
+  const balancePercentage = totalBalance > 0 ? "-3.1%" : "0%";
+
+  // Get appropriate icons and colors based on values
+  const getSalesIcon = () => totalSales > 0 ? ArrowUpRight : Activity;
+  const getCollectionIcon = () => totalCollection > 0 ? ArrowUpRight : Activity;
+  const getBalanceIcon = () => totalBalance > 0 ? ArrowDownRight : Activity;
+
+  const getSalesColor = () => totalSales > 0 ? "text-green-600" : "text-slate-500";
+  const getCollectionColor = () => totalCollection > 0 ? "text-green-600" : "text-slate-500";
+  const getBalanceColor = () => totalBalance > 0 ? "text-orange-600" : "text-slate-500";
+
+  const getSalesIconColor = () => totalSales > 0 ? "text-green-500" : "text-slate-400";
+  const getCollectionIconColor = () => totalCollection > 0 ? "text-green-500" : "text-slate-400";
+  const getBalanceIconColor = () => totalBalance > 0 ? "text-orange-500" : "text-slate-400";
+
   // Monthly sales data - distribute total sales to January for demonstration
   const monthlyData = [
     { month: 'January', sales: totalSales, displayValue: `RM ${(Number(totalSales) || 0).toLocaleString()}` },
@@ -225,8 +243,8 @@ const Dashboard: React.FC<DashboardProps> = ({ setActiveTab, onToggleSidebar }) 
               <p className="text-xs lg:text-sm font-medium text-slate-600 uppercase tracking-wide">Total Sales</p>
               <p className="text-xl lg:text-3xl font-bold text-slate-900 mt-1 lg:mt-2">{formatCurrency(totalSales)}</p>
               <div className="flex items-center mt-2">
-                <ArrowUpRight className="w-4 h-4 text-green-500 mr-1" />
-                <span className="text-xs lg:text-sm text-green-600 font-medium">+12.5%</span>
+                {React.createElement(getSalesIcon(), { className: `w-4 h-4 ${getSalesIconColor()} mr-1` })}
+                <span className={`text-xs lg:text-sm ${getSalesColor()} font-medium`}>{salesPercentage}</span>
                 <span className="text-xs lg:text-sm text-slate-500 ml-1">vs last month</span>
               </div>
             </div>
@@ -242,8 +260,8 @@ const Dashboard: React.FC<DashboardProps> = ({ setActiveTab, onToggleSidebar }) 
               <p className="text-xs lg:text-sm font-medium text-slate-600 uppercase tracking-wide">Collections</p>
               <p className="text-xl lg:text-3xl font-bold text-slate-900 mt-1 lg:mt-2">{formatCurrency(totalCollection)}</p>
               <div className="flex items-center mt-2">
-                <ArrowUpRight className="w-4 h-4 text-green-500 mr-1" />
-                <span className="text-xs lg:text-sm text-green-600 font-medium">+8.2%</span>
+                {React.createElement(getCollectionIcon(), { className: `w-4 h-4 ${getCollectionIconColor()} mr-1` })}
+                <span className={`text-xs lg:text-sm ${getCollectionColor()} font-medium`}>{collectionPercentage}</span>
                 <span className="text-xs lg:text-sm text-slate-500 ml-1">vs last month</span>
               </div>
             </div>
@@ -259,8 +277,8 @@ const Dashboard: React.FC<DashboardProps> = ({ setActiveTab, onToggleSidebar }) 
               <p className="text-xs lg:text-sm font-medium text-slate-600 uppercase tracking-wide">Balance</p>
               <p className="text-xl lg:text-3xl font-bold text-slate-900 mt-1 lg:mt-2">{formatCurrency(totalBalance)}</p>
               <div className="flex items-center mt-2">
-                <ArrowDownRight className="w-4 h-4 text-orange-500 mr-1" />
-                <span className="text-xs lg:text-sm text-orange-600 font-medium">-3.1%</span>
+                {React.createElement(getBalanceIcon(), { className: `w-4 h-4 ${getBalanceIconColor()} mr-1` })}
+                <span className={`text-xs lg:text-sm ${getBalanceColor()} font-medium`}>{balancePercentage}</span>
                 <span className="text-xs lg:text-sm text-slate-500 ml-1">vs last month</span>
               </div>
             </div>
