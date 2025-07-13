@@ -41,6 +41,14 @@ const Dashboard: React.FC<DashboardProps> = ({ setActiveTab, onToggleSidebar }) 
   const totalClients = clients.length;
   const completeClients = clients.filter(c => c.status === 'Complete').length;
 
+  // Calculate new clients this week
+  const oneWeekAgo = new Date();
+  oneWeekAgo.setDate(oneWeekAgo.getDate() - 7);
+  const newClientsThisWeek = clients.filter(client => {
+    const registeredAt = new Date(client.registeredAt);
+    return registeredAt >= oneWeekAgo;
+  }).length;
+
   // Get latest message for each client (unique clients only)
   const latestMessagesPerClient = chats
     .filter(chat => chat.messages && chat.messages.length > 0)
@@ -300,7 +308,7 @@ const Dashboard: React.FC<DashboardProps> = ({ setActiveTab, onToggleSidebar }) 
           <div className="flex items-center justify-between">
             <div>
               <p className="text-xs lg:text-sm font-medium text-slate-600 uppercase tracking-wide">New Clients</p>
-              <p className="text-xl lg:text-3xl font-bold text-slate-900 mt-1 lg:mt-2">2</p>
+              <p className="text-xl lg:text-3xl font-bold text-slate-900 mt-1 lg:mt-2">{newClientsThisWeek}</p>
               <div className="flex items-center mt-2">
                 <span className="text-xs lg:text-sm text-slate-500">This week</span>
               </div>
