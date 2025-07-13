@@ -3,6 +3,7 @@ import { Eye, EyeOff } from 'lucide-react';
 import { useDatabase } from '../../context/SupabaseContext';
 import { useAppStore } from '../../store/AppStore';
 import loginBgImage from '../../assets/Picture1.png'; // Import the new image
+import Logo from '../common/Logo'; // Import the Logo component
 
 const Login: React.FC = () => {
   const [email, setEmail] = useState('');
@@ -51,16 +52,11 @@ const Login: React.FC = () => {
   return (
     <div className="min-h-screen flex font-sans">
       {/* Left Side - Login Form */}
-      <div className="w-full lg:w-1/2 bg-[#1a202c] flex items-center justify-center p-8 lg:p-12">
+      <div className="w-full lg:w-1/2 bg-[#1e1d1e] flex items-center justify-center p-8 lg:p-12">
         <div className="w-full max-w-md">
           {/* Logo */}
-          <div className="mb-12">
-            <div className="flex items-center space-x-3">
-              <div className="w-10 h-10 bg-[#34d399] rounded-lg flex items-center justify-center">
-                <span className="text-slate-900 font-bold text-xl">S</span>
-              </div>
-              <span className="text-white text-2xl font-bold">Sentra.</span>
-            </div>
+          <div className="mb-12 flex justify-center">
+            <Logo size="custom" className="w-full h-auto" />
           </div>
 
           {/* Welcome Text */}
@@ -82,7 +78,7 @@ const Login: React.FC = () => {
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 placeholder="Enter your email"
-                className="w-full px-4 py-3 bg-slate-800 border border-slate-700 rounded-lg text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-[#34d399] focus:border-transparent transition-all duration-200"
+                className="w-full px-4 py-3 bg-slate-800 border border-slate-700 rounded-lg text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-[#eded21] focus:border-transparent transition-all duration-200"
                 required
               />
             </div>
@@ -99,7 +95,7 @@ const Login: React.FC = () => {
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   placeholder="••••••••"
-                  className="w-full px-4 py-3 bg-slate-800 border border-slate-700 rounded-lg text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-[#34d399] focus:border-transparent transition-all duration-200 pr-12"
+                  className="w-full px-4 py-3 bg-slate-800 border border-slate-700 rounded-lg text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-[#eded21] focus:border-transparent transition-all duration-200 pr-12"
                   required
                 />
                 <button
@@ -119,7 +115,7 @@ const Login: React.FC = () => {
                   type="checkbox"
                   checked={rememberMe}
                   onChange={(e) => setRememberMe(e.target.checked)}
-                  className="w-4 h-4 text-[#34d399] bg-slate-700 border-slate-600 rounded focus:ring-[#34d399] focus:ring-offset-slate-900"
+                  className="w-4 h-4 text-[#eded21] bg-slate-700 border-slate-600 rounded focus:ring-[#eded21] focus:ring-offset-slate-900"
                 />
                 <span className="text-slate-300 text-sm">Remember for 30 Days</span>
               </label>
@@ -142,7 +138,7 @@ const Login: React.FC = () => {
             <button
               type="submit"
               disabled={isLoading}
-              className="w-full bg-[#34d399] text-slate-900 py-3 px-4 rounded-lg font-semibold hover:bg-[#6ee7b7] focus:outline-none focus:ring-2 focus:ring-[#34d399] focus:ring-offset-2 focus:ring-offset-slate-900 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
+              className="w-full bg-[#eded21] text-slate-900 py-3 px-4 rounded-lg font-semibold hover:bg-yellow-300 focus:outline-none focus:ring-2 focus:ring-[#eded21] focus:ring-offset-2 focus:ring-offset-slate-900 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {isLoading ? 'Signing in...' : 'Sign in'}
             </button>
@@ -158,7 +154,7 @@ const Login: React.FC = () => {
               <button
                 type="button"
                 onClick={handleDemoLogin}
-                className="text-slate-400 hover:text-[#34d399] transition-colors font-medium"
+                className="text-slate-400 hover:text-[#eded21] transition-colors font-medium"
               >
                 Use Demo Login
               </button>
@@ -167,9 +163,21 @@ const Login: React.FC = () => {
         </div>
       </div>
 
-      {/* Right Side - Image */}
-      <div className="hidden lg:flex w-1/2 bg-black items-center justify-center">
-        <img src={loginBgImage} alt="Mysentree AI CRM Consulting" className="w-full h-full object-cover" />
+      {/* Right Side - Image with Blurred Background */}
+      <div className="hidden lg:flex w-1/2 relative items-center justify-center overflow-hidden bg-black">
+        {/* Blurred Background Image */}
+        <div
+          className="absolute inset-0 w-full h-full bg-cover bg-center filter blur-md scale-110"
+          style={{ backgroundImage: `url(${loginBgImage})` }}
+        ></div>
+        {/* Black overlay to enhance readability */}
+        <div className="absolute inset-0 bg-black opacity-50"></div>
+        {/* Contained, Clear Image on top */}
+        <img
+          src={loginBgImage}
+          alt="Mysentree AI CRM Consulting"
+          className="relative z-10 max-w-full max-h-full object-contain"
+        />
       </div>
     </div>
   );
