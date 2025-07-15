@@ -112,13 +112,9 @@ export const clientsService = {
           email = COALESCE(${updates.email}, email),
           phone = COALESCE(${updates.phone}, phone),
           status = COALESCE(${updates.status}, status),
-          pic = COALESCE(${updates.pic}, pic),
           total_sales = COALESCE(${updates.total_sales}, total_sales),
           total_collection = COALESCE(${updates.total_collection}, total_collection),
           balance = COALESCE(${updates.balance}, balance),
-          company = COALESCE(${updates.company}, company),
-          address = COALESCE(${updates.address}, address),
-          notes = COALESCE(${updates.notes}, notes),
           updated_at = NOW()
         WHERE id = ${id}
         RETURNING *
@@ -241,7 +237,10 @@ export const usersService = {
     }
     
     try {
+      console.log('🔍 Debug usersService.create - user data:', JSON.stringify(user, null, 2));
+      
       if (user.password) {
+        console.log('🔑 Creating user with password');
         const data = await sql!`
           INSERT INTO users (
             name, email, role, status, client_id, permissions, password
@@ -253,8 +252,10 @@ export const usersService = {
           )
           RETURNING *
         `;
+        console.log('✅ User created successfully:', data[0]);
         return data[0] as DatabaseUser;
       } else {
+        console.log('⚠️ Creating user without password');
         const data = await sql!`
           INSERT INTO users (
             name, email, role, status, client_id, permissions
@@ -265,10 +266,11 @@ export const usersService = {
           )
           RETURNING *
         `;
+        console.log('✅ User created successfully:', data[0]);
         return data[0] as DatabaseUser;
       }
     } catch (error) {
-      console.error('Error creating user:', error);
+      console.error('❌ Error creating user:', error);
       throw error;
     }
   },
@@ -686,6 +688,9 @@ export const calendarService = {
   },
 
   async create(event: Partial<CalendarEvent>): Promise<CalendarEvent> {
+    if (!isDatabaseAvailable()) {
+      throw new Error('Database not available');
+    }
     try {
       const data = await sql!`
         INSERT INTO calendar_events (
@@ -747,6 +752,22 @@ export const calendarService = {
 
 // Components Services
 export const componentsService = {
+  async getAll(): Promise<Component[]> {
+    if (!isDatabaseAvailable()) {
+      return handleDatabaseUnavailable('getAll components') as Component[];
+    }
+    try {
+      const data = await sql!`
+        SELECT * FROM components
+        ORDER BY created_at DESC
+      `;
+      return data as Component[];
+    } catch (error) {
+      console.error('Error fetching components:', error);
+      throw error;
+    }
+  },
+
   async getByClientId(clientId: number): Promise<Component[]> {
     try {
       const data = await sql!`
@@ -782,16 +803,36 @@ export const componentsService = {
   },
 
   async create(component: Partial<Component>): Promise<Component> {
+    console.log('=== componentsService.create called ===');
+    console.log('Raw component object:', component);
+    console.log('component.client_id:', component.client_id);
+    console.log('(component as any).clientId:', (component as any).clientId);
+    console.log('component.invoice_id:', component.invoice_id);
+    console.log('(component as any).invoiceId:', (component as any).invoiceId);
+    
     try {
+      const clientId = component.client_id || (component as any).clientId;
+      const invoiceId = component.invoice_id || (component as any).invoiceId;
+      const price = component.price || 0; // Default to 0 if price is not provided
+      const active = component.active !== undefined ? component.active : true;
+      
+      console.log('Values to be inserted:');
+      console.log('- clientId:', clientId);
+      console.log('- invoiceId:', invoiceId);
+      console.log('- name:', component.name);
+      console.log('- price:', price);
+      console.log('- active:', active);
+      
       const data = await sql!`
         INSERT INTO components (
-          client_id, name, price, active
+          client_id, invoice_id, name, price, active
         ) VALUES (
-          ${component.client_id}, ${component.name}, 
-          ${component.price}, ${component.active !== undefined ? component.active : true}
+          ${clientId}, ${invoiceId}, ${component.name}, 
+          ${price}, ${active}
         )
         RETURNING *
       `;
+      console.log('Database insert result:', data[0]);
       return data[0] as Component;
     } catch (error) {
       console.error('Error creating component:', error);
@@ -807,6 +848,7 @@ export const componentsService = {
           name = COALESCE(${updates.name}, name),
           price = COALESCE(${updates.price}, price),
           active = COALESCE(${updates.active}, active),
+          invoice_id = COALESCE(${(updates as any).invoiceId}, invoice_id),
           updated_at = NOW()
         WHERE id = ${id}
         RETURNING *
@@ -819,11 +861,20 @@ export const componentsService = {
   },
 
   async delete(id: string): Promise<void> {
+    console.log(`Attempting to delete component with ID: ${id}`);
     try {
-      await sql!`
+      const result = await sql!`
         DELETE FROM components
         WHERE id = ${id}
+        RETURNING *
       `;
+      console.log(`Delete result:`, result);
+      if (result.length === 0) {
+        console.warn(`No component found with ID: ${id}`);
+        throw new Error(`Component with id ${id} not found`);
+      } else {
+        console.log(`Successfully deleted component:`, result[0]);
+      }
     } catch (error) {
       console.error('Error deleting component:', error);
       throw error;
@@ -833,6 +884,22 @@ export const componentsService = {
 
 // Progress Steps Services
 export const progressService = {
+  async getAll(): Promise<ProgressStep[]> {
+    if (!isDatabaseAvailable()) {
+      return handleDatabaseUnavailable('getAll progressSteps') as ProgressStep[];
+    }
+    try {
+      const data = await sql!`
+        SELECT * FROM progress_steps
+        ORDER BY created_at ASC
+      `;
+      return data as ProgressStep[];
+    } catch (error) {
+      console.error('Error fetching all progress steps:', error);
+      throw error;
+    }
+  },
+
   async getByClientId(clientId: number): Promise<ProgressStep[]> {
     try {
       const data = await sql!`
@@ -1235,14 +1302,27 @@ export const chatService = {
     }
   },
 
+  async updateChatOnlineStatus(chatId: number, online: boolean): Promise<void> {
+    if (!isDatabaseAvailable()) {
+      console.warn(`Database not available for updating chat status on chat ${chatId}.`);
+      return;
+    }
+    try {
+      await sql!`
+        UPDATE chats
+        SET online = ${online}, updated_at = NOW()
+        WHERE id = ${chatId}
+      `;
+    } catch (error) {
+      console.error('Error updating chat online status:', error);
+      throw error;
+    }
+  },
+
   async updateChat(id: number, updates: Partial<Chat>): Promise<Chat> {
-    if (!sql) {
-      // Mock update
-      return {
-        id,
-        ...updates,
-        updated_at: new Date().toISOString()
-      } as Chat;
+    if (!isDatabaseAvailable()) {
+      console.error('Database not available for updating chat. Cannot proceed.');
+      throw new Error('Database connection not available. Please check your configuration.');
     }
 
     try {

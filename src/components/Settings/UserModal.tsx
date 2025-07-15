@@ -21,7 +21,11 @@ interface UserModalProps {
 }
 
 const UserModal: React.FC<UserModalProps> = ({ user, onClose, onSave }) => {
-  const { clients } = useAppStore();
+  const { clients, fetchClients } = useAppStore();
+
+  useEffect(() => {
+    fetchClients();
+  }, [fetchClients]);
   
   const [formData, setFormData] = useState({
     name: '',

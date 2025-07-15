@@ -4,11 +4,12 @@ import { Invoice } from '../../store/AppStore';
 
 interface AddPaymentModalProps {
   onClose: () => void;
-  onSave: (paymentData: any) => void;
+  onSave: (paymentData: any) => Promise<void>; // Make onSave return a promise
   selectedInvoice?: Invoice;
 }
 
 const AddPaymentModal: React.FC<AddPaymentModalProps> = ({ onClose, onSave, selectedInvoice }) => {
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const [formData, setFormData] = useState({
     receiptFile: null as File | null,
     amount: '',
@@ -17,27 +18,40 @@ const AddPaymentModal: React.FC<AddPaymentModalProps> = ({ onClose, onSave, sele
     paidAt: new Date().toISOString().slice(0, 16) // Current date and time in YYYY-MM-DDTHH:MM format
   });
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (isSubmitting) return;
+
+    setIsSubmitting(true);
     
     // Parse amount to number and validate
     const amount = parseFloat(formData.amount);
     if (isNaN(amount) || amount <= 0) {
       alert('Please enter a valid amount');
+      setIsSubmitting(false);
       return;
     }
     
     // Check if payment amount exceeds due amount
     if (selectedInvoice && amount > selectedInvoice.due) {
       if (!confirm(`Payment amount (RM ${amount.toLocaleString()}) exceeds due amount (RM ${selectedInvoice.due.toLocaleString()}). Continue?`)) {
+        setIsSubmitting(false);
         return;
       }
     }
     
-    onSave({
-      ...formData,
-      amount: amount
-    });
+    try {
+      await onSave({
+        ...formData,
+        amount: amount
+      });
+      // onClose will be called by the parent component on success
+    } catch (error) {
+      console.error("Failed to save payment:", error);
+      // Optionally show an error toast to the user
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
@@ -172,9 +186,10 @@ const AddPaymentModal: React.FC<AddPaymentModalProps> = ({ onClose, onSave, sele
           <div className="flex justify-end pt-4">
             <button
               type="submit"
-              className="bg-blue-600 text-white px-6 py-2 rounded-lg hover:bg-blue-700 transition-colors font-medium"
+              disabled={isSubmitting}
+              className="bg-blue-600 text-white px-6 py-2 rounded-lg hover:bg-blue-700 transition-colors font-medium disabled:bg-blue-400 disabled:cursor-not-allowed"
             >
-              Submit Payment
+              {isSubmitting ? 'Submitting...' : 'Submit Payment'}
             </button>
           </div>
         </form>

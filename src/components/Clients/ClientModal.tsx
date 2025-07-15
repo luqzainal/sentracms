@@ -43,18 +43,6 @@ const ClientModal: React.FC<ClientModalProps> = ({ client, onClose, onSave }) =>
         tags: client.tags || [],
         newTag: '',
       });
-    } else {
-      // Set default values for new client
-      setFormData({
-        name: 'Ahmad Bin Abdullah',
-        businessName: 'Ahmad Tech Solutions',
-        email: 'ahmad.abdullah@gmail.com',
-        phone: '+60 12-345 6789',
-        status: 'Complete',
-        packageName: '',
-        tags: [],
-        newTag: '',
-      });
     }
   }, [client, fetchTags]);
 
@@ -183,7 +171,7 @@ const ClientModal: React.FC<ClientModalProps> = ({ client, onClose, onSave }) =>
                     value={formData.businessName}
                     onChange={handleChange}
                     className="w-full pl-10 pr-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none"
-                    placeholder="Ahmad Tech Solutions"
+                    placeholder="Company Name"
                   />
                 </div>
               </div>

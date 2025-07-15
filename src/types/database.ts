@@ -77,6 +77,7 @@ export interface DatabaseCalendarEvent {
 export interface DatabaseComponent {
   id: string;
   client_id: number;
+  invoice_id?: string;
   name: string;
   price: string;
   active: boolean;

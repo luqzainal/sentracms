@@ -12,9 +12,10 @@ interface AddComponentModalProps {
 interface Component {
   id: string;
   name: string;
+  price?: number; // Optional price field
 }
 
-const AddComponentModal: React.FC<AddComponentModalProps> = ({ onClose, onSave, packageName, invoiceId }) => {
+const AddComponentModal: React.FC<AddComponentModalProps> = ({ onClose, onSave, clientId, packageName, invoiceId }) => {
   const [components, setComponents] = useState<Component[]>([]);
   const [bulkText, setBulkText] = useState('');
   
@@ -35,7 +36,17 @@ const AddComponentModal: React.FC<AddComponentModalProps> = ({ onClose, onSave, 
       alert('Please add at least one component');
       return;
     }
-    onSave(validComponents.map(comp => ({ ...comp, invoiceId })));
+    
+    // Add clientId, invoiceId, and default price to each component before saving
+    const componentsWithClientId = validComponents.map(comp => ({ 
+      ...comp, 
+      clientId, 
+      invoiceId,
+      price: comp.price || 0, // Default price to 0 if not provided
+      active: true // Default active to true
+    }));
+    
+    onSave(componentsWithClientId);
   };
 
   const addComponent = () => {

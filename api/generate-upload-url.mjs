@@ -2,23 +2,32 @@ import { S3Client, PutObjectCommand } from '@aws-sdk/client-s3';
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
 import crypto from 'crypto';
 
-// Konfigurasi Klien S3 untuk DigitalOcean Spaces
-// Variabel ini HARUS diatur di environment tempat Anda mendeploy
+// Get DigitalOcean Spaces credentials from environment variables
+const SPACES_ENDPOINT = process.env.DO_SPACES_ENDPOINT;
+const SPACES_REGION = process.env.DO_SPACES_REGION;
+const SPACES_KEY = process.env.DO_SPACES_KEY;
+const SPACES_SECRET = process.env.DO_SPACES_SECRET;
+const BUCKET_NAME = process.env.DO_SPACES_BUCKET;
+
+// Basic validation to ensure environment variables are set
+if (!SPACES_ENDPOINT || !SPACES_REGION || !SPACES_KEY || !SPACES_SECRET || !BUCKET_NAME) {
+  throw new Error("DigitalOcean Spaces environment variables are not fully configured.");
+}
+
+// Configure the S3 client for DigitalOcean Spaces
 const s3Client = new S3Client({
-  endpoint: `https://sfo3.digitaloceanspaces.com`, // Ganti 'sfo3' dengan region Spaces Anda
-  region: 'us-east-1', // Ini adalah nilai placeholder, S3 SDK membutuhkannya
+  endpoint: `https://${SPACES_ENDPOINT}`,
+  region: SPACES_REGION,
   credentials: {
-    accessKeyId: process.env.DO_SPACES_KEY,
-    secretAccessKey: process.env.DO_SPACES_SECRET,
+    accessKeyId: SPACES_KEY,
+    secretAccessKey: SPACES_SECRET,
   },
 });
 
-const BUCKET_NAME = process.env.DO_SPACES_BUCKET_NAME;
-
-// Ini adalah handler utama untuk serverless function
-// Cocok untuk platform seperti Vercel atau Netlify
+// This is the main handler for the serverless function
+// Suitable for platforms like Vercel or Netlify
 export default async function handler(req, res) {
-  // Hanya izinkan metode POST
+  // Only allow POST method
   if (req.method !== 'POST') {
     res.status(405).json({ error: 'Method Not Allowed' });
     return;
@@ -48,11 +57,10 @@ export default async function handler(req, res) {
     // URL ini berlaku selama 60 detik
     const uploadUrl = await getSignedUrl(s3Client, command, { expiresIn: 60 });
 
-    // Kirim URL kembali ke frontend
+    // URL of the file after upload, to be stored in the database
     res.status(200).json({
       uploadUrl: uploadUrl,
-      // URL file setelah diunggah, untuk disimpan di database
-      fileUrl: `https://${BUCKET_NAME}.${s3Client.config.endpoint.split('//')[1]}/${uniqueFileName}`,
+      fileUrl: `https://${BUCKET_NAME}.${SPACES_ENDPOINT}/${uniqueFileName}`,
     });
 
   } catch (error) {

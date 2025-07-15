@@ -14,6 +14,7 @@ const ClientPortalDashboard: React.FC<ClientPortalDashboardProps> = ({ user, onB
   const [showBilling, setShowBilling] = useState(false);
   const [showViewAppointments, setShowViewAppointments] = useState(false);
   const [message, setMessage] = useState('');
+  const [isLoading, setIsLoading] = useState(true);
 
   const { 
     clients, 
@@ -28,23 +29,61 @@ const ClientPortalDashboard: React.FC<ClientPortalDashboardProps> = ({ user, onB
     fetchInvoices,
     fetchPayments,
     fetchChats,
-    fetchCalendarEvents
+    fetchCalendarEvents,
+    sendMessage,
+    createChatForClient,
+    loadChatMessages,
+    updateChatOnlineStatus,
   } = useAppStore();
+
+  const client = clients.length > 0 ? clients[0] : null;
+
+  // Effect to manage user's online status
+  useEffect(() => {
+    const chat = chats.find(c => c.clientId === client?.id);
+    if (chat) {
+      updateChatOnlineStatus(chat.id, true);
+
+      // Set to offline on component unmount
+      return () => {
+        updateChatOnlineStatus(chat.id, false);
+      };
+    }
+  }, [client, chats, updateChatOnlineStatus]);
 
   // Fetch data when component mounts to ensure sync with admin
   useEffect(() => {
-    fetchClients();
-    fetchProgressSteps();
-    fetchComponents();
-    fetchInvoices();
-    fetchPayments();
-    fetchChats();
-    fetchCalendarEvents();
+    const fetchData = async () => {
+      try {
+        await Promise.all([
+          fetchClients(),
+          fetchProgressSteps(),
+          fetchComponents(),
+          fetchInvoices(),
+          fetchPayments(),
+          fetchChats(),
+          fetchCalendarEvents()
+        ]);
+      } catch (error) {
+        console.error("Failed to fetch client portal data:", error);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    fetchData();
   }, [fetchClients, fetchProgressSteps, fetchComponents, fetchInvoices, fetchPayments, fetchChats, fetchCalendarEvents]);
 
-  // Find the client data based on the user email
-  const client = clients.find(c => c.email === user.email);
+  // If a client is logged in, the clients array should contain exactly one client.
   
+  if (isLoading) {
+    return (
+      <div className="min-h-screen bg-slate-50 flex items-center justify-center p-4">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
+      </div>
+    );
+  }
+
   if (!client) {
     return (
       <div className="min-h-screen bg-slate-50 flex items-center justify-center p-4">
@@ -81,12 +120,26 @@ const ClientPortalDashboard: React.FC<ClientPortalDashboardProps> = ({ user, onB
   const actualPackageName = invoices.length > 0 ? invoices[0].packageName : 'No Package Assigned';
 
   const handleSendMessage = async () => {
-    if (message.trim() && clientChat) {
+    if (message.trim() && client) {
+      let currentChat = chats.find(chat => chat.clientId === client.id);
+      
       try {
-        // Import sendMessage from useAppStore
-        const { sendMessage } = useAppStore.getState();
-        await sendMessage(clientChat.id, message.trim(), 'client');
-        setMessage('');
+        // If no chat exists, create one
+        if (!currentChat) {
+          await createChatForClient(client.id);
+          // Re-fetch chats to get the new chat ID
+          const newChats = useAppStore.getState().chats;
+          currentChat = newChats.find(chat => chat.clientId === client.id);
+        }
+
+        if (currentChat) {
+          await sendMessage(currentChat.id, message.trim(), 'client');
+          setMessage('');
+          // Reload messages for the chat to show the new one
+          await loadChatMessages(currentChat.id);
+        } else {
+          console.error("Failed to create or find chat for the client.");
+        }
       } catch (error) {
         console.error('Error sending message:', error);
       }
@@ -497,10 +550,10 @@ const ClientPortalDashboard: React.FC<ClientPortalDashboardProps> = ({ user, onB
             <div className="p-4 border-b border-slate-200 flex items-center justify-between">
               <div className="flex items-center space-x-3">
                 <div className="w-10 h-10 bg-blue-500 rounded-full flex items-center justify-center text-white font-medium">
-                  AT
+                  {client.businessName.substring(0, 2).toUpperCase()}
                 </div>
                 <div>
-                  <h3 className="font-medium text-slate-900">Ahmad Tech Solutions</h3>
+                  <h3 className="font-medium text-slate-900">{client.businessName}</h3>
                   <p className="text-sm text-slate-500">Online</p>
                 </div>
               </div>

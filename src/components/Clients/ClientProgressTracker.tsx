@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { ArrowLeft, Plus, Check, Edit, Trash2, Calendar, Clock, User, MessageCircle, Star, X, Upload, Link, FileText, Trash } from 'lucide-react';
 import { useAppStore } from '../../store/AppStore';
 import { useSupabase } from '../../hooks/useSupabase';
+import FileUpload from '../common/FileUpload';
 
 interface ClientProgressTrackerProps {
   clientId: string;
@@ -40,6 +41,7 @@ const ClientProgressTracker: React.FC<ClientProgressTrackerProps> = ({ clientId,
   const [showCommentModal, setShowCommentModal] = useState(false);
   const [commentingStepId, setCommentingStepId] = useState<string | null>(null);
   const [newComment, setNewComment] = useState('');
+  const [uploadedFiles, setUploadedFiles] = useState<{ url: string; name: string; type: string; }[]>([]);
   const [showCompletionModal, setShowCompletionModal] = useState(false);
   const [completingStepId, setCompletingStepId] = useState<string | null>(null);
   const [completionDate, setCompletionDate] = useState('');
@@ -47,8 +49,6 @@ const ClientProgressTracker: React.FC<ClientProgressTrackerProps> = ({ clientId,
   const [showAddLink, setShowAddLink] = useState(false);
   const [newLinkTitle, setNewLinkTitle] = useState('');
   const [newLinkUrl, setNewLinkUrl] = useState('');
-  const [selectedFile, setSelectedFile] = useState<File | null>(null);
-  const fileInputRef = React.useRef<HTMLInputElement>(null);
   
   const [newStep, setNewStep] = useState({
     title: '',
@@ -143,13 +143,12 @@ const ClientProgressTracker: React.FC<ClientProgressTrackerProps> = ({ clientId,
 
   const hierarchicalSteps = createHierarchicalSteps();
 
-  // Auto-sync components to progress steps and fetch links when component loads
+  // Fetch links when component loads
   useEffect(() => {
     if (client) {
-      copyComponentsToProgressSteps(client.id);
       fetchClientLinks(client.id);
     }
-  }, [client, copyComponentsToProgressSteps, fetchClientLinks]);
+  }, [client, fetchClientLinks]);
 
   if (!client) {
     return (
@@ -239,66 +238,35 @@ const ClientProgressTracker: React.FC<ClientProgressTrackerProps> = ({ clientId,
   };
 
   const handleAddComment = async () => {
-    if (!newComment.trim() && !selectedFile) {
+    if (!newComment.trim() && uploadedFiles.length === 0) {
       alert("Please add a comment or select a file.");
       return;
     }
     if (!commentingStepId) return;
 
-    let attachmentData: { attachment_url?: string; attachment_type?: string } = {};
-
-    // Handle file upload if a file is selected
-    if (selectedFile) {
-      try {
-        // 1. Get a pre-signed URL from our API
-        const res = await fetch('/api/generate-upload-url', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ fileName: selectedFile.name, fileType: selectedFile.type }),
-        });
-
-        const { uploadUrl, fileUrl } = await res.json();
-
-        if (!res.ok) {
-          throw new Error('Failed to get pre-signed URL.');
-        }
-
-        // 2. Upload the file to DigitalOcean Spaces
-        await fetch(uploadUrl, {
-          method: 'PUT',
-          body: selectedFile,
-          headers: { 'Content-Type': selectedFile.type },
-        });
-
-        attachmentData = {
-          attachment_url: fileUrl,
-          attachment_type: selectedFile.type,
-        };
-
-      } catch (error) {
-        console.error("Failed to upload file:", error);
-        alert("File upload failed. Please try again.");
-        return;
-      }
+    // Handle file attachments
+    for (const file of uploadedFiles) {
+      await addCommentToStep(commentingStepId, {
+        text: newComment || `Attachment: ${file.name}`,
+        username: user?.name || 'Admin',
+        attachment_url: file.url,
+        attachment_type: file.type,
+      });
     }
 
-    // 3. Save the comment with or without attachment URL to the database
-    try {
+    // Handle text-only comment
+    if (newComment.trim() && uploadedFiles.length === 0) {
       await addCommentToStep(commentingStepId, {
         text: newComment,
         username: user?.name || 'Admin',
-        ...attachmentData,
       });
-
-      // Reset state
-      setNewComment('');
-      setSelectedFile(null);
-      setShowCommentModal(false);
-      setCommentingStepId(null);
-    } catch (error) {
-      console.error("Failed to add comment:", error);
-      alert("Failed to save comment. Please try again.");
     }
+
+    // Reset state
+    setNewComment('');
+    setUploadedFiles([]);
+    setShowCommentModal(false);
+    setCommentingStepId(null);
   };
 
   const handleDeleteComment = async (stepId: string, commentId: string) => {
@@ -1132,7 +1100,10 @@ const ClientProgressTracker: React.FC<ClientProgressTrackerProps> = ({ clientId,
               <div className="flex items-center justify-between p-6 border-b border-slate-200">
                 <h3 className="text-xl font-semibold text-slate-900">Add Comment</h3>
                 <button
-                  onClick={() => setShowCommentModal(false)}
+                  onClick={() => {
+                    setShowCommentModal(false);
+                    setUploadedFiles([]); // Clear files on close
+                  }}
                   className="p-2 hover:bg-slate-100 rounded-lg transition-colors"
                 >
                   <X className="w-5 h-5 text-slate-500" />
@@ -1153,39 +1124,26 @@ const ClientProgressTracker: React.FC<ClientProgressTrackerProps> = ({ clientId,
                   />
                 </div>
 
-                <div className="mt-4">
-                  <input
-                    type="file"
-                    ref={fileInputRef}
-                    onChange={(e) => setSelectedFile(e.target.files ? e.target.files[0] : null)}
-                    className="hidden"
-                  />
-                  <button
-                    onClick={() => fileInputRef.current?.click()}
-                    className="w-full flex items-center justify-center space-x-2 px-4 py-2 border border-dashed border-slate-300 rounded-lg hover:bg-slate-50 transition-colors"
-                  >
-                    <Upload className="w-4 h-4 text-slate-500" />
-                    <span className="text-sm text-slate-600">
-                      {selectedFile ? `Selected: ${selectedFile.name}` : 'Attach a file'}
-                    </span>
-                  </button>
-                  {selectedFile && (
-                    <button onClick={() => setSelectedFile(null)} className="text-xs text-red-500 hover:underline mt-1">
-                      Remove file
-                    </button>
-                  )}
+                <div>
+                  <label className="block text-sm font-semibold text-slate-700 mb-3">
+                    Attachments
+                  </label>
+                  <FileUpload onUploadComplete={(files) => setUploadedFiles(files)} multiple={true} />
                 </div>
                 
                 <div className="flex justify-end space-x-4 pt-4">
                   <button
-                    onClick={() => setShowCommentModal(false)}
+                    onClick={() => {
+                      setShowCommentModal(false);
+                      setUploadedFiles([]); // Clear files on close
+                    }}
                     className="px-6 py-3 text-slate-700 bg-slate-100 rounded-xl hover:bg-slate-200 transition-all duration-200 font-medium"
                   >
                     Cancel
                   </button>
                   <button
                     onClick={handleAddComment}
-                    disabled={!newComment.trim() && !selectedFile}
+                    disabled={!newComment.trim() && uploadedFiles.length === 0}
                     className="px-6 py-3 bg-blue-600 text-white rounded-xl hover:bg-blue-700 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed font-medium"
                   >
                     Add Comment

@@ -1,4 +1,5 @@
 import React, { Suspense, useState, useEffect } from 'react';
+import { Routes, Route, useNavigate, useLocation, useParams, Navigate } from 'react-router-dom';
 import { useAppStore } from './store/AppStore';
 import Sidebar from './components/Layout/Sidebar';
 import { DatabaseProvider } from './context/SupabaseContext';
@@ -23,17 +24,58 @@ const LoadingSpinner = () => (
   </div>
 );
 
+// A wrapper component to extract clientId from URL and pass it as a prop
+const ClientProfileWrapper = () => {
+  const { clientId } = useParams<{ clientId: string }>();
+  const navigate = useNavigate();
+
+  if (!clientId) {
+    // Handle case where clientId is missing, maybe redirect
+    return <Navigate to="/clients" replace />;
+  }
+
+  return <ClientProfile clientId={clientId} onBack={() => navigate('/clients')} />;
+};
+
+
 function App() {
-  const { user, activeTab, selectedClient, setActiveTab, setUser, setSelectedClient } = useAppStore();
+  const { user, setUser, fetchCalendarEvents } = useAppStore();
   const [sidebarOpen, setSidebarOpen] = useState(() => {
-    // Default to open on desktop (lg breakpoint is 1024px), closed on mobile
     if (typeof window !== 'undefined') {
       return window.innerWidth >= 1024;
     }
     return false;
   });
 
-  // Handle window resize to adjust sidebar state
+  const navigate = useNavigate();
+  const location = useLocation();
+
+  const [activeTab, setActiveTab] = useState('dashboard');
+
+  useEffect(() => {
+    const path = location.pathname.split('/')[1] || 'dashboard';
+    setActiveTab(path);
+  }, [location]);
+
+  // Fetch calendar events when user is authenticated
+  useEffect(() => {
+    if (user) {
+      fetchCalendarEvents();
+    }
+  }, [user, fetchCalendarEvents]);
+
+  // Debug session information
+  useEffect(() => {
+    if (user) {
+      console.log('👤 Current user session:', {
+        id: user.id,
+        email: user.email,
+        role: user.role,
+        sessionTimestamp: localStorage.getItem('demoUserTimestamp')
+      });
+    }
+  }, [user]);
+
   useEffect(() => {
     const handleResize = () => {
       const isDesktop = window.innerWidth >= 1024;
@@ -45,16 +87,25 @@ function App() {
   }, []);
 
   const handleLogout = () => {
+    console.log('🚪 Logging out from App...');
     setUser(null);
-    setActiveTab('dashboard');
-    setSelectedClient(null);
+    localStorage.removeItem('demoUser');
+    localStorage.removeItem('demoUserTimestamp');
+    navigate('/login');
+  };
+
+  const handleSetTab = (tab: string) => {
+    setActiveTab(tab);
+    navigate(`/${tab}`);
   };
 
   if (!user) {
     return (
       <DatabaseProvider>
         <Suspense fallback={<LoadingSpinner />}>
-          <Login />
+          <Routes>
+            <Route path="*" element={<Login />} />
+          </Routes>
         </Suspense>
       </DatabaseProvider>
     );
@@ -74,69 +125,13 @@ function App() {
     setSidebarOpen(!sidebarOpen);
   };
 
-  const renderContent = () => {
-    const content = (() => {
-      switch (activeTab) {
-        case 'dashboard':
-          return <Dashboard setActiveTab={setActiveTab} onToggleSidebar={handleToggleSidebar} />;
-        case 'clients':
-          return <ClientsPage setActiveTab={setActiveTab} onToggleSidebar={handleToggleSidebar} />;
-                  case 'client-profile':
-            return selectedClient ? (
-              <ClientProfile 
-                clientId={selectedClient.id.toString()} 
-                onBack={() => setActiveTab('clients')}
-                onEdit={() => {}} // Can be implemented later
-              />
-            ) : <ClientsPage setActiveTab={setActiveTab} onToggleSidebar={handleToggleSidebar} />;
-        case 'payments':
-          return <PaymentsPage />;
-        case 'calendar':
-          return <CalendarPage onToggleSidebar={handleToggleSidebar} />;
-        case 'chat':
-          return <ChatPage onToggleSidebar={handleToggleSidebar} />;
-        case 'reports':
-          return <ReportsPage onToggleSidebar={handleToggleSidebar} />;
-        case 'settings':
-          return <SettingsPage onToggleSidebar={handleToggleSidebar} />;
-        default:
-          return <Dashboard setActiveTab={setActiveTab} onToggleSidebar={handleToggleSidebar} />;
-      }
-    })();
-
-    return (
-      <Suspense fallback={<LoadingSpinner />}>
-        {content}
-      </Suspense>
-    );
-  };
-
   return (
     <DatabaseProvider>
       <div className="flex h-screen bg-gray-100">
         <Toaster 
           position="top-center"
           reverseOrder={false}
-          toastOptions={{
-            // Define default options
-            className: '',
-            duration: 5000,
-            style: {
-              background: '#363636',
-              color: '#fff',
-            },
-            
-            // Default options for specific types
-            success: {
-              duration: 3000,
-              iconTheme: {
-                primary: 'green',
-                secondary: 'white',
-              },
-            },
-          }}
         />
-        {/* Backdrop overlay for mobile */}
         {sidebarOpen && (
           <div 
             className="fixed inset-0 bg-black bg-opacity-50 z-40 lg:hidden"
@@ -146,13 +141,25 @@ function App() {
         
         <Sidebar 
           activeTab={activeTab} 
-          setActiveTab={setActiveTab} 
+          setActiveTab={handleSetTab} 
           onLogout={handleLogout}
           isOpen={sidebarOpen}
           onToggle={handleToggleSidebar}
         />
         <div className="flex-1 overflow-auto">
-          {renderContent()}
+          <Suspense fallback={<LoadingSpinner />}>
+            <Routes>
+              <Route path="/dashboard" element={<Dashboard setActiveTab={handleSetTab} onToggleSidebar={handleToggleSidebar} />} />
+              <Route path="/clients" element={<ClientsPage setActiveTab={handleSetTab} onToggleSidebar={handleToggleSidebar} />} />
+              <Route path="/clients/:clientId" element={<ClientProfileWrapper />} />
+              <Route path="/payments" element={<PaymentsPage />} />
+              <Route path="/calendar" element={<CalendarPage onToggleSidebar={handleToggleSidebar} />} />
+              <Route path="/chat" element={<ChatPage onToggleSidebar={handleToggleSidebar} />} />
+              <Route path="/reports" element={<ReportsPage onToggleSidebar={handleToggleSidebar} />} />
+              <Route path="/settings" element={<SettingsPage onToggleSidebar={handleToggleSidebar} />} />
+              <Route path="*" element={<Dashboard setActiveTab={handleSetTab} onToggleSidebar={handleToggleSidebar} />} />
+            </Routes>
+          </Suspense>
         </div>
       </div>
     </DatabaseProvider>

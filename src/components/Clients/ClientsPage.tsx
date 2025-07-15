@@ -1,9 +1,10 @@
-import React, { useState, useEffect } from 'react';
-import { Plus, Search, Filter, Trash2, Menu } from 'lucide-react';
+import React, { useState, useEffect, useMemo } from 'react';
+import { Plus, Search, Filter, Trash2, Menu, Eye, TrendingUp, Edit } from 'lucide-react';
 import ClientModal from './ClientModal';
 import ClientProfile from './ClientProfile';
 import ClientProgressTracker from './ClientProgressTracker';
 import { useAppStore } from '../../store/AppStore';
+import { useNavigate } from 'react-router-dom';
 import toast from 'react-hot-toast';
 
 interface ClientsPageProps {
@@ -36,6 +37,8 @@ const ClientsPage: React.FC<ClientsPageProps> = ({ setActiveTab, onToggleSidebar
     addUser,
     copyComponentsToProgressSteps
   } = useAppStore();
+
+  const navigate = useNavigate();
 
   useEffect(() => {
     // Fetch initial data
@@ -105,6 +108,10 @@ const ClientsPage: React.FC<ClientsPageProps> = ({ setActiveTab, onToggleSidebar
     setShowModal(true);
   };
 
+  const handleViewClient = (clientId: number) => {
+    navigate(`/clients/${clientId}`);
+  };
+
   const handleEditClient = (client: any) => {
     setSelectedClient(client);
     setShowModal(true);
@@ -157,12 +164,8 @@ const ClientsPage: React.FC<ClientsPageProps> = ({ setActiveTab, onToggleSidebar
       };
       
       const promise = addClient(newClient).then(createdClient => {
-        // Auto-copy any existing components to progress steps for new clients
-        setTimeout(() => {
-          if (createdClient && createdClient.id) {
-            copyComponentsToProgressSteps(createdClient.id);
-          }
-        }, 100);
+        // Removed automatic progress step creation to prevent duplication
+        // This will be handled manually via a sync button in the client profile
         return createdClient;
       });
 
@@ -185,16 +188,6 @@ const ClientsPage: React.FC<ClientsPageProps> = ({ setActiveTab, onToggleSidebar
       });
     }
   };
-
-  if (showProfile) {
-    return (
-      <ClientProfile
-        clientId={profileClientId}
-        onBack={handleBackFromProfile}
-        onEdit={handleEditFromProfile}
-      />
-    );
-  }
 
   if (showProgressTracker) {
     return (
@@ -451,33 +444,33 @@ const ClientsPage: React.FC<ClientsPageProps> = ({ setActiveTab, onToggleSidebar
                     <td className="py-3 lg:py-4 px-2 lg:px-3 text-center">
                       <div className="flex flex-col lg:flex-row items-center justify-center space-y-2 lg:space-y-0 lg:space-x-2 px-2 py-1">
                         <button 
-                          onClick={() => handleViewProfile(client.id.toString())}
-                          className="px-2 lg:px-3 py-1 text-xs font-medium bg-blue-100 text-blue-700 rounded-lg hover:bg-blue-200 transition-all duration-200 w-full lg:w-auto"
+                          onClick={() => handleViewClient(client.id)}
+                          className="p-1 lg:p-2 bg-blue-100 text-blue-600 rounded-lg hover:bg-blue-200 transition-colors"
+                          title="View Profile"
                         >
-                          View
+                          <Eye className="w-3.5 h-3.5 lg:w-4 lg:h-4" />
                         </button>
                         <button
                           onClick={() => handleTrackProgress(client.id.toString())}
-                          className="px-2 lg:px-3 py-1 text-xs font-medium bg-purple-100 text-purple-700 rounded-lg hover:bg-purple-200 transition-all duration-200 w-full lg:w-auto"
+                          className="p-1 lg:p-2 bg-purple-100 text-purple-600 rounded-lg hover:bg-purple-200 transition-colors"
+                          title="Track Progress"
                         >
-                          Track
+                          <TrendingUp className="w-3.5 h-3.5 lg:w-4 lg:h-4" />
                         </button>
-                        <div className="lg:hidden">
-                          <button 
-                            onClick={() => handleDeleteClient(client.id)}
-                            className="p-1 text-red-500 hover:text-red-700 hover:bg-red-50 rounded-lg transition-all duration-200 flex items-center justify-center"
-                          >
-                            <Trash2 className="w-3 h-3" />
-                          </button>
-                        </div>
-                        <div className="hidden lg:block">
-                          <button 
-                            onClick={() => handleDeleteClient(client.id)}
-                            className="p-1 text-red-500 hover:text-red-700 hover:bg-red-50 rounded-lg transition-all duration-200 flex items-center justify-center"
-                          >
-                            <Trash2 className="w-4 h-4" />
-                          </button>
-                        </div>
+                        <button
+                          onClick={() => handleEditClient(client)}
+                          className="p-1 lg:p-2 bg-yellow-100 text-yellow-600 rounded-lg hover:bg-yellow-200 transition-colors"
+                          title="Edit Client"
+                        >
+                          <Edit className="w-3.5 h-3.5 lg:w-4 lg:h-4" />
+                        </button>
+                        <button 
+                          onClick={() => handleDeleteClient(client.id)}
+                          className="p-1 lg:p-2 bg-red-100 text-red-600 rounded-lg hover:bg-red-200 transition-colors"
+                          title="Delete Client"
+                        >
+                          <Trash2 className="w-3.5 h-3.5 lg:w-4 lg:h-4" />
+                        </button>
                       </div>
                     </td>
                   </tr>

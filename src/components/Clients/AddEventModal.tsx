@@ -13,7 +13,8 @@ const AddEventModal: React.FC<AddEventModalProps> = ({ onClose, onSave }) => {
     endDate: '',
     startTime: '',
     endTime: '',
-    description: ''
+    description: '',
+    type: 'meeting'
   });
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -31,7 +32,7 @@ const AddEventModal: React.FC<AddEventModalProps> = ({ onClose, onSave }) => {
     onSave(formData);
   };
 
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
     const { name, value } = e.target;
     setFormData(prev => ({
       ...prev,
@@ -67,6 +68,25 @@ const AddEventModal: React.FC<AddEventModalProps> = ({ onClose, onSave }) => {
               className="w-full px-4 py-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none"
               placeholder="Enter event title"
             />
+          </div>
+
+          {/* Event Type */}
+          <div>
+            <label className="block text-sm font-medium text-slate-700 mb-2">
+              Event Type *
+            </label>
+            <select
+              name="type"
+              value={formData.type}
+              onChange={handleChange}
+              required
+              className="w-full px-4 py-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none"
+            >
+              <option value="meeting">Meeting</option>
+              <option value="call">Call</option>
+              <option value="deadline">Deadline</option>
+              <option value="payment">Payment</option>
+            </select>
           </div>
 
           {/* Start Date and Time */}

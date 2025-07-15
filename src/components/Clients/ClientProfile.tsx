@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useAppStore } from '../../store/AppStore';
 import { Client, Invoice, Payment, Component, CalendarEvent } from '../../store/AppStore';
 import { Edit, Calendar, FileText, Package, Plus, Trash2, ArrowLeft } from 'lucide-react';
@@ -39,7 +39,14 @@ const ClientProfile: React.FC<ClientProfileProps> = ({ clientId, onBack, onEdit 
     deleteComponent,
     updateComponent,
     deletePayment,
-    updatePayment
+    updatePayment,
+    fetchClients,
+    fetchInvoices,
+    fetchPayments,
+    fetchComponents,
+    fetchCalendarEvents,
+    fetchProgressSteps,
+    copyComponentsToProgressSteps
   } = useAppStore();
 
   // All React hooks must be at the top level
@@ -57,11 +64,55 @@ const ClientProfile: React.FC<ClientProfileProps> = ({ clientId, onBack, onEdit 
   const [showEditPaymentModal, setShowEditPaymentModal] = useState(false);
   const [editingPayment, setEditingPayment] = useState<Payment | null>(null);
   const [selectedInvoiceForPayment, setSelectedInvoiceForPayment] = useState<Invoice | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const [client, setClient] = useState<Client | null>(null);
 
-  // Get client by ID
-  const client = clients.find(c => c.id === parseInt(clientId));
 
-  // Handle case where client is not found
+  // Fetch data on component mount
+  useEffect(() => {
+    const loadData = async () => {
+      setIsLoading(true);
+      try {
+        console.log("Fetching clients...");
+        await fetchClients();
+        console.log("Fetching invoices...");
+        await fetchInvoices();
+        console.log("Fetching payments...");
+        await fetchPayments();
+        console.log("Fetching components...");
+        await fetchComponents();
+        console.log("Fetching calendar events...");
+        await fetchCalendarEvents();
+        console.log("Fetching progress steps...");
+        await fetchProgressSteps();
+        console.log("All data fetched.");
+
+        // After all data is fetched, find the client
+        const foundClient = useAppStore.getState().clients.find(c => c.id === parseInt(clientId));
+        setClient(foundClient || null);
+      } catch (error) {
+        console.error("Failed to load client profile data:", error);
+        setClient(null);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+    if (clientId) {
+        loadData();
+    }
+  }, [clientId, fetchClients, fetchInvoices, fetchPayments, fetchComponents, fetchCalendarEvents, fetchProgressSteps]);
+
+
+  // Handle loading state
+  if (isLoading) {
+    return (
+      <div className="p-6 flex justify-center items-center h-screen">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
+      </div>
+    );
+  }
+
+  // Handle case where client is not found AFTER loading
   if (!client) {
     return (
       <div className="p-6">
@@ -89,7 +140,7 @@ const ClientProfile: React.FC<ClientProfileProps> = ({ clientId, onBack, onEdit 
   const packageNames = clientInvoices.map(invoice => invoice.packageName).filter(Boolean);
   const displayPackageName = packageNames.length > 0 ? packageNames.join(', ') : 'No package assigned yet';
 
-  const handleSaveInvoice = async (invoiceData: Partial<Invoice>) => {
+  const handleSaveInvoice = async (invoiceData: Partial<Invoice> & { invoiceDate?: string }) => {
     try {
       await addInvoice({
         clientId: client.id,
@@ -255,13 +306,21 @@ const ClientProfile: React.FC<ClientProfileProps> = ({ clientId, onBack, onEdit 
             </div>
           </div>
           </div>
-          <button
-            onClick={() => setShowEditModal(true)}
-            className="flex items-center space-x-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
-          >
-            <Edit className="w-4 h-4" />
-            <span>Edit Profile</span>
-          </button>
+          <div className="flex items-center space-x-2">
+            <button
+                onClick={() => copyComponentsToProgressSteps(client.id)}
+                className="flex items-center space-x-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
+              >
+                <span>Sync to Progress</span>
+            </button>
+            <button
+              onClick={() => setShowEditModal(true)}
+              className="flex items-center space-x-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+            >
+              <Edit className="w-4 h-4" />
+              <span>Edit Profile</span>
+            </button>
+          </div>
         </div>
 
         {/* Basic Info Card */}
@@ -573,7 +632,7 @@ const ClientProfile: React.FC<ClientProfileProps> = ({ clientId, onBack, onEdit 
         <AddPaymentModal
           onClose={() => setShowPaymentModal(false)}
           onSave={handleSavePayment}
-          selectedInvoice={selectedInvoiceForPayment}
+          selectedInvoice={selectedInvoiceForPayment || undefined}
         />
       )}
 

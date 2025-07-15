@@ -9,10 +9,20 @@
       - `created_at` (timestamp)
       - `updated_at` (timestamp)
 
-  2. Security
+  2. Schema Updates
+    - Add `invoice_id` column to `components` table
+
+  3. Security
     - Enable RLS on `tags` table
     - Add policies for authenticated users to manage tags
 */
+
+-- Add invoice_id column to components table
+ALTER TABLE components 
+ADD COLUMN IF NOT EXISTS invoice_id text REFERENCES invoices(id) ON DELETE SET NULL;
+
+-- Add index for better performance
+CREATE INDEX IF NOT EXISTS idx_components_invoice_id ON components(invoice_id);
 
 CREATE TABLE IF NOT EXISTS tags (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
