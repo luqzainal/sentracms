@@ -7,8 +7,9 @@
     "dev": "vite",
     "build": "vite build",
     "start": "serve -s dist -l 8080 -n",
-    "lint": "eslint .",
+    "lint": "eslint . --ext ts,tsx --report-unused-disable-directives --max-warnings 0",
     "preview": "vite preview",
+    "start-api": "vercel dev --listen 3001",
     "db:setup": "node scripts/setup-database.js",
     "db:test": "node scripts/test-db-connection.js",
     "db:monitor": "node scripts/monitor-database-performance.js",
@@ -16,7 +17,7 @@
     "fix-deployment": "node scripts/fix-deployment.js"
   },
   "dependencies": {
-    "@aws-sdk/client-s3": "^3.844.0",
+    "@aws-sdk/client-s3": "^3.583.0",
     "@aws-sdk/s3-request-presigner": "^3.844.0",
     "@neondatabase/serverless": "^1.0.1",
     "@types/react-dropzone": "^4.2.2",
@@ -48,6 +49,7 @@
     "terser": "^5.43.1",
     "typescript": "^5.5.3",
     "typescript-eslint": "^8.3.0",
+    "vercel": "^44.4.1",
     "vite": "^5.4.2"
   }
 }
