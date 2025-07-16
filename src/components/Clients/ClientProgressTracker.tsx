@@ -262,11 +262,11 @@ const ClientProgressTracker: React.FC<ClientProgressTrackerProps> = ({ clientId,
       });
     }
 
-    // Reset state
-    setNewComment('');
+      // Reset state
+      setNewComment('');
     setUploadedFiles([]);
-    setShowCommentModal(false);
-    setCommentingStepId(null);
+      setShowCommentModal(false);
+      setCommentingStepId(null);
   };
 
   const handleDeleteComment = async (stepId: string, commentId: string) => {

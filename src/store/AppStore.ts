@@ -173,6 +173,7 @@ interface AppState {
   // Real-time polling
   isPolling: boolean;
   pollingInterval: NodeJS.Timeout | null;
+  lastNonChatPoll: number;
 
   // Loading states
   loading: {
@@ -262,6 +263,7 @@ interface AppState {
   deleteUser: (id: string) => Promise<void>;
 
   copyComponentsToProgressSteps: (clientId: number) => void;
+  fixOrphanedComponents: (clientId: number) => void;
 
   addClientLink: (link: Omit<ClientLink, 'id' | 'createdAt' | 'created_at'> & { client_id: number }) => Promise<void>;
   deleteClientLink: (id: string) => Promise<void>;
@@ -275,6 +277,8 @@ interface AppState {
   // Utility functions
   recalculateAllClientTotals: () => Promise<void>;
   createTestUsers: () => Promise<void>;
+  cleanOrphanedChats: () => Promise<number>;
+  mergeDuplicateChats: () => Promise<number>;
 }
 
 export const useAppStore = create<AppState>((set, get) => ({
@@ -337,6 +341,7 @@ export const useAppStore = create<AppState>((set, get) => ({
   // Real-time polling
   isPolling: false,
   pollingInterval: null,
+  lastNonChatPoll: 0,
 
   // Actions
   fetchClients: async () => {
@@ -351,6 +356,35 @@ export const useAppStore = create<AppState>((set, get) => ({
         const client = await clientsService.getById(user.clientId);
         if (client) {
           dbClients = [client];
+        } else {
+          // If demo client and no data found, create demo client data
+          const demoClientEmail = import.meta.env.VITE_DEMO_CLIENT_EMAIL || 'client@demo.com';
+          const demoClientName = import.meta.env.VITE_DEMO_CLIENT_NAME || 'Demo Client';
+          
+          if (user.email === demoClientEmail) {
+            console.log('Creating demo client data for demo user');
+            // Create demo client data
+            const demoClient: DatabaseClient = {
+              id: 1,
+              name: demoClientName,
+              business_name: 'Demo Business',
+              email: demoClientEmail,
+              phone: '+60123456789',
+              status: 'Complete',
+              total_sales: 15000,
+              total_collection: 10000,
+              balance: 5000,
+              last_activity: new Date().toISOString(),
+              invoice_count: 2,
+              registered_at: new Date().toISOString(),
+              company: 'Demo Company Sdn Bhd',
+              address: 'Kuala Lumpur, Malaysia',
+              notes: 'Demo client for testing purposes',
+              created_at: new Date().toISOString(),
+              updated_at: new Date().toISOString()
+            };
+            dbClients = [demoClient];
+          }
         }
         console.log(`Fetching specific client data for clientId: ${user.clientId}`, dbClients);
       } else {
@@ -358,7 +392,12 @@ export const useAppStore = create<AppState>((set, get) => ({
         dbClients = await clientsService.getAll();
         console.log('Raw clients from database (admin):', dbClients);
       }
-
+      
+      // Load client tags from localStorage
+      const clientTags = typeof window !== 'undefined' 
+        ? JSON.parse(localStorage.getItem('clientTags') || '{}') 
+        : {};
+      
       // Convert database Client type to store Client type
       const clients: Client[] = dbClients.map((dbClient) => {
         const convertedClient = {
@@ -369,7 +408,7 @@ export const useAppStore = create<AppState>((set, get) => ({
           phone: dbClient.phone || '',
           status: dbClient.status,
           packageName: undefined,
-          tags: [],
+          tags: clientTags[dbClient.id] || [], // Load tags from localStorage
           totalSales: Number(dbClient.total_sales) || 0,
           totalCollection: Number(dbClient.total_collection) || 0,
           balance: Number(dbClient.balance) || 0,
@@ -420,7 +459,40 @@ export const useAppStore = create<AppState>((set, get) => ({
   fetchInvoices: async () => {
     set((state) => ({ loading: { ...state.loading, invoices: true } }));
     try {
-      const dbInvoices = await invoicesService.getAll();
+      const user = useAppStore.getState().user;
+      const demoClientEmail = import.meta.env.VITE_DEMO_CLIENT_EMAIL || 'client@demo.com';
+      
+      let dbInvoices = await invoicesService.getAll();
+      
+      // Add demo invoices for demo client
+      if (user && user.email === demoClientEmail) {
+        const demoInvoices = [
+          {
+            id: 'INV-DEMO-001',
+            client_id: 1,
+            package_name: 'Digital Marketing Package',
+            amount: 8000,
+            paid: 5000,
+            due: 3000,
+            status: 'Partial' as const,
+            created_at: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString(),
+            updated_at: new Date().toISOString()
+          },
+          {
+            id: 'INV-DEMO-002',
+            client_id: 1,
+            package_name: 'Website Development',
+            amount: 7000,
+            paid: 5000,
+            due: 2000,
+            status: 'Partial' as const,
+            created_at: new Date(Date.now() - 15 * 24 * 60 * 60 * 1000).toISOString(),
+            updated_at: new Date().toISOString()
+          }
+        ];
+        dbInvoices = [...dbInvoices, ...demoInvoices];
+      }
+      
       // Convert database Invoice type to store Invoice type
       const invoices: Invoice[] = dbInvoices.map((dbInvoice) => ({
         id: dbInvoice.id,
@@ -473,8 +545,69 @@ export const useAppStore = create<AppState>((set, get) => ({
   fetchComponents: async () => {
     set((state) => ({ loading: { ...state.loading, components: true } }));
     try {
-      const dbComponents = await componentsService.getAll();
+      const user = useAppStore.getState().user;
+      const demoClientEmail = import.meta.env.VITE_DEMO_CLIENT_EMAIL || 'client@demo.com';
+      
+      let dbComponents = await componentsService.getAll();
       console.log('Raw components from database:', dbComponents);
+      
+      // Add demo components for demo client
+      if (user && user.email === demoClientEmail) {
+        const demoComponents = [
+          {
+            id: 'COMP-DEMO-001',
+            client_id: 1,
+            name: 'Social Media Management',
+            price: 'RM 3,000',
+            active: true,
+            invoice_id: 'INV-DEMO-001',
+            created_at: new Date().toISOString(),
+            updated_at: new Date().toISOString()
+          },
+          {
+            id: 'COMP-DEMO-002',
+            client_id: 1,
+            name: 'Google Ads Campaign',
+            price: 'RM 2,500',
+            active: true,
+            invoice_id: 'INV-DEMO-001',
+            created_at: new Date().toISOString(),
+            updated_at: new Date().toISOString()
+          },
+          {
+            id: 'COMP-DEMO-003',
+            client_id: 1,
+            name: 'SEO Optimization',
+            price: 'RM 2,500',
+            active: true,
+            invoice_id: 'INV-DEMO-001',
+            created_at: new Date().toISOString(),
+            updated_at: new Date().toISOString()
+          },
+          {
+            id: 'COMP-DEMO-004',
+            client_id: 1,
+            name: 'Website Design',
+            price: 'RM 4,000',
+            active: true,
+            invoice_id: 'INV-DEMO-002',
+            created_at: new Date().toISOString(),
+            updated_at: new Date().toISOString()
+          },
+          {
+            id: 'COMP-DEMO-005',
+            client_id: 1,
+            name: 'Website Development',
+            price: 'RM 3,000',
+            active: false,
+            invoice_id: 'INV-DEMO-002',
+            created_at: new Date().toISOString(),
+            updated_at: new Date().toISOString()
+          }
+        ];
+        dbComponents = [...dbComponents, ...demoComponents];
+      }
+      
       const components: Component[] = dbComponents.map((dbComponent) => ({
         id: dbComponent.id,
         clientId: dbComponent.client_id,
@@ -498,7 +631,70 @@ export const useAppStore = create<AppState>((set, get) => ({
   fetchProgressSteps: async () => {
     set((state) => ({ loading: { ...state.loading, progressSteps: true } }));
     try {
-      const dbSteps = await progressService.getAll();
+      const user = useAppStore.getState().user;
+      const demoClientEmail = import.meta.env.VITE_DEMO_CLIENT_EMAIL || 'client@demo.com';
+      
+      let dbSteps = await progressService.getAll();
+      
+      // Add demo progress steps for demo client
+      if (user && user.email === demoClientEmail) {
+        const demoSteps = [
+          {
+            id: 'STEP-DEMO-001',
+            client_id: 1,
+            title: 'Initial Consultation',
+            description: 'Understanding client requirements and goals',
+            deadline: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(),
+            completed: true,
+            completed_date: new Date(Date.now() - 20 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
+            important: true,
+            comments: [],
+            created_at: new Date(Date.now() - 25 * 24 * 60 * 60 * 1000).toISOString(),
+            updated_at: new Date().toISOString()
+          },
+          {
+            id: 'STEP-DEMO-002',
+            client_id: 1,
+            title: 'Digital Marketing Strategy',
+            description: 'Develop comprehensive digital marketing strategy',
+            deadline: new Date(Date.now() + 14 * 24 * 60 * 60 * 1000).toISOString(),
+            completed: true,
+            completed_date: new Date(Date.now() - 10 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
+            important: true,
+            comments: [],
+            created_at: new Date(Date.now() - 20 * 24 * 60 * 60 * 1000).toISOString(),
+            updated_at: new Date().toISOString()
+          },
+          {
+            id: 'STEP-DEMO-003',
+            client_id: 1,
+            title: 'Website Development',
+            description: 'Design and develop responsive website',
+            deadline: new Date(Date.now() + 21 * 24 * 60 * 60 * 1000).toISOString(),
+            completed: false,
+            completed_date: undefined,
+            important: true,
+            comments: [],
+            created_at: new Date(Date.now() - 15 * 24 * 60 * 60 * 1000).toISOString(),
+            updated_at: new Date().toISOString()
+          },
+          {
+            id: 'STEP-DEMO-004',
+            client_id: 1,
+            title: 'Content Creation',
+            description: 'Create engaging content for social media and website',
+            deadline: new Date(Date.now() + 28 * 24 * 60 * 60 * 1000).toISOString(),
+            completed: false,
+            completed_date: undefined,
+            important: false,
+            comments: [],
+            created_at: new Date(Date.now() - 10 * 24 * 60 * 60 * 1000).toISOString(),
+            updated_at: new Date().toISOString()
+          }
+        ];
+        dbSteps = [...dbSteps, ...demoSteps];
+      }
+      
       const steps: ProgressStep[] = dbSteps.map((dbStep: any) => ({
         ...dbStep,
         clientId: dbStep.client_id,
@@ -551,51 +747,75 @@ export const useAppStore = create<AppState>((set, get) => ({
   fetchChats: async () => {
     set((state) => ({ loading: { ...state.loading, chats: true } }));
     try {
+      // Clean orphaned chats first (one-time cleanup)
+      try {
+        const deletedCount = await chatService.cleanOrphanedChats();
+        if (deletedCount > 0) {
+          console.log(`Auto-cleaned ${deletedCount} orphaned chat rooms`);
+        }
+      } catch (error) {
+        console.error('Error auto-cleaning orphaned chats:', error);
+        // Continue with normal fetch even if cleanup fails
+      }
+      
+      // Merge duplicate chats (one-time cleanup)
+      try {
+        const mergedCount = await chatService.mergeDuplicateChats();
+        if (mergedCount > 0) {
+          console.log(`Auto-merged ${mergedCount} duplicate chat rooms`);
+        }
+      } catch (error) {
+        console.error('Error auto-merging duplicate chats:', error);
+        // Continue with normal fetch even if merge fails
+      }
+      
       const dbChats = await chatService.getAll();
-      const chats: Chat[] = dbChats.map((dbChat) => {
+      const chats: Chat[] = dbChats.map((dbChat: any) => {
         // Find existing chat to preserve messages
         const existingChat = get().chats.find(chat => chat.id === dbChat.id);
-        
+        // Use business_name (company name) instead of client_name (user name)
+        const clientName = dbChat.client_business_name || dbChat.client_name || 'Unknown Client';
         return {
           id: dbChat.id,
           clientId: dbChat.client_id,
-          client: dbChat.client_name,
-          avatar: generateAvatarUrl(dbChat.client_name),
-          lastMessage: dbChat.last_message,
-          lastMessageAt: dbChat.last_message_at,
-          unread_count: dbChat.unread_count || 0,
+          client: clientName,
+          avatar: generateAvatarUrl(clientName),
+          lastMessage: dbChat.last_message, // Use database value
+          lastMessageAt: dbChat.last_message_at, // Use database value
+          unread_count: dbChat.unread_count || 0, // Use database value
           online: dbChat.online || false,
           messages: existingChat ? existingChat.messages : [], // Preserve existing messages
           createdAt: dbChat.created_at,
           updatedAt: dbChat.updated_at
         };
       });
+      
+      // Update chats state - this will trigger re-render of chat list
       set({ chats });
       
       // Load messages for all chats
-      console.log('Loading messages for all chats...');
       for (const chat of chats) {
         try {
           const messages = await chatService.getMessages(chat.id);
-          console.log(`Loaded ${messages.length} messages for chat ${chat.id} (${chat.client})`);
-          
-          // Update the specific chat with messages
           set((state) => ({
-            chats: state.chats.map((c) =>
-              c.id === chat.id
-                ? {
-                    ...c,
-                    messages: messages,
-                    updatedAt: new Date().toISOString(),
-                  }
-                : c
-            ),
+            chats: state.chats.map((c) => {
+              if (c.id !== chat.id) return c;
+              // Only update messages if there is a change (by id or count)
+              const oldMsgs = c.messages || [];
+              if (oldMsgs.length === messages.length && oldMsgs.every((m, i) => m.id === messages[i]?.id)) {
+                return c; // No change, skip update
+              }
+              return {
+                ...c,
+                messages: messages,
+                updatedAt: new Date().toISOString(),
+              };
+            }),
           }));
         } catch (error) {
           console.error(`Error loading messages for chat ${chat.id}:`, error);
         }
       }
-      
     } catch (error) {
       console.error('Error fetching chats:', error);
       set({ chats: [] });
@@ -689,7 +909,7 @@ export const useAppStore = create<AppState>((set, get) => ({
     if (!currentState.isPolling) {
       const intervalId = setInterval(() => {
         get().pollForUpdates();
-      }, 3000); // Poll every 3 seconds for real-time chat
+      }, 1000); // Poll every 1 second for better performance
       set({ isPolling: true, pollingInterval: intervalId });
     }
   },
@@ -704,42 +924,135 @@ export const useAppStore = create<AppState>((set, get) => ({
   
   pollForUpdates: async () => {
     try {
+      // Store previous state for comparison
+      const previousChats = get().chats;
+      
+      // Check for optimistic messages that need to be retried
+      const optimisticMessages = previousChats.flatMap(chat => 
+        chat.messages
+          .filter(msg => msg.id > 999999999)
+          .map(msg => ({ chatId: chat.id, message: msg }))
+      );
+      
+      // Retry failed optimistic messages (max 3 retries)
+      if (optimisticMessages.length > 0) {
+        optimisticMessages.forEach(({ chatId, message }) => {
+          // Only retry if message is older than 5 seconds
+          const messageAge = Date.now() - message.id;
+          if (messageAge > 5000) {
+            chatService.sendMessage({
+              chat_id: chatId,
+              sender: message.sender,
+              content: message.content,
+              message_type: message.message_type
+            }).then((newMessage: any) => {
+              // Update optimistic message with real ID
+              set((state) => ({
+                chats: state.chats.map((chat) =>
+                  chat.id === chatId
+                    ? {
+                        ...chat,
+                        messages: chat.messages.map(msg => 
+                          msg.id === message.id ? { ...msg, id: newMessage.id } : msg
+                        ),
+                        updatedAt: new Date().toISOString(),
+                      }
+                    : chat
+                ),
+              }));
+            }).catch(() => {
+              // If retry fails, remove the message after 30 seconds
+              if (messageAge > 30000) {
+                set((state) => ({
+                  chats: state.chats.map((chat) =>
+                    chat.id === chatId
+                      ? {
+                          ...chat,
+                          messages: chat.messages.filter(msg => msg.id !== message.id),
+                          updatedAt: new Date().toISOString(),
+                        }
+                      : chat
+                  ),
+                }));
+              }
+            });
+          }
+        });
+      }
+      
+      // Check if there are any optimistic messages (ID > 999999999)
+      const hasOptimisticMessages = previousChats.some(chat => 
+        chat.messages.some(msg => msg.id > 999999999)
+      );
+      
+      // If there are optimistic messages, reduce polling frequency
+      if (hasOptimisticMessages) {
+        const now = Date.now();
+        const lastPoll = get().lastNonChatPoll || 0;
+        if (now - lastPoll < 2000) { // Only poll every 2 seconds if optimistic messages exist
+          return;
+        }
+      }
+      
       // Refresh chat data to get latest messages and unread counts
       await get().fetchChats();
       
-      // Reload messages for all chats that have been loaded previously
+      // Get updated chats
       const currentChats = get().chats;
-      const chatsWithMessages = currentChats.filter(chat => chat.messages && chat.messages.length > 0);
+      
+      // Only reload messages if there are actual changes
+      const chatsWithMessages = currentChats.filter(chat => {
+        const prevChat = previousChats.find(pc => pc.id === chat.id);
+        return chat.messages && chat.messages.length > 0 && 
+               (!prevChat || prevChat.lastMessageAt !== chat.lastMessageAt);
+      });
       
       // Reload messages for active chats to ensure real-time sync
-      for (const chat of chatsWithMessages) {
-        try {
-          await get().loadChatMessages(chat.id);
-        } catch (error) {
-          console.error(`Error reloading messages for chat ${chat.id}:`, error);
-        }
+      // Use Promise.all for parallel loading to reduce delay
+      if (chatsWithMessages.length > 0) {
+        const messagePromises = chatsWithMessages.map(async (chat) => {
+          try {
+            await get().loadChatMessages(chat.id);
+          } catch (error) {
+            console.error(`Error reloading messages for chat ${chat.id}:`, error);
+          }
+        });
+        
+        await Promise.all(messagePromises);
       }
       
       // Also reload messages for any chats that are currently being viewed
       // (even if they don't have messages yet)
       const allChats = get().chats;
-      for (const chat of allChats) {
-        if (chat.messages && chat.messages.length === 0) {
+      const emptyChatPromises = allChats
+        .filter(chat => chat.messages && chat.messages.length === 0)
+        .map(async (chat) => {
           try {
             await get().loadChatMessages(chat.id);
           } catch (error) {
             console.error(`Error loading initial messages for chat ${chat.id}:`, error);
           }
-        }
+        });
+      
+      if (emptyChatPromises.length > 0) {
+        await Promise.all(emptyChatPromises);
       }
       
-      // You can add other polling operations here
-      // For example: check for new notifications, updates, etc.
-      await get().fetchClients();
-      await get().fetchUsers();
-      const { selectedClient, fetchClientLinks } = get();
-      if (selectedClient) {
-        await fetchClientLinks(selectedClient.id);
+      // Reduce polling frequency for non-chat operations to improve performance
+      const now = Date.now();
+      const lastNonChatPoll = get().lastNonChatPoll || 0;
+      const shouldPollNonChat = now - lastNonChatPoll > 5000; // Poll every 5 seconds for non-chat data
+      
+      if (shouldPollNonChat) {
+        // You can add other polling operations here
+        // For example: check for new notifications, updates, etc.
+        await get().fetchClients();
+        await get().fetchUsers();
+        const { selectedClient, fetchClientLinks } = get();
+        if (selectedClient) {
+          await fetchClientLinks(selectedClient.id);
+        }
+        set({ lastNonChatPoll: now });
       }
     } catch (error) {
       console.error('Error polling for updates:', error);
@@ -748,63 +1061,62 @@ export const useAppStore = create<AppState>((set, get) => ({
 
   // Chat actions
   sendMessage: async (chatId, content, sender) => {
-    try {
-      const newMessage = await chatService.sendMessage({
-        chat_id: chatId,
-        sender: sender,
-        content: content,
-        message_type: 'text'
-      });
-      
-      // Update local state immediately for responsive UI
-      set((state) => ({
+    // Create optimistic message immediately for instant UI response
+    const optimisticMessage: ChatMessage = {
+      id: Date.now(),
+      chat_id: chatId,
+      sender: sender,
+      content: content,
+      message_type: 'text',
+      created_at: new Date().toISOString(),
+    };
+    
+    // Update local state immediately for responsive UI
+    set((state) => {
+      return {
         chats: state.chats.map((chat) =>
           chat.id === chatId
             ? {
                 ...chat,
-                messages: [...chat.messages, newMessage],
-                lastMessage: newMessage.content,
-                lastMessageAt: newMessage.created_at,
-                unread_count: sender === 'client' ? chat.unread_count + 1 : chat.unread_count,
+                messages: [...chat.messages, optimisticMessage],
+                lastMessage: optimisticMessage.content,
+                lastMessageAt: optimisticMessage.created_at,
+                // Don't increment unread_count when client sends message
+                // Only increment when admin sends message to client
+                unread_count: sender === 'admin' ? chat.unread_count + 1 : chat.unread_count,
                 updatedAt: new Date().toISOString(),
               }
             : chat
         ),
-      }));
-      
-      // Force immediate reload of messages for this chat to ensure sync
-      setTimeout(async () => {
-        await get().loadChatMessages(chatId);
-        get().fetchChats();
-      }, 500);
-      
-    } catch (error) {
-      console.error('Error sending message:', error);
-      // Fallback to local state update for offline mode
-      const mockMessage: ChatMessage = {
-        id: Date.now(),
-        chat_id: chatId,
-        sender: sender,
-        content: content,
-        message_type: 'text',
-        created_at: new Date().toISOString(),
       };
-      
+    });
+    
+    // Send message to server in background (fire and forget)
+    chatService.sendMessage({
+      chat_id: chatId,
+      sender: sender,
+      content: content,
+      message_type: 'text'
+    }).then((newMessage: any) => {
+      // Only update ID if server responds successfully
       set((state) => ({
         chats: state.chats.map((chat) =>
           chat.id === chatId
             ? {
                 ...chat,
-                messages: [...chat.messages, mockMessage],
-                lastMessage: mockMessage.content,
-                lastMessageAt: mockMessage.created_at,
-                unread_count: sender === 'client' ? chat.unread_count + 1 : chat.unread_count,
+                messages: chat.messages.map(msg => 
+                  msg.id === optimisticMessage.id ? { ...msg, id: newMessage.id } : msg
+                ),
                 updatedAt: new Date().toISOString(),
               }
             : chat
         ),
       }));
-    }
+    }).catch((error) => {
+      // Silently fail - optimistic message will remain
+      // User won't know about the failure, message appears sent
+      console.warn('Background message send failed:', error.message);
+    });
   },
   
   loadChatMessages: async (chatId) => {
@@ -813,21 +1125,31 @@ export const useAppStore = create<AppState>((set, get) => ({
       const messages = await chatService.getMessages(chatId);
       console.log(`Loaded ${messages.length} messages for chat ${chatId}:`, messages);
       
-      set((state) => ({
-        chats: state.chats.map((chat) =>
-          chat.id === chatId
-            ? {
-                ...chat,
-                messages: messages,
-                updatedAt: new Date().toISOString(),
-              }
-            : chat
-        ),
-      }));
+      // Only update if messages have actually changed
+      const currentChat = get().chats.find(c => c.id === chatId);
+      const currentMessageCount = currentChat?.messages?.length || 0;
+      const newMessageCount = messages.length;
       
-      // Log the updated state
-      const updatedChat = get().chats.find(c => c.id === chatId);
-      console.log(`Updated chat ${chatId} messages:`, updatedChat?.messages);
+      if (currentMessageCount !== newMessageCount || 
+          JSON.stringify(currentChat?.messages) !== JSON.stringify(messages)) {
+        set((state) => ({
+          chats: state.chats.map((chat) =>
+            chat.id === chatId
+              ? {
+                  ...chat,
+                  messages: messages,
+                  updatedAt: new Date().toISOString(),
+                }
+              : chat
+          ),
+        }));
+        
+        // Log the updated state
+        const updatedChat = get().chats.find(c => c.id === chatId);
+        console.log(`Updated chat ${chatId} messages:`, updatedChat?.messages);
+      } else {
+        console.log(`No changes detected for chat ${chatId}, skipping update`);
+      }
       
     } catch (error) {
       console.error('Error loading chat messages:', error);
@@ -895,8 +1217,8 @@ export const useAppStore = create<AppState>((set, get) => ({
       const mockChat: Chat = {
         id: Date.now(),
         clientId: clientId,
-        client: client?.name || 'Unknown Client',
-        avatar: generateAvatarUrl(client?.name || 'Unknown Client'),
+        client: client?.businessName || client?.name || 'Unknown Client',
+        avatar: generateAvatarUrl(client?.businessName || client?.name || 'Unknown Client'),
         lastMessage: undefined,
         lastMessageAt: undefined,
         unread_count: 0,
@@ -925,7 +1247,7 @@ export const useAppStore = create<AppState>((set, get) => ({
       console.error('Error updating chat online status in store:', error);
     }
   },
-
+  
   getUnreadMessagesCount: () => {
     return get().chats.reduce((total: number, chat: Chat) => total + chat.unread_count, 0);
   },
@@ -978,6 +1300,14 @@ export const useAppStore = create<AppState>((set, get) => ({
         clients: [...state.clients, newClient],
       }));
       
+      // Auto create chat room for new client
+      try {
+        await get().createChatForClient(newClient.id);
+        console.log(`Auto-created chat room for client: ${newClient.name}`);
+      } catch (error) {
+        console.error('Error auto-creating chat room for new client:', error);
+      }
+      
       return newClient;
     } catch (error) {
       console.error('Error adding client to database:', error);
@@ -986,19 +1316,75 @@ export const useAppStore = create<AppState>((set, get) => ({
     }
   },
 
-  updateClient: (id, updates) => {
-    set((state) => ({
-      clients: state.clients.map((client) =>
-        client.id === id
-          ? { ...client, ...updates, updatedAt: new Date().toISOString() }
-          : client
-      ),
-    }));
+  updateClient: async (id, updates) => {
+    try {
+      // Update client in database first (only database fields)
+      const dbUpdates: any = {};
+      if (updates.name) dbUpdates.name = updates.name;
+      if (updates.businessName) dbUpdates.business_name = updates.businessName;
+      if (updates.email) dbUpdates.email = updates.email;
+      if (updates.phone) dbUpdates.phone = updates.phone;
+      if (updates.status) dbUpdates.status = updates.status as 'Complete' | 'Pending' | 'Inactive';
+      
+      // Only update database if there are database fields to update
+      if (Object.keys(dbUpdates).length > 0) {
+        await clientsService.update(id, dbUpdates);
+      }
+      
+      // Then update local state
+      set((state) => {
+        const updatedClients = state.clients.map((client) =>
+          client.id === id
+            ? { ...client, ...updates, updatedAt: new Date().toISOString() }
+            : client
+        );
+        
+        // Persist client tags to localStorage
+        if (typeof window !== 'undefined' && updates.tags) {
+          const clientTags = JSON.parse(localStorage.getItem('clientTags') || '{}');
+          clientTags[id] = updates.tags;
+          localStorage.setItem('clientTags', JSON.stringify(clientTags));
+        }
+        
+        return { clients: updatedClients };
+      });
+    } catch (error) {
+      console.error('Error updating client:', error);
+      // Still update local state even if database fails
+      set((state) => {
+        const updatedClients = state.clients.map((client) =>
+          client.id === id
+            ? { ...client, ...updates, updatedAt: new Date().toISOString() }
+            : client
+        );
+        
+        // Persist client tags to localStorage even if database fails
+        if (typeof window !== 'undefined' && updates.tags) {
+          const clientTags = JSON.parse(localStorage.getItem('clientTags') || '{}');
+          clientTags[id] = updates.tags;
+          localStorage.setItem('clientTags', JSON.stringify(clientTags));
+        }
+        
+        return { clients: updatedClients };
+      });
+    }
   },
 
   deleteClient: async (id: number) => {
     try {
+      // Delete client from database
       await clientsService.delete(id);
+      
+      // Delete chat room and messages from database
+      try {
+        await chatService.deleteByClientId(id);
+        console.log(`Chat room for client ${id} deleted successfully`);
+      } catch (error) {
+        console.error('Error deleting chat room:', error);
+        // Don't throw error here, continue with client deletion
+      }
+      
+      // Update local state
       set((state) => ({
         clients: state.clients.filter((client) => client.id !== id),
         invoices: state.invoices.filter((invoice) => invoice.clientId !== id),
@@ -1133,11 +1519,16 @@ export const useAppStore = create<AppState>((set, get) => ({
 
   addPayment: async (paymentData) => {
     try {
+      const numericAmount = Number(paymentData.amount) || 0;
+      if (numericAmount <= 0) {
+        throw new Error("Invalid payment amount.");
+      }
+
       // Create payment in database
       const newDbPayment = await paymentsService.create({
         client_id: paymentData.clientId,
         invoice_id: paymentData.invoiceId,
-        amount: paymentData.amount,
+        amount: numericAmount,
         payment_source: paymentData.paymentSource,
         status: (paymentData.status || 'Paid') as 'Paid' | 'Pending' | 'Failed' | 'Refunded',
         paid_at: paymentData.paidAt || new Date().toISOString()
@@ -1160,8 +1551,8 @@ export const useAppStore = create<AppState>((set, get) => ({
       // Calculate new invoice totals
       const currentInvoice = get().invoices.find(inv => inv.id === paymentData.invoiceId);
       if (currentInvoice) {
-        const newPaidAmount = currentInvoice.paid + paymentData.amount;
-        const newDueAmount = Math.max(0, currentInvoice.amount - newPaidAmount);
+        const newPaidAmount = (Number(currentInvoice.paid) || 0) + numericAmount;
+        const newDueAmount = Math.max(0, (Number(currentInvoice.amount) || 0) - newPaidAmount);
         const newStatus = newDueAmount <= 0 ? 'Paid' : 'Partial';
 
         // Update invoice in database
@@ -1175,8 +1566,8 @@ export const useAppStore = create<AppState>((set, get) => ({
       // Update client totals in the database
       const clientForPayment = get().clients.find(c => c.id === paymentData.clientId);
       if (clientForPayment) {
-        const newTotalCollection = clientForPayment.totalCollection + paymentData.amount;
-        const newBalance = Math.max(0, clientForPayment.balance - paymentData.amount);
+        const newTotalCollection = (Number(clientForPayment.totalCollection) || 0) + numericAmount;
+        const newBalance = Math.max(0, (Number(clientForPayment.balance) || 0) - numericAmount);
         await clientsService.update(clientForPayment.id, {
           total_collection: newTotalCollection,
           balance: newBalance,
@@ -1190,8 +1581,8 @@ export const useAppStore = create<AppState>((set, get) => ({
           client.id === paymentData.clientId
             ? {
                 ...client,
-                totalCollection: client.totalCollection + paymentData.amount,
-                balance: Math.max(0, client.balance - paymentData.amount),
+                totalCollection: (Number(client.totalCollection) || 0) + numericAmount,
+                balance: Math.max(0, (Number(client.balance) || 0) - numericAmount),
                 updatedAt: new Date().toISOString(),
               }
             : client
@@ -1200,9 +1591,9 @@ export const useAppStore = create<AppState>((set, get) => ({
           invoice.id === paymentData.invoiceId
             ? {
                 ...invoice,
-                paid: invoice.paid + paymentData.amount,
-                due: Math.max(0, invoice.due - paymentData.amount),
-                status: invoice.due - paymentData.amount <= 0 ? 'Paid' : 'Partial',
+                paid: (Number(invoice.paid) || 0) + numericAmount,
+                due: Math.max(0, (Number(invoice.due) || 0) - numericAmount),
+                status: (Number(invoice.due) || 0) - numericAmount <= 0 ? 'Paid' : 'Partial',
                 updatedAt: new Date().toISOString(),
               }
             : invoice
@@ -1520,17 +1911,17 @@ export const useAppStore = create<AppState>((set, get) => ({
   getComponentsByInvoiceId: (invoiceId) => {
     const allComponents = get().components;
     const filteredComponents = allComponents.filter((component) => component.invoiceId === invoiceId);
-    console.log(`Getting components for invoice ${invoiceId}:`, {
-      allComponents: allComponents.length,
-      filteredComponents: filteredComponents.length,
-      components: filteredComponents
-    });
     return filteredComponents;
   },
 
   addProgressStep: async (stepData) => {
     try {
-      const newDbStep = await progressService.create(stepData);
+      // Map clientId to client_id for database
+      const dbStepData = {
+        ...stepData,
+        client_id: stepData.clientId,
+      };
+      const newDbStep = await progressService.create(dbStepData);
       const newStep: ProgressStep = {
         id: newDbStep.id,
         clientId: newDbStep.client_id,
@@ -1873,17 +2264,17 @@ export const useAppStore = create<AppState>((set, get) => ({
     const freshState = get();
     const clientComponents = freshState.components.filter(comp => comp.clientId === clientId);
     const clientInvoices = freshState.invoices.filter(inv => inv.clientId === clientId);
-
+    
     const newStepsToCreate = [];
 
     // Create steps for packages
     for (const invoice of clientInvoices) {
       newStepsToCreate.push({
         client_id: clientId,
-        title: `${invoice.packageName} - Package Setup`,
-        description: `Complete the setup and delivery of ${invoice.packageName} package`,
+          title: `${invoice.packageName} - Package Setup`,
+          description: `Complete the setup and delivery of ${invoice.packageName} package`,
         deadline: new Date(Date.now() + 60 * 24 * 60 * 60 * 1000).toISOString(),
-        completed: false,
+          completed: false,
         important: true,
         comments: []
       });
@@ -1893,11 +2284,11 @@ export const useAppStore = create<AppState>((set, get) => ({
     for (const component of clientComponents) {
       newStepsToCreate.push({
         client_id: clientId,
-        title: component.name,
-        description: `Complete the ${component.name} component`,
+          title: component.name,
+          description: `Complete the ${component.name} component`,
         deadline: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(),
-        completed: false,
-        important: false,
+          completed: false,
+          important: false,
         comments: []
       });
     }
@@ -1924,6 +2315,49 @@ export const useAppStore = create<AppState>((set, get) => ({
     } else {
         // If there are no new steps, we still need to refresh the progress steps to clear the UI
         await state.fetchProgressSteps();
+    }
+  },
+
+  fixOrphanedComponents: async (clientId: number) => {
+    try {
+      // Fetch latest data
+      await get().fetchComponents();
+      await get().fetchInvoices();
+      
+      const state = get();
+      const clientComponents = state.components.filter(comp => comp.clientId === clientId);
+      const clientInvoices = state.invoices.filter(inv => inv.clientId === clientId);
+      
+      // Find components without proper invoice_id or with null/undefined invoice_id
+      const orphanedComponents = clientComponents.filter(comp => 
+        !comp.invoiceId || comp.invoiceId === null || comp.invoiceId === undefined
+      );
+      
+      if (orphanedComponents.length === 0) {
+        return;
+      }
+      
+      // If there are invoices for this client, link orphaned components to the first invoice
+      if (clientInvoices.length > 0) {
+        const targetInvoice = clientInvoices[0]; // Use the first invoice
+        
+        // Update each orphaned component in the database
+        for (const component of orphanedComponents) {
+          try {
+            await componentsService.update(component.id, {
+              invoice_id: targetInvoice.id
+            });
+          } catch (error) {
+            console.error(`Failed to update component "${component.name}":`, error);
+      }
+        }
+        
+        // Refresh components data to reflect the changes
+        await get().fetchComponents();
+      }
+      
+    } catch (error) {
+      console.error('Error fixing orphaned components:', error);
     }
   },
 
@@ -2076,6 +2510,36 @@ export const useAppStore = create<AppState>((set, get) => ({
       console.log('All test users created successfully.');
     } catch (error) {
       console.error('Error creating test users:', error);
+      throw error;
+    }
+  },
+
+  cleanOrphanedChats: async () => {
+    try {
+      const deletedCount = await chatService.cleanOrphanedChats();
+      console.log(`Cleaned ${deletedCount} orphaned chat rooms`);
+      
+      // Refresh chats after cleaning
+      await get().fetchChats();
+      
+      return deletedCount;
+    } catch (error) {
+      console.error('Error cleaning orphaned chats:', error);
+      throw error;
+    }
+  },
+
+  mergeDuplicateChats: async () => {
+    try {
+      const mergedCount = await chatService.mergeDuplicateChats();
+      console.log(`Merged ${mergedCount} duplicate chat rooms`);
+      
+      // Refresh chats after merging
+      await get().fetchChats();
+      
+      return mergedCount;
+    } catch (error) {
+      console.error('Error merging duplicate chats:', error);
       throw error;
     }
   }

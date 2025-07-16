@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { useAppStore } from '../../store/AppStore';
 import { Client, Invoice, Payment, Component, CalendarEvent } from '../../store/AppStore';
 import { Edit, Calendar, FileText, Package, Plus, Trash2, ArrowLeft } from 'lucide-react';
@@ -46,7 +46,8 @@ const ClientProfile: React.FC<ClientProfileProps> = ({ clientId, onBack, onEdit 
     fetchComponents,
     fetchCalendarEvents,
     fetchProgressSteps,
-    copyComponentsToProgressSteps
+    copyComponentsToProgressSteps,
+    fixOrphanedComponents
   } = useAppStore();
 
   // All React hooks must be at the top level
@@ -67,6 +68,18 @@ const ClientProfile: React.FC<ClientProfileProps> = ({ clientId, onBack, onEdit 
   const [isLoading, setIsLoading] = useState(true);
   const [client, setClient] = useState<Client | null>(null);
 
+  // Memoize components by invoice to avoid repeated calls - must be before any conditional returns
+  const componentsByInvoice = useMemo(() => {
+    if (!client) return {};
+    
+    const result: { [invoiceId: string]: Component[] } = {};
+    const clientInvoices = invoices.filter(invoice => invoice.clientId === client.id);
+    
+    clientInvoices.forEach(invoice => {
+      result[invoice.id] = getComponentsByInvoiceId(invoice.id);
+    });
+    return result;
+  }, [client, invoices, components, getComponentsByInvoiceId]);
 
   // Fetch data on component mount
   useEffect(() => {
@@ -74,17 +87,17 @@ const ClientProfile: React.FC<ClientProfileProps> = ({ clientId, onBack, onEdit 
       setIsLoading(true);
       try {
         console.log("Fetching clients...");
-        await fetchClients();
+      await fetchClients();
         console.log("Fetching invoices...");
-        await fetchInvoices();
+      await fetchInvoices();
         console.log("Fetching payments...");
-        await fetchPayments();
+      await fetchPayments();
         console.log("Fetching components...");
-        await fetchComponents();
+      await fetchComponents();
         console.log("Fetching calendar events...");
-        await fetchCalendarEvents();
+      await fetchCalendarEvents();
         console.log("Fetching progress steps...");
-        await fetchProgressSteps();
+      await fetchProgressSteps();
         console.log("All data fetched.");
 
         // After all data is fetched, find the client
@@ -98,7 +111,7 @@ const ClientProfile: React.FC<ClientProfileProps> = ({ clientId, onBack, onEdit 
       }
     };
     if (clientId) {
-        loadData();
+    loadData();
     }
   }, [clientId, fetchClients, fetchInvoices, fetchPayments, fetchComponents, fetchCalendarEvents, fetchProgressSteps]);
 
@@ -193,9 +206,24 @@ const ClientProfile: React.FC<ClientProfileProps> = ({ clientId, onBack, onEdit 
     }
   };
 
-  const handleSaveProfile = (clientData: Partial<Client>) => {
-    updateClient(client.id, clientData);
-    setShowEditModal(false);
+  const handleSaveProfile = async (clientData: Partial<Client>) => {
+    try {
+      await updateClient(client.id, clientData);
+      
+      // Update local client state immediately to reflect changes
+      setClient(prevClient => {
+        if (!prevClient) return prevClient;
+        return {
+          ...prevClient,
+          ...clientData,
+          updatedAt: new Date().toISOString()
+        };
+      });
+      
+      setShowEditModal(false);
+    } catch (error) {
+      console.error('Error updating client:', error);
+    }
   };
 
   const handleSaveEvent = (eventData: Partial<CalendarEvent>) => {
@@ -271,8 +299,8 @@ const ClientProfile: React.FC<ClientProfileProps> = ({ clientId, onBack, onEdit 
  const handleSaveEditedPayment = (paymentData: Partial<Payment>) => {
    if (editingPayment) {
      updatePayment(editingPayment.id, paymentData);
-     setShowEditPaymentModal(false);
-     setEditingPayment(null);
+       setShowEditPaymentModal(false);
+       setEditingPayment(null);
    }
  };
 
@@ -301,16 +329,22 @@ const ClientProfile: React.FC<ClientProfileProps> = ({ clientId, onBack, onEdit 
               </span>
             </div>
             <div>
-              <h1 className="text-2xl font-bold text-gray-900">{client.name}</h1>
+            <h1 className="text-2xl font-bold text-gray-900">{client.name}</h1>
               <p className="text-gray-600">{client.businessName}</p>
             </div>
           </div>
           </div>
           <div className="flex items-center space-x-2">
             <button
+                onClick={() => fixOrphanedComponents(client.id)}
+                className="flex items-center space-x-2 px-4 py-2 bg-orange-600 text-white rounded-lg hover:bg-orange-700 transition-colors"
+            >
+                <span>Fix Missing Components</span>
+            </button>
+            <button
                 onClick={() => copyComponentsToProgressSteps(client.id)}
                 className="flex items-center space-x-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
-              >
+            >
                 <span>Sync to Progress</span>
             </button>
             <button
@@ -417,7 +451,7 @@ const ClientProfile: React.FC<ClientProfileProps> = ({ clientId, onBack, onEdit 
 
                     {/* Components List */}
                     <div className="space-y-2">
-                      {getComponentsByInvoiceId(invoice.id).map((component) => (
+                      {(componentsByInvoice[invoice.id] || []).map((component) => (
                         <div key={component.id} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
                           <div className="flex items-center space-x-3">
                             <FileText className="w-4 h-4 text-gray-400" />
@@ -523,92 +557,92 @@ const ClientProfile: React.FC<ClientProfileProps> = ({ clientId, onBack, onEdit 
                 <div className="space-y-3">
                   {clientInvoices.slice(0, 3).map((invoice) => (
                     <div key={invoice.id} className="p-3 border border-gray-200 rounded-lg">
-                      <div className="flex justify-between items-start mb-2">
-                        <h4 className="font-medium text-gray-900">{invoice.packageName}</h4>
-                        <div className="flex items-center space-x-2">
-                          <button
-                            onClick={() => handleEditInvoice(invoice)}
-                            className="text-blue-500 hover:text-blue-700"
-                          >
-                            <Edit className="w-4 h-4" />
-                          </button>
-                          <button
-                            onClick={() => handleDeleteInvoice(invoice.id)}
-                            className="text-red-500 hover:text-red-700"
-                          >
-                          <Trash2 className="w-4 h-4" />
-                          </button>
-                        </div>
-                      </div>
-                      <div className="space-y-1 text-sm">
-                        <div className="flex justify-between">
-                          <span className="text-gray-600">Total:</span>
-                          <span className="font-medium">RM {invoice.amount}</span>
-                        </div>
-                        <div className="flex justify-between">
-                          <span className="text-gray-600">Paid:</span>
-                          <span className="text-green-600">RM {invoice.paid}</span>
-                        </div>
-                        <div className="flex justify-between">
-                          <span className="text-gray-600">Due:</span>
-                          <span className="text-red-600">RM {invoice.due}</span>
-                        </div>
-                      </div>
-                      <div className="mt-2 pt-2 border-t border-gray-100">
-                        <div className="flex items-center justify-between mb-2">
-                          <p className="text-xs text-gray-500">Payment Details</p>
-                          <button
-                            onClick={() => {
-                              setSelectedInvoiceForPayment(invoice);
-                              setShowPaymentModal(true);
-                            }}
-                            className="text-blue-600 hover:text-blue-800 text-xs"
-                          >
-                            + Add Payment
-                          </button>
-                        </div>
-                        
-                        {/* Payment Transactions */}
-                        <div className="space-y-1">
-                          {clientPayments
-                            .filter(payment => payment.invoiceId === invoice.id)
+                          <div className="flex justify-between items-start mb-2">
+                            <h4 className="font-medium text-gray-900">{invoice.packageName}</h4>
+                            <div className="flex items-center space-x-2">
+                              <button
+                                onClick={() => handleEditInvoice(invoice)}
+                                className="text-blue-500 hover:text-blue-700"
+                              >
+                                <Edit className="w-4 h-4" />
+                              </button>
+                              <button
+                                onClick={() => handleDeleteInvoice(invoice.id)}
+                                className="text-red-500 hover:text-red-700"
+                              >
+                              <Trash2 className="w-4 h-4" />
+                              </button>
+                            </div>
+                          </div>
+                          <div className="space-y-1 text-sm">
+                            <div className="flex justify-between">
+                              <span className="text-gray-600">Total:</span>
+                          <span className="font-medium">RM {Number(invoice.amount).toLocaleString()}</span>
+                            </div>
+                            <div className="flex justify-between">
+                              <span className="text-gray-600">Paid:</span>
+                          <span className="text-green-600">RM {Number(invoice.paid).toLocaleString()}</span>
+                            </div>
+                            <div className="flex justify-between">
+                              <span className="text-gray-600">Due:</span>
+                          <span className="text-red-600">RM {Number(invoice.due).toLocaleString()}</span>
+                            </div>
+                          </div>
+                          <div className="mt-2 pt-2 border-t border-gray-100">
+                            <div className="flex items-center justify-between mb-2">
+                              <p className="text-xs text-gray-500">Payment Details</p>
+                              <button
+                                onClick={() => {
+                                  setSelectedInvoiceForPayment(invoice);
+                                  setShowPaymentModal(true);
+                                }}
+                                className="text-blue-600 hover:text-blue-800 text-xs"
+                              >
+                                + Add Payment
+                              </button>
+                            </div>
+                            
+                            {/* Payment Transactions */}
+                            <div className="space-y-1">
+                              {clientPayments
+                                .filter(payment => payment.invoiceId === invoice.id)
                             .map((payment) => (
                               <div key={payment.id} className="flex items-center justify-between p-2 bg-green-50 rounded border border-green-200">
-                                <div className="flex-1">
-                                  <div className="flex justify-between items-center">
+                                    <div className="flex-1">
+                                      <div className="flex justify-between items-center">
                                     <span className="text-xs font-medium text-green-800">
-                                      RM {payment.amount.toLocaleString()}
-                                    </span>
+                                          RM {payment.amount.toLocaleString()}
+                                        </span>
                                     <span className="text-xs text-green-600">
-                                      {new Date(payment.paidAt).toLocaleDateString()}
-                                    </span>
-                                  </div>
+                                          {new Date(payment.paidAt).toLocaleDateString()}
+                                        </span>
+                                      </div>
                                   <div className="text-xs text-green-600">
-                                    {payment.paymentSource} • {payment.status}
+                                        {payment.paymentSource} • {payment.status}
+                                      </div>
+                                    </div>
+                                    <div className="flex items-center space-x-1 ml-2">
+                                      <button
+                                        onClick={() => handleEditPayment(payment)}
+                                        className="text-blue-500 hover:text-blue-700"
+                                      >
+                                        <Edit className="w-3 h-3" />
+                                      </button>
+                                      <button
+                                        onClick={() => handleDeletePayment(payment.id)}
+                                        className="text-red-500 hover:text-red-700"
+                                      >
+                                        <Trash2 className="w-3 h-3" />
+                                      </button>
+                                    </div>
                                   </div>
-                                </div>
-                                <div className="flex items-center space-x-1 ml-2">
-                                  <button
-                                    onClick={() => handleEditPayment(payment)}
-                                    className="text-blue-500 hover:text-blue-700"
-                                  >
-                                    <Edit className="w-3 h-3" />
-                                  </button>
-                                  <button
-                                    onClick={() => handleDeletePayment(payment.id)}
-                                    className="text-red-500 hover:text-red-700"
-                                  >
-                                    <Trash2 className="w-3 h-3" />
-                                  </button>
-                                </div>
-                              </div>
                             ))}
-                        </div>
-                        
-                        {clientPayments.filter(payment => payment.invoiceId === invoice.id).length === 0 && (
-                          <p className="text-xs text-gray-400 italic">No payments recorded</p>
-                        )}
-                      </div>
+                            </div>
+                            
+                            {clientPayments.filter(payment => payment.invoiceId === invoice.id).length === 0 && (
+                              <p className="text-xs text-gray-400 italic">No payments recorded</p>
+                            )}
+                          </div>
                     </div>
                   ))}
                 </div>

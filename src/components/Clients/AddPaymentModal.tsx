@@ -117,7 +117,7 @@ const AddPaymentModal: React.FC<AddPaymentModalProps> = ({ onClose, onSave, sele
             <div className="relative">
               <DollarSign className="absolute left-3 top-1/2 transform -translate-y-1/2 text-slate-400 w-5 h-5" />
               <input
-                type="text"
+                type="number"
                 name="amount"
                 value={formData.amount}
                 onChange={handleChange}

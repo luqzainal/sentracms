@@ -112,12 +112,16 @@ export const DatabaseProvider: React.FC<DatabaseProviderProps> = ({ children }) 
     setLoading(true);
     
     try {
-      // Mock authentication for Super Admin
-      if (email === 'superadmin@sentra.com' && password === 'password123') {
+      // Mock authentication for Super Admin using environment variables
+      const demoAdminEmail = import.meta.env.VITE_DEMO_ADMIN_EMAIL || 'superadmin@sentra.com';
+      const demoAdminPassword = import.meta.env.VITE_DEMO_ADMIN_PASSWORD || 'password123';
+      const demoAdminName = import.meta.env.VITE_DEMO_ADMIN_NAME || 'Super Admin';
+      
+      if (email === demoAdminEmail && password === demoAdminPassword) {
         const mockUser: AuthUser = {
           id: '1',
-          email: 'superadmin@sentra.com',
-          name: 'Super Admin',
+          email: demoAdminEmail,
+          name: demoAdminName,
           role: 'Super Admin',
           permissions: ['all']
         };
@@ -126,6 +130,29 @@ export const DatabaseProvider: React.FC<DatabaseProviderProps> = ({ children }) 
         localStorage.setItem('demoUser', JSON.stringify(mockUser));
         localStorage.setItem('demoUserTimestamp', Date.now().toString());
         console.log('✅ Session created for Super Admin');
+        setLoading(false);
+        return { data: { user: mockUser }, error: null };
+      }
+
+      // Mock authentication for Demo Client using environment variables
+      const demoClientEmail = import.meta.env.VITE_DEMO_CLIENT_EMAIL || 'client@demo.com';
+      const demoClientPassword = import.meta.env.VITE_DEMO_CLIENT_PASSWORD || 'client123';
+      const demoClientName = import.meta.env.VITE_DEMO_CLIENT_NAME || 'Demo Client';
+      
+      if (email === demoClientEmail && password === demoClientPassword) {
+        const mockUser: AuthUser = {
+          id: '2',
+          email: demoClientEmail,
+          name: demoClientName,
+          role: 'Client Admin',
+          clientId: 1, // Demo client ID
+          permissions: ['client_portal']
+        };
+        
+        setUser(mockUser);
+        localStorage.setItem('demoUser', JSON.stringify(mockUser));
+        localStorage.setItem('demoUserTimestamp', Date.now().toString());
+        console.log('✅ Session created for Demo Client');
         setLoading(false);
         return { data: { user: mockUser }, error: null };
       }

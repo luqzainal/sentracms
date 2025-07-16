@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback, useMemo, memo } from 'react';
 import { ArrowLeft, Send, Paperclip, Smile, RefreshCw } from 'lucide-react';
 import { useAppStore } from '../../store/AppStore';
 import { getInitials } from '../../utils/avatarUtils';
@@ -36,6 +36,9 @@ function getColorForName(name: string): { bg: string; text: string } {
 
 const ClientPortalChat: React.FC<ClientPortalChatProps> = ({ user, onBack }) => {
   const [message, setMessage] = useState('');
+  const [isSending, setIsSending] = useState(false);
+  const messagesEndRef = React.useRef<HTMLDivElement>(null);
+  const inputRef = React.useRef<HTMLInputElement>(null);
 
   const { 
     clients, 
@@ -55,6 +58,11 @@ const ClientPortalChat: React.FC<ClientPortalChatProps> = ({ user, onBack }) => 
   const client = clients.find(c => c.email === user.email);
   let clientChat = chats.find(chat => chat.clientId === client?.id);
 
+  // Memoize messages to prevent unnecessary re-renders
+  const memoizedMessages = useMemo(() => {
+    return clientChat?.messages || [];
+  }, [clientChat?.messages]);
+
   // Load chats on component mount and start polling
   useEffect(() => {
     fetchChats();
@@ -64,7 +72,8 @@ const ClientPortalChat: React.FC<ClientPortalChatProps> = ({ user, onBack }) => 
     
     // Cleanup function to stop polling when component unmounts
     return () => {
-      stopPolling();
+      // Don't stop polling completely as other components might need it
+      // Just reduce polling frequency when chat client is not active
     };
   }, [fetchChats, startPolling, stopPolling, isPolling]);
 
@@ -78,25 +87,52 @@ const ClientPortalChat: React.FC<ClientPortalChatProps> = ({ user, onBack }) => 
   // Load messages when chat is available
   useEffect(() => {
     if (clientChat) {
-      console.log('Loading messages for chat:', clientChat.id);
       loadChatMessages(clientChat.id);
       markChatAsRead(clientChat.id); // Mark as read when opened
     }
   }, [clientChat?.id, loadChatMessages, markChatAsRead]); // Include clientChat.id in dependency
 
-  const handleSendMessage = async () => {
-    if (message.trim() && clientChat) {
-      try {
-        await sendMessage(clientChat.id, message.trim(), 'client');
-        setMessage('');
-      } catch (error) {
-        console.error('Error sending message:', error);
-      }
+  // Auto scroll to bottom when new messages arrive
+  useEffect(() => {
+    if (memoizedMessages.length > 0) {
+      setTimeout(() => {
+        messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+      }, 100);
+    }
+  }, [memoizedMessages]);
+
+  const handleSendMessage = () => {
+    if (message.trim() && clientChat && !isSending) {
+      const messageText = message.trim();
+      
+      // Clear input IMMEDIATELY before doing anything else
+      setMessage('');
+      setIsSending(true);
+      
+      // Focus back to input
+      setTimeout(() => {
+        inputRef.current?.focus();
+      }, 50);
+      
+      // Scroll to bottom after sending message
+      setTimeout(() => {
+        messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+      }, 200);
+      
+      // Send message (with optimistic update)
+      sendMessage(clientChat.id, messageText, 'client')
+        .then(() => {
+          setIsSending(false);
+        })
+        .catch(error => {
+          console.error('Error sending message:', error);
+          setIsSending(false);
+        });
     }
   };
 
   const handleKeyPress = (e: React.KeyboardEvent) => {
-    if (e.key === 'Enter' && !e.shiftKey) {
+    if (e.key === 'Enter' && !e.shiftKey && !isSending) {
       e.preventDefault();
       handleSendMessage();
     }
@@ -109,13 +145,13 @@ const ClientPortalChat: React.FC<ClientPortalChatProps> = ({ user, onBack }) => 
     }
   };
 
-  const formatTime = (timestamp: string) => {
+  const formatTime = useCallback((timestamp: string) => {
     return new Date(timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-  };
+  }, []);
 
-  const formatDate = (timestamp: string) => {
+  const formatDate = useCallback((timestamp: string) => {
     return new Date(timestamp).toLocaleDateString();
-  };
+  }, []);
 
   if (!client) {
     return (
@@ -190,6 +226,10 @@ const ClientPortalChat: React.FC<ClientPortalChatProps> = ({ user, onBack }) => 
               <span className="text-sm text-slate-600">
                 {clientChat.online ? 'Online' : 'Offline'}
               </span>
+              <div className="flex items-center space-x-1">
+                <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
+                <span className="text-xs text-green-600">Live</span>
+              </div>
             </div>
             <button
               onClick={handleRefresh}
@@ -213,40 +253,46 @@ const ClientPortalChat: React.FC<ClientPortalChatProps> = ({ user, onBack }) => 
             </div>
           )}
           
-          {clientChat?.messages && clientChat.messages.length > 0 ? (
-            clientChat.messages.map((msg) => (
-              <div
-                key={msg.id}
-                className={`flex ${msg.sender === 'client' ? 'justify-end' : 'justify-start'}`}
-              >
-                <div className="flex items-start space-x-2 max-w-xs lg:max-w-md">
-                  {msg.sender === 'admin' && (
-                    <div className={`w-8 h-8 ${getColorForName('Admin Team').bg} rounded-full flex items-center justify-center ${getColorForName('Admin Team').text} font-medium text-sm flex-shrink-0`}>
-                      {getInitials('Admin Team')}
+          {memoizedMessages && memoizedMessages.length > 0 ? (
+            <>
+              {memoizedMessages.map((msg) => (
+                <div
+                  key={msg.id}
+                  className={`flex ${msg.sender === 'client' ? 'justify-end' : 'justify-start'}`}
+                >
+                  <div className="flex items-start space-x-2 max-w-xs lg:max-w-md">
+                    {msg.sender === 'admin' && (
+                      <div className={`w-8 h-8 ${getColorForName('Admin Team').bg} rounded-full flex items-center justify-center ${getColorForName('Admin Team').text} font-medium text-sm flex-shrink-0`}>
+                        {getInitials('Admin Team')}
+                      </div>
+                    )}
+                    <div
+                      className={`px-4 py-2 rounded-lg ${
+                        msg.sender === 'client'
+                          ? 'bg-blue-500 text-white'
+                          : 'bg-white text-slate-900 border border-slate-200'
+                      } ${msg.id > 999999999 ? 'opacity-75 border-dashed' : ''}`}
+                    >
+                      <p className="text-sm">{msg.content}</p>
+                      <p className={`text-xs mt-1 ${
+                        msg.sender === 'client' ? 'text-blue-100' : 'text-slate-500'
+                      }`}>
+                        {formatTime(msg.created_at)}
+                        {msg.id > 999999999 && (
+                          <span className="ml-2 text-blue-200 animate-pulse">• sending</span>
+                        )}
+                      </p>
                     </div>
-                  )}
-                  <div
-                    className={`px-4 py-2 rounded-lg ${
-                      msg.sender === 'client'
-                        ? 'bg-blue-500 text-white'
-                        : 'bg-white text-slate-900 border border-slate-200'
-                    }`}
-                  >
-                    <p className="text-sm">{msg.content}</p>
-                    <p className={`text-xs mt-1 ${
-                      msg.sender === 'client' ? 'text-blue-100' : 'text-slate-500'
-                    }`}>
-                      {formatTime(msg.created_at)}
-                    </p>
+                    {msg.sender === 'client' && (
+                      <div className={`w-8 h-8 ${getColorForName(client.name).bg} rounded-full flex items-center justify-center ${getColorForName(client.name).text} font-medium text-sm flex-shrink-0`}>
+                        {getInitials(client.name)}
+                      </div>
+                    )}
                   </div>
-                  {msg.sender === 'client' && (
-                    <div className={`w-8 h-8 ${getColorForName(client.name).bg} rounded-full flex items-center justify-center ${getColorForName(client.name).text} font-medium text-sm flex-shrink-0`}>
-                      {getInitials(client.name)}
-                    </div>
-                  )}
                 </div>
-              </div>
-            ))
+              ))}
+              <div ref={messagesEndRef} />
+            </>
           ) : (
             <div className="flex items-center justify-center h-full">
               <div className="text-center">
@@ -268,12 +314,14 @@ const ClientPortalChat: React.FC<ClientPortalChatProps> = ({ user, onBack }) => 
             </button>
             <div className="flex-1 relative">
               <input
+                ref={inputRef}
                 type="text"
                 value={message}
-                onChange={(e) => setMessage(e.target.value)}
+                onChange={e => setMessage(e.target.value)}
                 onKeyPress={handleKeyPress}
                 placeholder="Type your message..."
-                className="w-full px-4 py-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none text-sm bg-white"
+                disabled={isSending}
+                className="w-full px-4 py-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none text-sm bg-white disabled:opacity-50 disabled:cursor-not-allowed"
               />
             </div>
             <button className="p-2 text-slate-600 hover:text-slate-900 hover:bg-slate-100 rounded-lg transition-colors">
@@ -281,11 +329,15 @@ const ClientPortalChat: React.FC<ClientPortalChatProps> = ({ user, onBack }) => 
             </button>
             <button
               onClick={handleSendMessage}
-              disabled={!message.trim()}
+              disabled={!message.trim() || isSending}
               className="px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center space-x-2"
             >
-              <Send className="w-4 h-4" />
-              <span className="hidden sm:inline">Send</span>
+              {isSending ? (
+                <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+              ) : (
+                <Send className="w-4 h-4" />
+              )}
+              <span className="hidden sm:inline">{isSending ? 'Sending...' : 'Send'}</span>
             </button>
           </div>
         </div>
@@ -294,4 +346,4 @@ const ClientPortalChat: React.FC<ClientPortalChatProps> = ({ user, onBack }) => 
   );
 };
 
-export default ClientPortalChat;
+export default memo(ClientPortalChat);

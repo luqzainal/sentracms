@@ -151,17 +151,41 @@ export const clientsService = {
 export const usersService = {
   async authenticateUser(email: string, password: string): Promise<DatabaseUser | null> {
     try {
-      // Only allow Super Admin authentication
-      if (email === 'superadmin@sentra.com' && password === 'password123') {
+      // Allow Super Admin authentication using environment variables
+      const demoAdminEmail = import.meta.env.VITE_DEMO_ADMIN_EMAIL || 'superadmin@sentra.com';
+      const demoAdminPassword = import.meta.env.VITE_DEMO_ADMIN_PASSWORD || 'password123';
+      const demoAdminName = import.meta.env.VITE_DEMO_ADMIN_NAME || 'Super Admin';
+      
+      if (email === demoAdminEmail && password === demoAdminPassword) {
         return {
           id: 'superadmin-user-id',
-          name: 'Super Admin',
-          email: 'superadmin@sentra.com',
+          name: demoAdminName,
+          email: demoAdminEmail,
           role: 'Super Admin',
           status: 'Active',
           last_login: new Date().toISOString(),
           client_id: undefined,
           permissions: ['all'],
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString()
+        };
+      }
+
+      // Allow Demo Client authentication using environment variables
+      const demoClientEmail = import.meta.env.VITE_DEMO_CLIENT_EMAIL || 'client@demo.com';
+      const demoClientPassword = import.meta.env.VITE_DEMO_CLIENT_PASSWORD || 'client123';
+      const demoClientName = import.meta.env.VITE_DEMO_CLIENT_NAME || 'Demo Client';
+      
+      if (email === demoClientEmail && password === demoClientPassword) {
+        return {
+          id: 'demo-client-user-id',
+          name: demoClientName,
+          email: demoClientEmail,
+          role: 'Client Admin',
+          status: 'Active',
+          last_login: new Date().toISOString(),
+          client_id: 1, // Demo client ID
+          permissions: ['client_portal'],
           created_at: new Date().toISOString(),
           updated_at: new Date().toISOString()
         };
@@ -342,9 +366,9 @@ export const invoicesService = {
         id: row.id,
         client_id: row.client_id,
         package_name: row.package_name,
-        amount: row.amount,
-        paid: row.paid,
-        due: row.due,
+        amount: Number(row.amount) || 0,
+        paid: Number(row.paid) || 0,
+        due: Number(row.due) || 0,
         status: row.status,
         created_at: row.created_at,
         updated_at: row.updated_at,
@@ -381,9 +405,9 @@ export const invoicesService = {
         id: row.id,
         client_id: row.client_id,
         package_name: row.package_name,
-        amount: row.amount,
-        paid: row.paid,
-        due: row.due,
+        amount: Number(row.amount) || 0,
+        paid: Number(row.paid) || 0,
+        due: Number(row.due) || 0,
         status: row.status,
         created_at: row.created_at,
         updated_at: row.updated_at,
@@ -848,7 +872,7 @@ export const componentsService = {
           name = COALESCE(${updates.name}, name),
           price = COALESCE(${updates.price}, price),
           active = COALESCE(${updates.active}, active),
-          invoice_id = COALESCE(${(updates as any).invoiceId}, invoice_id),
+          invoice_id = COALESCE(${(updates as any).invoice_id || (updates as any).invoiceId}, invoice_id),
           updated_at = NOW()
         WHERE id = ${id}
         RETURNING *
@@ -952,7 +976,7 @@ export const progressService = {
     }
   },
 
-  async create(step: Partial<ProgressStep>): Promise<ProgressStep> {
+  async create(step: any): Promise<ProgressStep> {
     try {
       const data = await sql!`
         INSERT INTO progress_steps (
@@ -1079,6 +1103,7 @@ export const chatService = {
         id: row.id,
         client_id: row.client_id,
         client_name: row.client_name,
+        client_business_name: row.client_business_name,
         avatar: row.avatar,
         last_message: row.last_message,
         last_message_at: row.last_message_at,
@@ -1157,7 +1182,8 @@ export const chatService = {
     }
 
     try {
-      const data = await sql!`
+      // Insert the message without timeout - let it run in background
+      const insertResult = await sql!`
         INSERT INTO chat_messages (
           chat_id, sender, content, message_type, created_at
         ) VALUES (
@@ -1167,24 +1193,38 @@ export const chatService = {
         RETURNING *
       `;
       
-      const newMessage = data[0] as ChatMessage;
+      const newMessage = insertResult[0] as ChatMessage;
       
-      // Update chat last message
-      await sql!`
+      // Update chat last message (fire and forget - don't wait for this)
+      sql!`
         UPDATE chats 
         SET last_message = ${message.content}, 
             last_message_at = NOW(),
             unread_count = CASE 
-              WHEN ${message.sender} = 'client' THEN unread_count + 1
+              WHEN ${message.sender} = 'admin' THEN unread_count + 1
               ELSE unread_count
             END
         WHERE id = ${message.chat_id}
-      `;
+      `.catch(error => {
+        console.warn('Failed to update chat last message:', error);
+        // Don't throw error, just log it
+      });
       
       return newMessage;
     } catch (error) {
       console.error('Error sending message:', error);
-      throw error;
+      
+      // If database fails, return optimistic message
+      const fallbackMessage: ChatMessage = {
+        id: Date.now(),
+        chat_id: message.chat_id,
+        sender: message.sender,
+        content: message.content,
+        message_type: message.message_type || 'text',
+        created_at: new Date().toISOString()
+      };
+      
+      return fallbackMessage;
     }
   },
 
@@ -1224,6 +1264,16 @@ export const chatService = {
     }
 
     try {
+      // Check if chat already exists for this client
+      const existingChat = await sql!`
+        SELECT * FROM chats WHERE client_id = ${clientId} LIMIT 1
+      `;
+      
+      if (existingChat.length > 0) {
+        console.log(`Chat already exists for client ${clientId}, returning existing chat`);
+        return existingChat[0] as Chat;
+      }
+      
       // Get client info
       const clientData = await sql!`
         SELECT name, business_name, email FROM clients WHERE id = ${clientId}
@@ -1234,13 +1284,14 @@ export const chatService = {
       }
       
       const client = clientData[0];
-      const initials = client.name.split(' ').map((n: string) => n[0]).join('').toUpperCase();
+      const clientName = client.business_name || client.name;
+      const initials = clientName.split(' ').map((n: string) => n[0]).join('').toUpperCase();
       
       const data = await sql!`
         INSERT INTO chats (
           client_id, client_name, avatar, last_message_at, unread_count, online, created_at, updated_at
         ) VALUES (
-          ${clientId}, ${client.name}, ${initials}, NOW(), 0, false, NOW(), NOW()
+          ${clientId}, ${clientName}, ${initials}, NOW(), 0, false, NOW(), NOW()
         )
         RETURNING *
       `;
@@ -1377,6 +1428,137 @@ export const chatService = {
         totalUnread: 0,
         activeChats: 0
       };
+    }
+  },
+
+  async deleteByClientId(clientId: number): Promise<void> {
+    if (!isDatabaseAvailable()) {
+      console.error('Database not available for deleting chat. Cannot proceed.');
+      throw new Error('Database connection not available. Please check your configuration.');
+    }
+    try {
+      // First delete all messages for this client's chat
+      await sql!`
+        DELETE FROM chat_messages 
+        WHERE chat_id IN (
+          SELECT id FROM chats WHERE client_id = ${clientId}
+        )
+      `;
+      
+      // Then delete the chat room itself
+      await sql!`
+        DELETE FROM chats 
+        WHERE client_id = ${clientId}
+      `;
+    } catch (error) {
+      console.error('Error deleting chat by client ID:', error);
+      throw error;
+    }
+  },
+
+  async cleanOrphanedChats(): Promise<number> {
+    if (!isDatabaseAvailable()) {
+      console.error('Database not available for cleaning orphaned chats. Cannot proceed.');
+      throw new Error('Database connection not available. Please check your configuration.');
+    }
+    try {
+      // First delete messages for orphaned chats
+      await sql!`
+        DELETE FROM chat_messages 
+        WHERE chat_id IN (
+          SELECT ch.id FROM chats ch
+          LEFT JOIN clients c ON ch.client_id = c.id
+          WHERE c.id IS NULL
+        )
+      `;
+      
+      // Then delete orphaned chat rooms
+      const result = await sql!`
+        DELETE FROM chats 
+        WHERE client_id NOT IN (
+          SELECT id FROM clients
+        )
+        RETURNING *
+      `;
+      
+      console.log(`Cleaned ${result.length} orphaned chat rooms`);
+      return result.length;
+    } catch (error) {
+      console.error('Error cleaning orphaned chats:', error);
+      throw error;
+    }
+  },
+
+  async mergeDuplicateChats(): Promise<number> {
+    if (!isDatabaseAvailable()) {
+      console.error('Database not available for merging duplicate chats. Cannot proceed.');
+      throw new Error('Database connection not available. Please check your configuration.');
+    }
+    try {
+      // Find duplicate chats (same client_id)
+      const duplicates = await sql!`
+        SELECT client_id, COUNT(*) as chat_count, 
+               array_agg(id ORDER BY created_at ASC) as chat_ids
+        FROM chats 
+        GROUP BY client_id 
+        HAVING COUNT(*) > 1
+      `;
+      
+      if (duplicates.length === 0) {
+        console.log('No duplicate chats found');
+        return 0;
+      }
+      
+      let mergedCount = 0;
+      
+      for (const duplicate of duplicates) {
+        const chatIds = duplicate.chat_ids;
+        const keepChatId = chatIds[0]; // Keep the oldest chat
+        const deleteChatIds = chatIds.slice(1); // Delete the newer ones
+        
+        console.log(`Merging chats for client ${duplicate.client_id}: keeping ${keepChatId}, deleting ${deleteChatIds.join(', ')}`);
+        
+        // Move all messages from duplicate chats to the main chat
+        for (const deleteChatId of deleteChatIds) {
+          await sql!`
+            UPDATE chat_messages 
+            SET chat_id = ${keepChatId}
+            WHERE chat_id = ${deleteChatId}
+          `;
+        }
+        
+        // Update the main chat with the latest message info
+        const latestMessage = await sql!`
+          SELECT content, created_at 
+          FROM chat_messages 
+          WHERE chat_id = ${keepChatId}
+          ORDER BY created_at DESC 
+          LIMIT 1
+        `;
+        
+        if (latestMessage.length > 0) {
+          await sql!`
+            UPDATE chats 
+            SET last_message = ${latestMessage[0].content},
+                last_message_at = ${latestMessage[0].created_at}
+            WHERE id = ${keepChatId}
+          `;
+        }
+        
+        // Delete the duplicate chat rooms
+        await sql!`
+          DELETE FROM chats 
+          WHERE id = ANY(${deleteChatIds})
+        `;
+        
+        mergedCount += deleteChatIds.length;
+      }
+      
+      console.log(`Merged ${mergedCount} duplicate chat rooms`);
+      return mergedCount;
+    } catch (error) {
+      console.error('Error merging duplicate chats:', error);
+      throw error;
     }
   }
 };

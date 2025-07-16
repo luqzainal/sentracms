@@ -20,6 +20,10 @@ const AVATAR_COLORS = [
  * @returns Initials (e.g., "JD")
  */
 export function getInitials(name: string): string {
+  if (!name || typeof name !== 'string') {
+    return 'NA'; // Default initials for null/undefined names
+  }
+  
   return name
     .split(' ')
     .map(word => word.charAt(0).toUpperCase())
@@ -49,8 +53,9 @@ function getColorForName(name: string): { bg: string; text: string } {
  * @returns Avatar URL
  */
 export function generateAvatarUrl(name: string, size: number = 40): string {
-  const initials = getInitials(name);
-  const colors = getColorForName(name);
+  const safeName = name || 'Unknown User';
+  const initials = getInitials(safeName);
+  const colors = getColorForName(safeName);
   
   return `https://ui-avatars.com/api/?name=${encodeURIComponent(initials)}&background=${colors.bg}&color=${colors.text}&size=${size}&bold=true&format=png`;
 }

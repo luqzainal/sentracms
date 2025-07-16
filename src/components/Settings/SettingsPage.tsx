@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useEffect } from 'react';
-import { Plus, Search, Edit, Trash2, Shield, Users, Key, Eye, EyeOff, UserCheck, UserX, Crown, Briefcase, User, Menu, ExternalLink } from 'lucide-react';
+import { Plus, Search, Edit, Trash2, Shield, Users, Key, Eye, EyeOff, UserCheck, UserX, Crown, Briefcase, User, Menu, ExternalLink, Settings, Database } from 'lucide-react';
 import UserModal from './UserModal';
 import UserProfileView from './UserProfileView';
 import { useAppStore } from '../../store/AppStore';
@@ -18,6 +18,8 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ onToggleSidebar }) => {
   const [selectedUser, setSelectedUser] = useState<any>(null);
   const [showUserProfile, setShowUserProfile] = useState(false);
   const [selectedUserForProfile, setSelectedUserForProfile] = useState<any>(null);
+  const [isCleaningChats, setIsCleaningChats] = useState(false);
+  const [isMergingChats, setIsMergingChats] = useState(false);
 
   const { 
     users, 
@@ -25,7 +27,9 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ onToggleSidebar }) => {
     fetchUsers,
     addUser, 
     updateUser, 
-    deleteUser 
+    deleteUser,
+    cleanOrphanedChats,
+    mergeDuplicateChats 
   } = useAppStore();
 
   useEffect(() => {
@@ -121,6 +125,36 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ onToggleSidebar }) => {
     setSelectedUserForProfile(null);
   };
 
+  const handleCleanOrphanedChats = async () => {
+    if (confirm('Are you sure you want to clean orphaned chat rooms? This will delete chat rooms for clients that no longer exist.')) {
+      setIsCleaningChats(true);
+      try {
+        const deletedCount = await cleanOrphanedChats();
+        alert(`Successfully cleaned ${deletedCount} orphaned chat rooms.`);
+      } catch (error) {
+        console.error('Error cleaning orphaned chats:', error);
+        alert('Failed to clean orphaned chats. Please try again.');
+      } finally {
+        setIsCleaningChats(false);
+      }
+    }
+  };
+
+  const handleMergeDuplicateChats = async () => {
+    if (confirm('Are you sure you want to merge duplicate chat rooms? This will combine multiple chat rooms for the same client into one.')) {
+      setIsMergingChats(true);
+      try {
+        const mergedCount = await mergeDuplicateChats();
+        alert(`Successfully merged ${mergedCount} duplicate chat rooms.`);
+      } catch (error) {
+        console.error('Error merging duplicate chats:', error);
+        alert('Failed to merge duplicate chats. Please try again.');
+      } finally {
+        setIsMergingChats(false);
+      }
+    }
+  };
+
   const roleStats = {
     'Super Admin': users.filter(u => u.role === 'Super Admin').length,
     'Team': users.filter(u => u.role === 'Team').length,
@@ -166,6 +200,97 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ onToggleSidebar }) => {
             <h1 className="text-2xl lg:text-3xl font-bold text-slate-900">Settings</h1>
             <p className="text-slate-600 mt-1 lg:mt-2 text-sm lg:text-base">Manage system settings and user access</p>
         </div>
+        </div>
+      </div>
+
+      {/* System Maintenance Section */}
+      <div className="bg-white rounded-xl shadow-sm border border-slate-200">
+        <div className="p-4 lg:p-6 border-b border-slate-200">
+          <div className="flex items-center space-x-3">
+            <div className="bg-orange-100 rounded-lg p-2">
+              <Database className="w-6 h-6 text-orange-600" />
+            </div>
+            <div>
+              <h2 className="text-xl font-semibold text-slate-900">System Maintenance</h2>
+              <p className="text-sm text-slate-600">Clean up and maintain system data</p>
+            </div>
+          </div>
+        </div>
+
+        <div className="p-4 lg:p-6">
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            {/* Clean Orphaned Chat Rooms */}
+            <div className="bg-gradient-to-br from-yellow-50 to-orange-50 rounded-xl p-6 border border-yellow-200 hover:shadow-md transition-all duration-200">
+              <div className="flex items-start space-x-4">
+                <div className="bg-yellow-100 rounded-full p-3 flex-shrink-0">
+                  <svg className="w-6 h-6 text-yellow-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                  </svg>
+                </div>
+                <div className="flex-1">
+                  <h3 className="font-semibold text-yellow-800 mb-2">Clean Orphaned Chat Rooms</h3>
+                  <p className="text-sm text-yellow-700 mb-4 leading-relaxed">
+                    Remove chat rooms that belong to deleted clients. This helps keep your chat list clean and organized.
+                  </p>
+                  <button
+                    onClick={handleCleanOrphanedChats}
+                    disabled={isCleaningChats}
+                    className="bg-orange-600 text-white px-4 py-2 rounded-lg hover:bg-orange-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors text-sm font-medium flex items-center space-x-2"
+                  >
+                    {isCleaningChats ? (
+                      <>
+                        <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                        <span>Cleaning...</span>
+                      </>
+                    ) : (
+                      <>
+                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                        </svg>
+                        <span>Clean Orphaned Chats</span>
+                      </>
+                    )}
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            {/* Merge Duplicate Chat Rooms */}
+            <div className="bg-gradient-to-br from-blue-50 to-indigo-50 rounded-xl p-6 border border-blue-200 hover:shadow-md transition-all duration-200">
+              <div className="flex items-start space-x-4">
+                <div className="bg-blue-100 rounded-full p-3 flex-shrink-0">
+                  <svg className="w-6 h-6 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4" />
+                  </svg>
+                </div>
+                <div className="flex-1">
+                  <h3 className="font-semibold text-blue-800 mb-2">Merge Duplicate Chat Rooms</h3>
+                  <p className="text-sm text-blue-700 mb-4 leading-relaxed">
+                    Combine multiple chat rooms for the same client into one. All messages will be preserved and merged into the oldest chat room.
+                  </p>
+                  <button
+                    onClick={handleMergeDuplicateChats}
+                    disabled={isMergingChats}
+                    className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors text-sm font-medium flex items-center space-x-2"
+                  >
+                    {isMergingChats ? (
+                      <>
+                        <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                        <span>Merging...</span>
+                      </>
+                    ) : (
+                      <>
+                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4" />
+                        </svg>
+                        <span>Merge Duplicate Chats</span>
+                      </>
+                    )}
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
         </div>
       </div>
 

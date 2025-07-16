@@ -83,7 +83,7 @@ const ClientPortalDashboard: React.FC<ClientPortalDashboardProps> = ({ user, onB
       </div>
     );
   }
-
+  
   if (!client) {
     return (
       <div className="min-h-screen bg-slate-50 flex items-center justify-center p-4">
@@ -134,7 +134,7 @@ const ClientPortalDashboard: React.FC<ClientPortalDashboardProps> = ({ user, onB
 
         if (currentChat) {
           await sendMessage(currentChat.id, message.trim(), 'client');
-          setMessage('');
+        setMessage('');
           // Reload messages for the chat to show the new one
           await loadChatMessages(currentChat.id);
         } else {
@@ -399,23 +399,18 @@ const ClientPortalDashboard: React.FC<ClientPortalDashboardProps> = ({ user, onB
       {/* Header */}
       <div className="bg-white border-b border-slate-200 px-4 lg:px-8 py-4 lg:py-6">
         <div className="max-w-7xl mx-auto flex items-center justify-between">
-          <div className="flex items-center space-x-4">
-            <button
-              onClick={onBack}
-              className="flex items-center space-x-2 px-3 py-2 text-slate-600 hover:text-slate-900 hover:bg-slate-100 rounded-lg transition-colors"
-            >
-              <ArrowLeft className="w-5 h-5" />
-              <span className="font-medium">Back to Settings</span>
-            </button>
-            <div>
-              <h1 className="text-xl lg:text-2xl font-bold text-slate-900">
-                Hai, {client.name} 👋
-              </h1>
-              <p className="text-slate-600 text-sm lg:text-base">Welcome to your client portal</p>
-            </div>
+          <div>
+            <h1 className="text-xl lg:text-2xl font-bold text-slate-900">
+              Hai, {client.name} 👋
+            </h1>
+            <p className="text-slate-600 text-sm lg:text-base">Welcome to your client portal</p>
           </div>
-          <button className="bg-red-100 text-red-700 px-4 py-2 rounded-lg text-sm font-medium hover:bg-red-200 transition-colors">
-            Logout
+          <button 
+            onClick={onBack}
+            className="bg-red-600 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-red-700 transition-colors flex items-center space-x-2"
+          >
+            <ArrowLeft className="w-4 h-4" />
+            <span>Logout</span>
           </button>
         </div>
       </div>
@@ -472,7 +467,7 @@ const ClientPortalDashboard: React.FC<ClientPortalDashboardProps> = ({ user, onB
               </div>
               <h3 className="font-semibold text-slate-900 mb-2">My Billing</h3>
               <p className="text-sm text-slate-600 mb-3">Check your invoices & payment status</p>
-              <div className="text-lg font-bold text-purple-600">RM {dueAmount.toLocaleString()}</div>
+              <div className="text-lg font-bold text-purple-600">RM {Number(dueAmount).toLocaleString('en-MY', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</div>
               <p className="text-xs text-slate-500">Outstanding</p>
             </div>
           </div>

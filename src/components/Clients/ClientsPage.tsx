@@ -146,8 +146,13 @@ const ClientsPage: React.FC<ClientsPageProps> = ({ setActiveTab, onToggleSidebar
   const handleSaveClient = async (clientData: any) => {
     if (selectedClient) {
       // Update existing client
-      updateClient(selectedClient.id, clientData);
-      toast.success('Client updated successfully!');
+      try {
+        await updateClient(selectedClient.id, clientData);
+        toast.success('Client updated successfully!');
+      } catch (error) {
+        console.error('Error updating client:', error);
+        toast.error('Failed to update client');
+      }
     } else {
       // Add new client
       const newClient = {

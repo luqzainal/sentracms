@@ -2,7 +2,6 @@ import React, { Suspense, useState, useEffect } from 'react';
 import { Routes, Route, useNavigate, useLocation, useParams, Navigate } from 'react-router-dom';
 import { useAppStore } from './store/AppStore';
 import Sidebar from './components/Layout/Sidebar';
-import { DatabaseProvider } from './context/SupabaseContext';
 import { Toaster } from 'react-hot-toast';
 
 // Lazy load components
@@ -101,23 +100,19 @@ function App() {
 
   if (!user) {
     return (
-      <DatabaseProvider>
         <Suspense fallback={<LoadingSpinner />}>
           <Routes>
             <Route path="*" element={<Login />} />
           </Routes>
         </Suspense>
-      </DatabaseProvider>
     );
   }
 
   if (user.role === 'Client Admin' || user.role === 'Client Team') {
     return (
-      <DatabaseProvider>
         <Suspense fallback={<LoadingSpinner />}>
           <ClientPortalDashboard user={user} onBack={handleLogout} />
         </Suspense>
-      </DatabaseProvider>
     );
   }
 
@@ -126,7 +121,6 @@ function App() {
   };
 
   return (
-    <DatabaseProvider>
       <div className="flex h-screen bg-gray-100">
         <Toaster 
           position="top-center"
@@ -151,7 +145,7 @@ function App() {
             <Routes>
               <Route path="/dashboard" element={<Dashboard setActiveTab={handleSetTab} onToggleSidebar={handleToggleSidebar} />} />
               <Route path="/clients" element={<ClientsPage setActiveTab={handleSetTab} onToggleSidebar={handleToggleSidebar} />} />
-              <Route path="/clients/:clientId" element={<ClientProfileWrapper />} />
+            <Route path="/clients/:clientId" element={<ClientProfileWrapper />} />
               <Route path="/payments" element={<PaymentsPage />} />
               <Route path="/calendar" element={<CalendarPage onToggleSidebar={handleToggleSidebar} />} />
               <Route path="/chat" element={<ChatPage onToggleSidebar={handleToggleSidebar} />} />
@@ -162,7 +156,6 @@ function App() {
           </Suspense>
         </div>
       </div>
-    </DatabaseProvider>
   );
 }
 

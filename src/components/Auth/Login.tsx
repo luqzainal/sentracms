@@ -65,9 +65,18 @@ const Login: React.FC = () => {
     setIsLoading(false);
   };
 
-  const handleDemoLogin = () => {
-    setEmail('superadmin@sentra.com');
-    setPassword('password123');
+  const handleDemoAdminLogin = () => {
+    const demoEmail = import.meta.env.VITE_DEMO_ADMIN_EMAIL || 'superadmin@sentra.com';
+    const demoPassword = import.meta.env.VITE_DEMO_ADMIN_PASSWORD || 'password123';
+    setEmail(demoEmail);
+    setPassword(demoPassword);
+  };
+
+  const handleDemoClientLogin = () => {
+    const demoEmail = import.meta.env.VITE_DEMO_CLIENT_EMAIL || 'client@demo.com';
+    const demoPassword = import.meta.env.VITE_DEMO_CLIENT_PASSWORD || 'client123';
+    setEmail(demoEmail);
+    setPassword(demoPassword);
   };
 
   return (
@@ -197,13 +206,23 @@ const Login: React.FC = () => {
                   <span className="text-yellow-400">Mock Mode</span>
                 }
               </span>
-              <button
-                type="button"
-                onClick={handleDemoLogin}
-                className="text-slate-400 hover:text-[#eded21] transition-colors font-medium"
-              >
-                Use Demo Login
-              </button>
+              <div className="flex items-center space-x-2">
+                <button
+                  type="button"
+                  onClick={handleDemoAdminLogin}
+                  className="text-slate-400 hover:text-[#eded21] transition-colors font-medium"
+                >
+                  Demo Admin
+                </button>
+                <span className="text-slate-600">|</span>
+                <button
+                  type="button"
+                  onClick={handleDemoClientLogin}
+                  className="text-slate-400 hover:text-[#eded21] transition-colors font-medium"
+                >
+                  Demo Client
+                </button>
+              </div>
             </div>
           </form>
         </div>

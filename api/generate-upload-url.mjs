@@ -2,28 +2,6 @@ import { S3Client, PutObjectCommand } from '@aws-sdk/client-s3';
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
 import crypto from 'crypto';
 
-// Get DigitalOcean Spaces credentials from environment variables
-const SPACES_ENDPOINT = process.env.DO_SPACES_ENDPOINT;
-const SPACES_REGION = process.env.DO_SPACES_REGION;
-const SPACES_KEY = process.env.DO_SPACES_KEY;
-const SPACES_SECRET = process.env.DO_SPACES_SECRET;
-const BUCKET_NAME = process.env.DO_SPACES_BUCKET;
-
-// Basic validation to ensure environment variables are set
-if (!SPACES_ENDPOINT || !SPACES_REGION || !SPACES_KEY || !SPACES_SECRET || !BUCKET_NAME) {
-  throw new Error("DigitalOcean Spaces environment variables are not fully configured.");
-}
-
-// Configure the S3 client for DigitalOcean Spaces
-const s3Client = new S3Client({
-  endpoint: `https://${SPACES_ENDPOINT}`,
-  region: SPACES_REGION,
-  credentials: {
-    accessKeyId: SPACES_KEY,
-    secretAccessKey: SPACES_SECRET,
-  },
-});
-
 // This is the main handler for the serverless function
 // Suitable for platforms like Vercel or Netlify
 export default async function handler(req, res) {
@@ -34,6 +12,37 @@ export default async function handler(req, res) {
   }
 
   try {
+    // Get DigitalOcean Spaces credentials from environment variables
+    const SPACES_ENDPOINT = process.env.DO_SPACES_ENDPOINT;
+    const SPACES_REGION = process.env.DO_SPACES_REGION;
+    const SPACES_KEY = process.env.DO_SPACES_KEY;
+    const SPACES_SECRET = process.env.DO_SPACES_SECRET;
+    const BUCKET_NAME = process.env.DO_SPACES_BUCKET;
+
+    // Basic validation to ensure environment variables are set
+    if (!SPACES_ENDPOINT || !SPACES_REGION || !SPACES_KEY || !SPACES_SECRET || !BUCKET_NAME) {
+      console.error("Missing DigitalOcean Spaces environment variables.");
+      // Send a 500 error and log the issue, but don't crash the server.
+      res.status(500).json({ error: 'Server configuration error.' });
+      return;
+    }
+
+    // Make the endpoint construction more robust
+    let endpoint = SPACES_ENDPOINT;
+    if (!endpoint.startsWith('https://')) {
+      endpoint = `https://${endpoint}`;
+    }
+
+    // Configure the S3 client for DigitalOcean Spaces INSIDE the handler
+    const s3Client = new S3Client({
+      endpoint: endpoint,
+      region: SPACES_REGION,
+      credentials: {
+        accessKeyId: SPACES_KEY,
+        secretAccessKey: SPACES_SECRET,
+      },
+    });
+
     // Ambil nama file dan tipe file dari body request
     const { fileName, fileType } = req.body;
     
@@ -60,11 +69,15 @@ export default async function handler(req, res) {
     // URL of the file after upload, to be stored in the database
     res.status(200).json({
       uploadUrl: uploadUrl,
-      fileUrl: `https://${BUCKET_NAME}.${SPACES_ENDPOINT}/${uniqueFileName}`,
+      fileUrl: `${endpoint}/${BUCKET_NAME}/${uniqueFileName}`,
     });
 
   } catch (error) {
-    console.error('Error creating pre-signed URL:', error);
-    res.status(500).json({ error: 'Failed to create upload URL' });
+    console.error('--- DETAILED UPLOAD ERROR ---');
+    console.error('Message:', error.message);
+    console.error('Stack:', error.stack);
+    console.error('Full Error Object:', error);
+    console.error('--- END OF ERROR ---');
+    res.status(500).json({ error: 'Failed to create upload URL', details: error.message });
   }
 }

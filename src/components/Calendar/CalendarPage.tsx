@@ -53,8 +53,8 @@ const CalendarPage: React.FC<CalendarPageProps> = ({ onToggleSidebar }) => {
       try {
         dateStr = new Date(event.startDate).toISOString().split('T')[0];
       } catch (e) {
-        dateStr = new Date().toISOString().split('T')[0];
-      }
+      dateStr = new Date().toISOString().split('T')[0];
+    }
     }
     return {
       ...event,
@@ -110,7 +110,7 @@ const CalendarPage: React.FC<CalendarPageProps> = ({ onToggleSidebar }) => {
       endTime: '', description: '', client: '', type: 'meeting',
     });
   };
-  
+
   const handleEditEvent = () => {
     if (!selectedEvent) return;
     
@@ -123,18 +123,18 @@ const CalendarPage: React.FC<CalendarPageProps> = ({ onToggleSidebar }) => {
       endDate: formatToYYYYMMDD(selectedEvent.endDate || selectedEvent.startDate),
       startTime: selectedEvent.startTime || '',
       endTime: selectedEvent.endTime || '',
-      description: selectedEvent.description || '',
+        description: selectedEvent.description || '',
       client: client?.businessName || '',
       type: selectedEvent.type || 'meeting',
     });
     
-    setShowEventDetailsModal(false);
-    setShowEditEventModal(true);
+      setShowEventDetailsModal(false);
+      setShowEditEventModal(true);
   };
 
   const handleDeleteEvent = async () => {
     if (selectedEvent && confirm('Are you sure you want to delete this event?')) {
-      await deleteCalendarEvent(selectedEvent.id);
+        await deleteCalendarEvent(selectedEvent.id);
       resetFormAndModals();
       fetchCalendarEvents();
     }
@@ -170,7 +170,7 @@ const CalendarPage: React.FC<CalendarPageProps> = ({ onToggleSidebar }) => {
       await updateCalendarEvent(selectedEvent.id, eventData);
     } else {
       await addCalendarEvent(eventData as CalendarEvent);
-    }
+      }
     
     resetFormAndModals();
     fetchCalendarEvents();
@@ -203,33 +203,33 @@ const CalendarPage: React.FC<CalendarPageProps> = ({ onToggleSidebar }) => {
     }
     return days;
   };
-  
+
   const renderWeekView = () => {
       // Logic for week view can be re-implemented here if needed
       return <div className="p-4 text-center">Week view is under construction.</div>;
   };
-  
+
   const renderDayView = () => {
       const dayEvents = getEventsForDate(currentDate.getDate());
-      return (
+    return (
         <div className="p-4">
           <h3 className="text-lg font-semibold mb-4">{currentDate.toLocaleDateString('en-US', { weekday: 'long', day: 'numeric', month: 'long' })}</h3>
-          <div className="space-y-3">
+            <div className="space-y-3">
             {dayEvents.length > 0 ? dayEvents.map(event => (
               <div key={event.id} onClick={() => handleEventClick(event)} className={`p-3 rounded-lg border ${getEventTypeColor(event.type)} cursor-pointer`}>
                 <div className="flex justify-between">
-                  <h4 className="font-medium">{event.title}</h4>
-                  <span className="text-sm">{event.time}</span>
+                    <h4 className="font-medium">{event.title}</h4>
+                    <span className="text-sm">{event.time}</span>
+                  </div>
+                    <p className="text-sm mt-1 opacity-75">{event.description}</p>
+                  <p className="text-xs mt-1 opacity-60">{event.client}</p>
                 </div>
-                <p className="text-sm mt-1 opacity-75">{event.description}</p>
-                <p className="text-xs mt-1 opacity-60">{event.client}</p>
-              </div>
             )) : <p className="text-slate-500">No events for this day.</p>}
-          </div>
         </div>
-      );
+      </div>
+    );
   };
-  
+
   const getViewTitle = () => {
       if (view === 'month') return `${monthNames[currentDate.getMonth()]} ${currentDate.getFullYear()}`;
       return currentDate.toLocaleDateString('en-US', { dateStyle: 'full' });
@@ -291,14 +291,14 @@ const CalendarPage: React.FC<CalendarPageProps> = ({ onToggleSidebar }) => {
       </div>
 
       <div className="bg-white rounded-xl shadow-sm border border-slate-200">
-        {(view === 'month' || view === 'week') && (
+          {(view === 'month' || view === 'week') && (
           <div className="grid grid-cols-7 text-center font-medium text-slate-600 border-b">
             {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map(day => <div key={day} className="p-3">{day}</div>)}
           </div>
-        )}
+          )}
         {view === 'month' && <div className="grid grid-cols-7 border-l border-t border-slate-200">{renderCalendarDays()}</div>}
-        {view === 'week' && renderWeekView()}
-        {view === 'day' && renderDayView()}
+          {view === 'week' && renderWeekView()}
+          {view === 'day' && renderDayView()}
       </div>
 
       {showNewEventModal && <Modal onClose={resetFormAndModals}><EventForm isEdit={false} /></Modal>}
@@ -313,7 +313,7 @@ const CalendarPage: React.FC<CalendarPageProps> = ({ onToggleSidebar }) => {
           onDelete={handleDeleteEvent}
         />
       )}
-    </div>
+        </div>
   );
 };
 

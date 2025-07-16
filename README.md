@@ -35,12 +35,23 @@ npm install
 
 3. Set up environment variables:
 ```bash
-cp .env.example .env
+cp env.example .env
 ```
 
-4. Configure your database connection in `.env`:
+4. Configure your database connection and demo account in `.env`:
 ```env
+# Database Configuration
 VITE_NEON_DATABASE_URL=postgresql://username:password@your-hostname.neon.tech/database_name?sslmode=require
+
+# Demo Account Configuration (optional - defaults provided)
+VITE_DEMO_ADMIN_EMAIL=superadmin@sentra.com
+VITE_DEMO_ADMIN_PASSWORD=password123
+VITE_DEMO_ADMIN_NAME=Super Admin
+
+# Demo Client Account Configuration (optional - defaults provided)
+VITE_DEMO_CLIENT_EMAIL=client@demo.com
+VITE_DEMO_CLIENT_PASSWORD=client123
+VITE_DEMO_CLIENT_NAME=Demo Client
 ```
 
 5. Set up the database:
@@ -103,6 +114,7 @@ npm run db:setup
 - `npm run db:setup` - Set up database tables and sample data
 - `npm run db:test` - Test database connection
 - `npm run db:monitor` - Monitor database performance
+- `npm run db:reset` - Reset all data (keeps table structures)
 
 ## Troubleshooting
 

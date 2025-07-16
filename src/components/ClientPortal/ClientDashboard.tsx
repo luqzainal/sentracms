@@ -29,7 +29,10 @@ const ClientDashboard: React.FC<ClientDashboardProps> = ({ user, onBack }) => {
     fetchInvoices,
     fetchPayments,
     fetchChats,
-    fetchCalendarEvents
+    fetchCalendarEvents,
+    startPolling,
+    stopPolling,
+    isPolling
   } = useAppStore();
 
   // Fetch data when component mounts to ensure sync with admin
@@ -41,7 +44,17 @@ const ClientDashboard: React.FC<ClientDashboardProps> = ({ user, onBack }) => {
     fetchPayments();
     fetchChats();
     fetchCalendarEvents();
-  }, [fetchClients, fetchProgressSteps, fetchComponents, fetchInvoices, fetchPayments, fetchChats, fetchCalendarEvents]);
+    
+    // Start polling for real-time updates
+    if (!isPolling) {
+      startPolling();
+    }
+    
+    // Cleanup function to stop polling when component unmounts
+    return () => {
+      stopPolling();
+    };
+  }, [fetchClients, fetchProgressSteps, fetchComponents, fetchInvoices, fetchPayments, fetchChats, fetchCalendarEvents, startPolling, stopPolling, isPolling]);
 
   // Find the client data based on the user email or create demo client for demo users
   let client = clients.find(c => c.email === user.email);
@@ -84,13 +97,60 @@ const ClientDashboard: React.FC<ClientDashboardProps> = ({ user, onBack }) => {
   const actualPackageName = invoices.length > 0 ? invoices[0].packageName : 'No Package Assigned';
 
   const handleSendMessage = async () => {
-    if (message.trim() && clientChat) {
+    if (message.trim() && client) {
+      const messageContent = message.trim();
+      setMessage(''); // Clear input immediately for better UX
+      
+      let currentChat = chats.find(chat => chat.clientId === client.id);
+      
       try {
-        const { sendMessage } = useAppStore.getState();
-        await sendMessage(clientChat.id, message.trim(), 'client');
-        setMessage('');
+        // If no chat exists, create one
+        if (!currentChat) {
+          const { createChatForClient } = useAppStore.getState();
+          await createChatForClient(client.id);
+          // Re-fetch chats to get the new chat ID
+          const newChats = useAppStore.getState().chats;
+          currentChat = newChats.find(chat => chat.clientId === client.id);
+        }
+
+        if (currentChat) {
+          // Optimistic update - add message to UI immediately
+          const optimisticMessage = {
+            id: Date.now(),
+            chat_id: currentChat.id,
+            sender: 'client' as const,
+            content: messageContent,
+            message_type: 'text',
+            created_at: new Date().toISOString()
+          };
+          
+          // Update local state immediately
+          const { chats } = useAppStore.getState();
+          const updatedChats = chats.map(chat => 
+            chat.id === currentChat!.id 
+              ? {
+                  ...chat,
+                  messages: [...chat.messages, optimisticMessage],
+                  lastMessage: messageContent,
+                  lastMessageAt: optimisticMessage.created_at,
+                  updatedAt: new Date().toISOString()
+                }
+              : chat
+          );
+          useAppStore.setState({ chats: updatedChats });
+          
+          // Send to server in background
+          const { sendMessage } = useAppStore.getState();
+          sendMessage(currentChat.id, messageContent, 'client').catch(error => {
+            console.error('Error sending message:', error);
+            // Optionally show error toast to user
+          });
+        } else {
+          console.error("Failed to create or find chat for the client.");
+        }
       } catch (error) {
         console.error('Error sending message:', error);
+        // Optionally show error toast to user
       }
     }
   };
@@ -98,6 +158,26 @@ const ClientDashboard: React.FC<ClientDashboardProps> = ({ user, onBack }) => {
   const formatTime = (timestamp: string) => {
     return new Date(timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
   };
+
+  // Auto scroll to bottom when new messages arrive
+  useEffect(() => {
+    const chatContainer = document.getElementById('chat-messages');
+    if (chatContainer) {
+      chatContainer.scrollTop = chatContainer.scrollHeight;
+    }
+  }, [clientChat?.messages]);
+
+  // Update clientChat reference when chats change
+  useEffect(() => {
+    if (client && chats.length > 0) {
+      const updatedClientChat = chats.find(chat => chat.clientId === client.id);
+      if (updatedClientChat && !clientChat) {
+        // Load messages for the chat
+        const { loadChatMessages } = useAppStore.getState();
+        loadChatMessages(updatedClientChat.id);
+      }
+    }
+  }, [chats, client, clientChat]);
 
   // Show Progress Tracker
   if (showProgressTracker) {
@@ -447,7 +527,7 @@ const ClientDashboard: React.FC<ClientDashboardProps> = ({ user, onBack }) => {
               </div>
               <h3 className="font-semibold text-slate-900 mb-2">My Billing</h3>
               <p className="text-sm text-slate-600 mb-3">Check your invoices & payment status</p>
-              <div className="text-lg font-bold text-purple-600">RM {dueAmount.toLocaleString()}</div>
+              <div className="text-lg font-bold text-purple-600">RM {Number(dueAmount).toLocaleString('en-MY', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</div>
               <p className="text-xs text-slate-500">Outstanding</p>
             </div>
           </div>
@@ -543,63 +623,38 @@ const ClientDashboard: React.FC<ClientDashboardProps> = ({ user, onBack }) => {
             </div>
 
             {/* Messages */}
-            <div className="flex-1 overflow-y-auto p-4 space-y-4">
-              {clientChat && clientChat.messages ? clientChat.messages.map((msg) => (
-                <div
-                  key={msg.id}
-                  className={`flex ${msg.sender === 'client' ? 'justify-end' : 'justify-start'}`}
-                >
+            <div className="flex-1 overflow-y-auto p-4 space-y-4" id="chat-messages">
+              {clientChat && clientChat.messages && clientChat.messages.length > 0 ? (
+                clientChat.messages.map((msg) => (
                   <div
-                    className={`max-w-xs lg:max-w-md px-4 py-2 rounded-lg ${
-                      msg.sender === 'client'
-                        ? 'bg-blue-500 text-white'
-                        : 'bg-slate-100 text-slate-900'
-                    }`}
+                    key={msg.id}
+                    className={`flex ${msg.sender === 'client' ? 'justify-end' : 'justify-start'}`}
                   >
-                    <p className="text-sm">{msg.content}</p>
-                                          <p className={`text-xs mt-1 ${
+                    <div
+                      className={`max-w-xs lg:max-w-md px-4 py-2 rounded-lg ${
+                        msg.sender === 'client'
+                          ? 'bg-blue-500 text-white'
+                          : 'bg-slate-100 text-slate-900'
+                      }`}
+                    >
+                      <p className="text-sm">{msg.content}</p>
+                      <p className={`text-xs mt-1 ${
                         msg.sender === 'client' ? 'text-blue-100' : 'text-slate-500'
                       }`}>
                         {formatTime(msg.created_at)}
                       </p>
+                    </div>
                   </div>
-                </div>
-              )) : (
-                <div className="flex justify-start">
-                  <div className="bg-slate-100 text-slate-900 px-4 py-2 rounded-lg max-w-xs">
-                    <p className="text-sm">Hi! I want to check our project progress.</p>
-                    <p className="text-xs text-slate-500 mt-1">10:15 AM</p>
+                ))
+              ) : (
+                <div className="flex items-center justify-center h-full text-slate-500">
+                  <div className="text-center">
+                    <MessageSquare className="w-12 h-12 text-slate-300 mx-auto mb-3" />
+                    <p>No messages yet</p>
+                    <p className="text-sm">Start a conversation with your team</p>
                   </div>
                 </div>
               )}
-              
-              <div className="flex justify-end">
-                <div className="bg-blue-500 text-white px-4 py-2 rounded-lg max-w-xs">
-                  <p className="text-sm">Hello! The project is going well. We've completed the design phase and are now moving to development.</p>
-                  <p className="text-xs text-blue-100 mt-1">10:18 AM</p>
-                </div>
-              </div>
-              
-              <div className="flex justify-start">
-                <div className="bg-slate-100 text-slate-900 px-4 py-2 rounded-lg max-w-xs">
-                  <p className="text-sm">Great! Can you share some screenshots?</p>
-                  <p className="text-xs text-slate-500 mt-1">10:20 AM</p>
-                </div>
-              </div>
-              
-              <div className="flex justify-end">
-                <div className="bg-blue-500 text-white px-4 py-2 rounded-lg max-w-xs">
-                  <p className="text-sm">Sure! I'll send them shortly. The UI looks very clean and modern.</p>
-                  <p className="text-xs text-blue-100 mt-1">10:22 AM</p>
-                </div>
-              </div>
-              
-              <div className="flex justify-start">
-                <div className="bg-slate-100 text-slate-900 px-4 py-2 rounded-lg max-w-xs">
-                  <p className="text-sm">Thank you for the project update</p>
-                  <p className="text-xs text-slate-500 mt-1">10:30 AM</p>
-                </div>
-              </div>
             </div>
 
             {/* Message Input */}
@@ -613,9 +668,10 @@ const ClientDashboard: React.FC<ClientDashboardProps> = ({ user, onBack }) => {
                     type="text"
                     value={message}
                     onChange={(e) => setMessage(e.target.value)}
-                    onKeyPress={(e) => e.key === 'Enter' && handleSendMessage()}
+                    onKeyPress={(e) => e.key === 'Enter' && !e.shiftKey && handleSendMessage()}
                     placeholder="Type a message..."
                     className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none"
+                    disabled={!clientChat}
                   />
                   <button className="absolute right-2 top-1/2 transform -translate-y-1/2 p-1 hover:bg-slate-100 rounded">
                     <Smile className="w-4 h-4 text-slate-600" />
@@ -623,7 +679,8 @@ const ClientDashboard: React.FC<ClientDashboardProps> = ({ user, onBack }) => {
                 </div>
                 <button
                   onClick={handleSendMessage}
-                  className="p-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors"
+                  disabled={!message.trim() || !clientChat}
+                  className="p-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   <Send className="w-4 h-4" />
                 </button>
