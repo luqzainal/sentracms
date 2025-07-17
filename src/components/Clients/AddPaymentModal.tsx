@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { X, Upload, DollarSign, CreditCard, Calendar } from 'lucide-react';
+import { X, DollarSign, CreditCard, Calendar } from 'lucide-react';
 import { Invoice } from '../../store/AppStore';
 
 interface AddPaymentModalProps {
@@ -11,7 +11,6 @@ interface AddPaymentModalProps {
 const AddPaymentModal: React.FC<AddPaymentModalProps> = ({ onClose, onSave, selectedInvoice }) => {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [formData, setFormData] = useState({
-    receiptFile: null as File | null,
     amount: '',
     paymentSource: 'Online Transfer',
     status: 'Paid',
@@ -61,13 +60,7 @@ const AddPaymentModal: React.FC<AddPaymentModalProps> = ({ onClose, onSave, sele
     });
   };
 
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0] || null;
-    setFormData({
-      ...formData,
-      receiptFile: file
-    });
-  };
+
 
   return (
     <div className="fixed inset-0 w-full h-full bg-black bg-opacity-60 flex items-center justify-center p-4 z-50 backdrop-blur-sm">
@@ -83,32 +76,6 @@ const AddPaymentModal: React.FC<AddPaymentModalProps> = ({ onClose, onSave, sele
         </div>
 
         <form onSubmit={handleSubmit} className="p-6 space-y-6">
-          <div>
-            <label className="block text-sm font-medium text-slate-700 mb-2">
-              Receipt Upload (optional)
-            </label>
-            <div className="relative">
-              <input
-                type="file"
-                onChange={handleFileChange}
-                accept="image/*,.pdf"
-                className="hidden"
-                id="receipt-upload"
-              />
-              <label
-                htmlFor="receipt-upload"
-                className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none cursor-pointer flex items-center justify-between hover:bg-slate-50 transition-colors"
-              >
-                <span className="text-slate-500">
-                  {formData.receiptFile ? formData.receiptFile.name : 'Choose File'}
-                </span>
-                <Upload className="w-5 h-5 text-slate-400" />
-              </label>
-            </div>
-            {!formData.receiptFile && (
-              <p className="text-xs text-slate-500 mt-1">No file chosen</p>
-            )}
-          </div>
 
           <div>
             <label className="block text-sm font-medium text-slate-700 mb-2">

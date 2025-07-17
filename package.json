@@ -14,6 +14,13 @@
     "db:test": "node scripts/test-db-connection.js",
     "db:monitor": "node scripts/monitor-database-performance.js",
     "db:reset": "node scripts/reset-database.js",
+    "db:create-links": "node scripts/create-client-links-table.js",
+    "db:fix-pic": "node scripts/fix-pic-column.js",
+    "setup-file-upload": "node scripts/setup-file-upload.js",
+    "setup-spaces-cors": "node scripts/setup-spaces-cors.js",
+    "setup-bucket-policy": "node scripts/setup-bucket-policy.js",
+    "test-file-access": "node scripts/test-file-access.js",
+    "fix-existing-files-acl": "node scripts/fix-existing-files-acl.js",
     "verify-deployment": "node scripts/verify-deployment.js",
     "fix-deployment": "node scripts/fix-deployment.js"
   },

@@ -46,8 +46,8 @@ const ClientProfile: React.FC<ClientProfileProps> = ({ clientId, onBack, onEdit 
     fetchComponents,
     fetchCalendarEvents,
     fetchProgressSteps,
-    copyComponentsToProgressSteps,
-    fixOrphanedComponents
+
+
   } = useAppStore();
 
   // All React hooks must be at the top level
@@ -67,6 +67,7 @@ const ClientProfile: React.FC<ClientProfileProps> = ({ clientId, onBack, onEdit 
   const [selectedInvoiceForPayment, setSelectedInvoiceForPayment] = useState<Invoice | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [client, setClient] = useState<Client | null>(null);
+
 
   // Memoize components by invoice to avoid repeated calls - must be before any conditional returns
   const componentsByInvoice = useMemo(() => {
@@ -220,7 +221,7 @@ const ClientProfile: React.FC<ClientProfileProps> = ({ clientId, onBack, onEdit 
         };
       });
       
-      setShowEditModal(false);
+    setShowEditModal(false);
     } catch (error) {
       console.error('Error updating client:', error);
     }
@@ -304,11 +305,13 @@ const ClientProfile: React.FC<ClientProfileProps> = ({ clientId, onBack, onEdit 
    }
  };
 
- const handleDeletePayment = (paymentId: string) => {
-   if (confirm('Are you sure you want to delete this payment?')) {
-     deletePayment(paymentId);
-   }
- };
+   const handleDeletePayment = (paymentId: string) => {
+    if (confirm('Are you sure you want to delete this payment?')) {
+      deletePayment(paymentId);
+    }
+  };
+
+
   return (
     <>
       <div className="p-6 space-y-6">
@@ -335,18 +338,6 @@ const ClientProfile: React.FC<ClientProfileProps> = ({ clientId, onBack, onEdit 
           </div>
           </div>
           <div className="flex items-center space-x-2">
-            <button
-                onClick={() => fixOrphanedComponents(client.id)}
-                className="flex items-center space-x-2 px-4 py-2 bg-orange-600 text-white rounded-lg hover:bg-orange-700 transition-colors"
-            >
-                <span>Fix Missing Components</span>
-            </button>
-            <button
-                onClick={() => copyComponentsToProgressSteps(client.id)}
-                className="flex items-center space-x-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
-            >
-                <span>Sync to Progress</span>
-            </button>
             <button
               onClick={() => setShowEditModal(true)}
               className="flex items-center space-x-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
@@ -394,6 +385,27 @@ const ClientProfile: React.FC<ClientProfileProps> = ({ clientId, onBack, onEdit 
                 <label className="text-sm font-medium text-gray-500">Package Name:</label>
                 <p className="text-gray-900">{displayPackageName}</p>
               </div>
+              {/* Papar PIC dan Admin Team berasingan */}
+              {(() => {
+                let pic = '';
+                let adminTeam = '';
+                if (client.pic && client.pic.includes(' - ')) {
+                  [pic, adminTeam] = client.pic.split(' - ');
+                } else {
+                  pic = client.pic || '';
+                  adminTeam = '';
+                }
+                return <>
+                  <div>
+                    <label className="text-sm font-medium text-gray-500">PIC:</label>
+                    <p className="text-gray-900">{pic || 'Not assigned'}</p>
+                  </div>
+                  <div>
+                    <label className="text-sm font-medium text-gray-500">Admin Team:</label>
+                    <p className="text-gray-900">{adminTeam || 'Not assigned'}</p>
+                  </div>
+                </>;
+              })()}
               <div>
                 <label className="text-sm font-medium text-gray-500">Tags:</label>
                 <div className="flex flex-wrap gap-1 mt-1">
@@ -725,6 +737,8 @@ const ClientProfile: React.FC<ClientProfileProps> = ({ clientId, onBack, onEdit 
           onSave={handleSaveEditedPayment}
         />
       )}
+
+
     </>
   );
 };

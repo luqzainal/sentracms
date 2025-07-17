@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Download, Filter, TrendingUp, DollarSign, Users, Database, CreditCard, UserX, CheckCircle, Clock, Menu } from 'lucide-react';
 import { useAppStore } from '../../store/AppStore';
 import logoImage from '../../assets/AiChatbot (15).png';
@@ -272,11 +272,18 @@ const ReportsPage: React.FC<ReportsPageProps> = ({ onToggleSidebar }) => {
   const [customDateEnd, setCustomDateEnd] = useState('');
 
   const { 
-    clients
+    clients,
+    fetchPayments,
+    getMonthlySalesData
     // getTotalSales, 
     // getTotalCollection, 
     // getTotalBalance 
   } = useAppStore();
+
+  // Fetch payments data on component mount
+  useEffect(() => {
+    fetchPayments();
+  }, [fetchPayments]);
 
   // Filter clients based on date range if custom dates are selected
   const getFilteredClients = () => {
@@ -314,21 +321,8 @@ const ReportsPage: React.FC<ReportsPageProps> = ({ onToggleSidebar }) => {
     return `RM ${validAmount.toLocaleString()}`;
   };
 
-  // Monthly sales data - distribute total sales to January for demonstration
-  const monthlyData = [
-    { month: 'January', sales: totalSales, displayValue: formatCurrency(totalSales) },
-    { month: 'February', sales: 0, displayValue: 'RM 0' },
-    { month: 'March', sales: 0, displayValue: 'RM 0' },
-    { month: 'April', sales: 0, displayValue: 'RM 0' },
-    { month: 'May', sales: 0, displayValue: 'RM 0' },
-    { month: 'June', sales: 0, displayValue: 'RM 0' },
-    { month: 'July', sales: 0, displayValue: 'RM 0' },
-    { month: 'August', sales: 0, displayValue: 'RM 0' },
-    { month: 'September', sales: 0, displayValue: 'RM 0' },
-    { month: 'October', sales: 0, displayValue: 'RM 0' },
-    { month: 'November', sales: 0, displayValue: 'RM 0' },
-    { month: 'December', sales: 0, displayValue: 'RM 0' },
-  ];
+  // Monthly sales data based on actual payment dates
+  const monthlyData = getMonthlySalesData();
 
   const maxSales = Math.max(...monthlyData.map(d => d.sales));
 

@@ -204,12 +204,7 @@ const UserProfileView: React.FC<UserProfileViewProps> = ({ user, onBack }) => {
             <span>Account Details</span>
           </h3>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div>
-              <label className="block text-sm font-medium text-slate-700 mb-1">Last Login</label>
-              <span className="text-slate-900">
-                {formatDate(user.lastLogin)}
-              </span>
-            </div>
+
             <div>
               <label className="block text-sm font-medium text-slate-700 mb-1">Account Created</label>
               <span className="text-slate-900">

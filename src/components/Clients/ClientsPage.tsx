@@ -35,7 +35,8 @@ const ClientsPage: React.FC<ClientsPageProps> = ({ setActiveTab, onToggleSidebar
     updateClient, 
     deleteClient,
     addUser,
-    copyComponentsToProgressSteps
+    copyComponentsToProgressSteps,
+    calculateClientProgressStatus
   } = useAppStore();
 
   const navigate = useNavigate();
@@ -55,19 +56,9 @@ const ClientsPage: React.FC<ClientsPageProps> = ({ setActiveTab, onToggleSidebar
     return now > deadline;
   };
 
-  // Helper function to get client progress status
+  // Helper function to get client progress status - use consistent calculation from store
   const getClientProgressStatus = (clientId: number) => {
-    const steps = progressSteps.filter(step => step.clientId === clientId);
-    const hasOverdueSteps = steps.some(step => isStepOverdue(step));
-    const completedSteps = steps.filter(step => step.completed).length;
-    const totalSteps = steps.length;
-    const progressPercentage = totalSteps > 0 ? Math.round((completedSteps / totalSteps) * 100) : 0;
-    
-    return {
-      hasOverdue: hasOverdueSteps,
-      percentage: progressPercentage,
-      overdueCount: steps.filter(step => isStepOverdue(step)).length
-    };
+    return calculateClientProgressStatus(clientId);
   };
 
   const formatCurrency = (amount: number) => {
@@ -148,7 +139,7 @@ const ClientsPage: React.FC<ClientsPageProps> = ({ setActiveTab, onToggleSidebar
       // Update existing client
       try {
         await updateClient(selectedClient.id, clientData);
-        toast.success('Client updated successfully!');
+      toast.success('Client updated successfully!');
       } catch (error) {
         console.error('Error updating client:', error);
         toast.error('Failed to update client');
@@ -364,7 +355,6 @@ const ClientsPage: React.FC<ClientsPageProps> = ({ setActiveTab, onToggleSidebar
                         <div className="px-2 py-1">
                           <h4 className="font-medium text-slate-900 text-xs lg:text-sm">{client.businessName}</h4>
                           <p className="text-xs lg:text-sm text-slate-600 mt-1">{client.name}</p>
-                          <p className="text-xs text-slate-500 mt-1">Package: {client.packageName || 'Not assigned'}</p>
                         </div>
                       </div>
                     </td>
@@ -372,6 +362,9 @@ const ClientsPage: React.FC<ClientsPageProps> = ({ setActiveTab, onToggleSidebar
                       <div>
                         <p className="text-xs lg:text-sm text-slate-900">{client.email}</p>
                         <p className="text-xs lg:text-sm text-slate-600">{client.phone}</p>
+                        {client.pic && (
+                          <p className="text-xs text-blue-600 font-medium">PIC: {client.pic}</p>
+                        )}
                       </div>
                     </td>
                     <td className="py-3 lg:py-4 px-2 lg:px-3 text-center">

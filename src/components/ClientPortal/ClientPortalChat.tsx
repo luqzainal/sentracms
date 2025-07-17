@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback, useMemo, memo } from 'react';
-import { ArrowLeft, Send, Paperclip, Smile, RefreshCw } from 'lucide-react';
+import { ArrowLeft, Send, RefreshCw } from 'lucide-react';
 import { useAppStore } from '../../store/AppStore';
 import { getInitials } from '../../utils/avatarUtils';
 
@@ -51,7 +51,8 @@ const ClientPortalChat: React.FC<ClientPortalChatProps> = ({ user, onBack }) => 
     createChatForClient,
     startPolling,
     stopPolling,
-    isPolling
+    isPolling,
+    getClientRole
   } = useAppStore();
 
   // Find the client data based on the user email
@@ -273,6 +274,17 @@ const ClientPortalChat: React.FC<ClientPortalChatProps> = ({ user, onBack }) => 
                           : 'bg-white text-slate-900 border border-slate-200'
                       } ${msg.id > 999999999 ? 'opacity-75 border-dashed' : ''}`}
                     >
+                      {/* Show sender info for all messages */}
+                      {msg.sender === 'admin' && (
+                        <div className="text-xs font-medium mb-1 text-slate-600">
+                          Admin Team - Support
+                        </div>
+                      )}
+                      {msg.sender === 'client' && (
+                        <div className="text-xs font-medium mb-1 text-blue-100">
+                          {getClientRole(client.id)} - {client.name}
+                        </div>
+                      )}
                       <p className="text-sm">{msg.content}</p>
                       <p className={`text-xs mt-1 ${
                         msg.sender === 'client' ? 'text-blue-100' : 'text-slate-500'
@@ -309,10 +321,8 @@ const ClientPortalChat: React.FC<ClientPortalChatProps> = ({ user, onBack }) => 
         {/* Message Input */}
         <div className="bg-white border-t border-slate-200 p-4 lg:p-8">
           <div className="flex items-center space-x-3">
-            <button className="p-2 text-slate-600 hover:text-slate-900 hover:bg-slate-100 rounded-lg transition-colors">
-              <Paperclip className="w-5 h-5" />
-            </button>
-            <div className="flex-1 relative">
+            {/* Removed non-functional attachment and emoji buttons */}
+            <div className="flex-1">
               <input
                 ref={inputRef}
                 type="text"
@@ -324,9 +334,6 @@ const ClientPortalChat: React.FC<ClientPortalChatProps> = ({ user, onBack }) => 
                 className="w-full px-4 py-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none text-sm bg-white disabled:opacity-50 disabled:cursor-not-allowed"
               />
             </div>
-            <button className="p-2 text-slate-600 hover:text-slate-900 hover:bg-slate-100 rounded-lg transition-colors">
-              <Smile className="w-5 h-5" />
-            </button>
             <button
               onClick={handleSendMessage}
               disabled={!message.trim() || isSending}

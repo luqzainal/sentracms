@@ -90,10 +90,16 @@ async function runMigrations() {
           email TEXT UNIQUE NOT NULL,
           phone TEXT,
           status TEXT NOT NULL DEFAULT 'Pending' CHECK (status IN ('Complete', 'Pending', 'Inactive')),
+          pic TEXT,
           total_sales DECIMAL(10,2) DEFAULT 0,
           total_collection DECIMAL(10,2) DEFAULT 0,
           balance DECIMAL(10,2) DEFAULT 0,
+          last_activity DATE DEFAULT CURRENT_DATE,
+          invoice_count INTEGER DEFAULT 0,
           registered_at TIMESTAMPTZ DEFAULT NOW(),
+          company TEXT,
+          address TEXT,
+          notes TEXT,
           created_at TIMESTAMPTZ DEFAULT NOW(),
           updated_at TIMESTAMPTZ DEFAULT NOW()
         );

@@ -9,7 +9,7 @@ interface ClientModalProps {
 }
 
 const ClientModal: React.FC<ClientModalProps> = ({ client, onClose, onSave }) => {
-  const { users, tags, fetchTags, addTag, deleteTag } = useAppStore();
+  const { users, tags, fetchTags, fetchUsers, addTag, deleteTag } = useAppStore();
   
   const [formData, setFormData] = useState({
     name: '',
@@ -18,6 +18,8 @@ const ClientModal: React.FC<ClientModalProps> = ({ client, onClose, onSave }) =>
     phone: '',
     status: 'Complete',
     packageName: '',
+    pic: '',
+    adminTeam: '',
     tags: [] as string[],
     newTag: '',
   });
@@ -26,30 +28,46 @@ const ClientModal: React.FC<ClientModalProps> = ({ client, onClose, onSave }) =>
   const [newTagName, setNewTagName] = useState('');
   const [newTagColor, setNewTagColor] = useState('#3B82F6');
 
-  // Filter users to get only Team role users
-  const teamUsers = users.filter(user => user.role === 'Team');
+  // Filter users to get only Admin Team role users
+  const adminTeamUsers = users.filter(user => user.role === 'Team');
 
   useEffect(() => {
-    // Fetch tags when component mounts
+    // Fetch tags and users when component mounts
     fetchTags();
+    fetchUsers();
     
     if (client) {
+      let pic = '';
+      let adminTeam = '';
+      if (client.pic && client.pic.includes(' - ')) {
+        [pic, adminTeam] = client.pic.split(' - ');
+      } else {
+        pic = client.pic || '';
+        adminTeam = '';
+      }
       setFormData({
         name: client.name || '',
         businessName: client.businessName || '',
         email: client.email || '',
         phone: client.phone || '',
         status: client.status || 'Complete',
+        packageName: client.packageName || '',
+        pic,
+        adminTeam,
         tags: client.tags || [],
         newTag: '',
       });
     }
-  }, [client, fetchTags]);
+  }, [client, fetchTags, fetchUsers]);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    
-    onSave(formData);
+    // Gabungkan pic dan adminTeam sebelum simpan
+    const picValue = formData.pic && formData.adminTeam ? `${formData.pic} - ${formData.adminTeam}` : formData.pic;
+    onSave({
+      ...formData,
+      pic: picValue
+    });
   };
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
@@ -224,6 +242,45 @@ const ClientModal: React.FC<ClientModalProps> = ({ client, onClose, onSave }) =>
                   <option value="Complete">Complete</option>
                   <option value="Pending">Pending</option>
                   <option value="Inactive">Inactive</option>
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-2">
+                  PIC
+                </label>
+                <select
+                  name="pic"
+                  value={formData.pic}
+                  onChange={handleChange}
+                  className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none"
+                >
+                  <option value="">Pilih PIC</option>
+                  <option value="Project Management">Project Management</option>
+                  <option value="Marketing Automation">Marketing Automation</option>
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-2">
+                  Admin Team
+                </label>
+                <select
+                  name="adminTeam"
+                  value={formData.adminTeam}
+                  onChange={handleChange}
+                  className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none"
+                >
+                  <option value="">Pilih Admin Team</option>
+                  {adminTeamUsers.length > 0 ? (
+                    adminTeamUsers.map(user => (
+                      <option key={user.id} value={user.name}>
+                        {user.name} ({user.role})
+                      </option>
+                    ))
+                  ) : (
+                    <option value="" disabled>Tiada Admin Team tersedia</option>
+                  )}
                 </select>
               </div>
 

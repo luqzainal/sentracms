@@ -290,7 +290,7 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ onToggleSidebar }) => {
                 </div>
               </div>
             </div>
-          </div>
+        </div>
         </div>
       </div>
 
@@ -392,7 +392,7 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ onToggleSidebar }) => {
                   <tr>
                     <th className="text-left py-3 lg:py-4 px-3 lg:px-6 font-semibold text-slate-900 text-xs lg:text-sm min-w-[200px]">User</th>
                     <th className="text-left py-3 lg:py-4 px-3 lg:px-6 font-semibold text-slate-900 text-xs lg:text-sm min-w-[120px]">Role</th>
-                    <th className="text-left py-3 lg:py-4 px-3 lg:px-6 font-semibold text-slate-900 text-xs lg:text-sm min-w-[120px] hidden md:table-cell">Last Login</th>
+
                     <th className="text-left py-3 lg:py-4 px-3 lg:px-6 font-semibold text-slate-900 text-xs lg:text-sm min-w-[100px] hidden lg:table-cell">Created</th>
                     <th className="text-center py-3 lg:py-4 px-3 lg:px-6 font-semibold text-slate-900 text-xs lg:text-sm min-w-[100px]">Actions</th>
                   </tr>
@@ -419,11 +419,7 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ onToggleSidebar }) => {
                           </span>
                         </div>
                       </td>
-                      <td className="py-3 lg:py-4 px-3 lg:px-6 hidden md:table-cell">
-                        <span className="text-xs lg:text-sm text-slate-600">
-                          {user.lastLogin === 'Never' ? 'Never' : new Date(user.lastLogin).toLocaleDateString()}
-                        </span>
-                      </td>
+
                       <td className="py-3 lg:py-4 px-3 lg:px-6 hidden lg:table-cell">
                         <span className="text-xs lg:text-sm text-slate-600">
                           {new Date(user.createdAt).toLocaleDateString()}

@@ -23,7 +23,7 @@ const AddComponentModal: React.FC<AddComponentModalProps> = ({ onClose, onSave, 
   useEffect(() => {
     if (packageName && components.length === 0) {
       setComponents([{
-        id: Date.now().toString(),
+        id: `package_${Date.now()}_${Math.random().toString(36).substr(2, 6)}`,
         name: packageName
       }]);
     }
@@ -50,7 +50,7 @@ const AddComponentModal: React.FC<AddComponentModalProps> = ({ onClose, onSave, 
   };
 
   const addComponent = () => {
-    setComponents([...components, { id: Date.now().toString(), name: '' }]);
+    setComponents([...components, { id: `individual_${Date.now()}_${Math.random().toString(36).substr(2, 6)}`, name: '' }]);
   };
 
   const removeComponent = (id: string) => {
@@ -70,8 +70,9 @@ const AddComponentModal: React.FC<AddComponentModalProps> = ({ onClose, onSave, 
     const lines = bulkText.split('\n').filter(line => line.trim());
     
     // Create new components from the pasted text exactly as typed
-    const newComponents = lines.map(line => ({
-      id: Date.now().toString() + Math.random().toString(36).substr(2, 9),
+    // Use index + 1 to ensure proper ordering (first line = number 1)
+    const newComponents = lines.map((line, index) => ({
+      id: `bulk_${Date.now()}_${index + 1}_${Math.random().toString(36).substr(2, 6)}`,
       name: line.trim()
     }));
     

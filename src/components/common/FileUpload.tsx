@@ -1,6 +1,6 @@
 import React, { useState, useCallback, useEffect } from 'react';
 import { useDropzone, FileRejection } from 'react-dropzone';
-import { UploadCloud, File as FileIcon, X, AlertCircle, CheckCircle, Loader2 } from 'lucide-react';
+import { UploadCloud, File as FileIcon, X, AlertCircle, CheckCircle, Loader2, FileText } from 'lucide-react';
 
 interface FileUploadProps {
   onUploadComplete: (uploadedFiles: UploadedFile[]) => void;
@@ -59,6 +59,10 @@ const FileUpload: React.FC<FileUploadProps> = ({ onUploadComplete, multiple = tr
       'image/jpeg': ['.jpg', '.jpeg'],
       'image/png': ['.png'],
       'application/pdf': ['.pdf'],
+      'application/vnd.openxmlformats-officedocument.wordprocessingml.document': ['.docx'],
+      'application/msword': ['.doc'],
+      'application/vnd.ms-excel': ['.xls'],
+      'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet': ['.xlsx'],
     },
     maxSize: MAX_SIZE,
   });
@@ -149,7 +153,7 @@ const FileUpload: React.FC<FileUploadProps> = ({ onUploadComplete, multiple = tr
           ) : (
             <p className="font-semibold">Drag & drop files here, or click to select files</p>
           )}
-          <p className="text-sm text-slate-500">Supports JPG, PNG, PDF (max. 5MB)</p>
+          <p className="text-sm text-slate-500">Supports JPG, PNG, PDF, DOC, DOCX, XLS, XLSX (max. 5MB)</p>
         </div>
       </div>
       
@@ -171,9 +175,21 @@ const FileUpload: React.FC<FileUploadProps> = ({ onUploadComplete, multiple = tr
           <ul className="space-y-2">
             {fileStatuses.map((fs, index) => (
               <li key={index} className="flex items-center justify-between p-3 bg-slate-100 rounded-lg border border-slate-200">
-                <div className="flex items-center space-x-3 flex-grow">
+                                  <div className="flex items-center space-x-3 flex-grow">
                   {fs.preview && fs.file.type.startsWith('image/') ? (
                     <img src={fs.preview} alt={fs.file.name} className="w-10 h-10 rounded-md object-cover" />
+                  ) : fs.file.type === 'application/pdf' ? (
+                    <div className="w-10 h-10 bg-red-100 rounded-md flex items-center justify-center">
+                      <FileText className="w-6 h-6 text-red-600" />
+                    </div>
+                  ) : fs.file.type.includes('document') || fs.file.type.includes('docx') || fs.file.type.includes('doc') ? (
+                    <div className="w-10 h-10 bg-blue-100 rounded-md flex items-center justify-center">
+                      <FileText className="w-6 h-6 text-blue-600" />
+                    </div>
+                  ) : fs.file.type.includes('spreadsheet') || fs.file.type.includes('excel') ? (
+                    <div className="w-10 h-10 bg-green-100 rounded-md flex items-center justify-center">
+                      <FileText className="w-6 h-6 text-green-600" />
+                    </div>
                   ) : (
                     <FileIcon className="w-10 h-10 text-slate-500 flex-shrink-0" />
                   )}

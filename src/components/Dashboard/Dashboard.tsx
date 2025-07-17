@@ -18,22 +18,32 @@ const Dashboard: React.FC<DashboardProps> = ({ setActiveTab, onToggleSidebar }) 
     clients,
     chats,
     invoices,
+    calendarEvents,
     loading,
     fetchClients,
     fetchChats,
     fetchTags,
+    fetchPayments,
+    fetchCalendarEvents,
+    fetchProgressSteps,
     getTotalSales, 
     getTotalCollection, 
     getTotalBalance,
-    getUnreadMessagesCount
+    getUnreadMessagesCount,
+    getMonthlySalesData,
+    calculateClientProgressStatus
   } = useAppStore();
 
   useEffect(() => {
     // Fetch initial data
+    console.log('🔄 Dashboard useEffect: Fetching data...');
     fetchClients();
     fetchChats();
     fetchTags();
-  }, [fetchClients, fetchChats, fetchTags]);
+    fetchPayments();
+    fetchCalendarEvents();
+    fetchProgressSteps();
+  }, [fetchClients, fetchChats, fetchTags, fetchPayments, fetchCalendarEvents, fetchProgressSteps]);
 
   // Calculate metrics
   const totalSales = getTotalSales();
@@ -78,21 +88,64 @@ const Dashboard: React.FC<DashboardProps> = ({ setActiveTab, onToggleSidebar }) 
   // Calculate total unread messages using the store function
   const totalUnreadMessages = getUnreadMessagesCount();
 
-  // Monthly sales data - distribute total sales to January for demonstration
-  const monthlyData = [
-    { month: 'January', sales: totalSales, displayValue: `RM ${(Number(totalSales) || 0).toLocaleString()}` },
-    { month: 'February', sales: 0, displayValue: 'RM 0' },
-    { month: 'March', sales: 0, displayValue: 'RM 0' },
-    { month: 'April', sales: 0, displayValue: 'RM 0' },
-    { month: 'May', sales: 0, displayValue: 'RM 0' },
-    { month: 'June', sales: 0, displayValue: 'RM 0' },
-    { month: 'July', sales: 0, displayValue: 'RM 0' },
-    { month: 'August', sales: 0, displayValue: 'RM 0' },
-    { month: 'September', sales: 0, displayValue: 'RM 0' },
-    { month: 'October', sales: 0, displayValue: 'RM 0' },
-    { month: 'November', sales: 0, displayValue: 'RM 0' },
-    { month: 'December', sales: 0, displayValue: 'RM 0' },
-  ];
+  // Monthly sales data based on actual payment dates
+  const monthlyData = getMonthlySalesData();
+
+  // Get today's appointments
+  const today = new Date().toISOString().split('T')[0]; // YYYY-MM-DD format
+  // Alternative: Use local date to avoid timezone issues
+  const localToday = new Date().toLocaleDateString('en-CA'); // YYYY-MM-DD format
+  console.log('📅 Debug Today Appointment:');
+  console.log('  Today\'s date:', today);
+  console.log('  Local today:', localToday);
+  console.log('  All calendar events count:', calendarEvents.length);
+  
+  const todaysAppointments = calendarEvents.filter(event => {
+    // Ensure event has startDate and it matches today's date
+    if (!event.startDate) {
+      console.log(`  Event "${event.title}" has no startDate`);
+      return false;
+    }
+    
+    // Handle different date formats
+    let eventDate = '';
+    console.log(`  Event "${event.title}" startDate:`, event.startDate, 'Type:', typeof event.startDate);
+    
+    if (typeof event.startDate === 'string') {
+      // If it's a string, handle timezone issues
+      if (event.startDate.includes('T')) {
+        eventDate = event.startDate.split('T')[0];
+      } else {
+        eventDate = event.startDate;
+      }
+      console.log(`    String processing: ${event.startDate} -> ${eventDate}`);
+    } else if (event.startDate && typeof event.startDate === 'object' && 'toISOString' in event.startDate) {
+      // If it's a Date object, convert to YYYY-MM-DD format using local date to avoid timezone issues
+      const dateObj = event.startDate as Date;
+      const year = dateObj.getFullYear();
+      const month = String(dateObj.getMonth() + 1).padStart(2, '0');
+      const day = String(dateObj.getDate()).padStart(2, '0');
+      eventDate = `${year}-${month}-${day}`;
+      console.log(`    Date object processing (local): ${event.startDate} -> ${eventDate}`);
+    } else if (event.startDate && typeof event.startDate === 'object' && 'getTime' in event.startDate) {
+      // Alternative check for Date object
+      const dateObj = event.startDate as Date;
+      const year = dateObj.getFullYear();
+      const month = String(dateObj.getMonth() + 1).padStart(2, '0');
+      const day = String(dateObj.getDate()).padStart(2, '0');
+      eventDate = `${year}-${month}-${day}`;
+      console.log(`    Date object processing (local alt): ${event.startDate} -> ${eventDate}`);
+    } else {
+      console.log(`  Event "${event.title}" has unknown startDate type:`, typeof event.startDate);
+      return false;
+    }
+    
+    const matches = eventDate === today || eventDate === localToday;
+    console.log(`  Event "${event.title}" on ${eventDate} matches today (${today}) or local (${localToday}): ${matches}`);
+    return matches;
+  });
+  
+  console.log('  Today\'s appointments found:', todaysAppointments);
 
   // Filter data based on date range
   // const filteredData = monthlyData.filter(item => {
@@ -136,7 +189,7 @@ const Dashboard: React.FC<DashboardProps> = ({ setActiveTab, onToggleSidebar }) 
     return new Date(timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
   };
 
-  if (loading.clients || loading.chats) {
+  if (loading.clients || loading.chats || loading.calendarEvents || loading.progressSteps) {
     return (
       <div className="p-4 lg:p-8 space-y-6 lg:space-y-8 bg-slate-50 min-h-screen">
         <div className="flex items-center justify-center h-64">
@@ -395,27 +448,20 @@ const Dashboard: React.FC<DashboardProps> = ({ setActiveTab, onToggleSidebar }) 
           </div>
           <div className="space-y-3 lg:space-y-4">
             {recentClients.map((client) => {
-              // Calculate project progress based on completion status
-              const projectProgress = client.status === 'Complete' ? 100 
-                : client.status === 'Pending' ? 50 
-                : 0;
+              // Calculate project progress based on actual progress steps
+              const progressStatus = calculateClientProgressStatus(client.id);
+              const projectProgress = progressStatus.percentage;
               
-                             // Get client's package from invoices if available
-               const clientInvoices = invoices.filter(inv => inv.clientId === client.id);
+              // Get client's package from invoices if available
+              const clientInvoices = invoices.filter(inv => inv.clientId === client.id);
               const packageName = clientInvoices.length > 0 ? clientInvoices[0].packageName : null;
               
-              // Get progress color based on status
-              const getProgressColor = (status: string) => {
-                switch (status) {
-                  case 'Complete':
-                    return 'bg-green-500';
-                  case 'Pending':
-                    return 'bg-yellow-500';
-                  case 'Inactive':
-                    return 'bg-red-300';
-                  default:
-                    return 'bg-slate-300';
-                }
+              // Get progress color based on progress status
+              const getProgressColor = () => {
+                if (progressStatus.hasOverdue) return 'bg-red-500';
+                if (projectProgress === 100) return 'bg-green-500';
+                if (projectProgress >= 50) return 'bg-blue-500';
+                return 'bg-yellow-500';
               };
               
               return (
@@ -434,18 +480,15 @@ const Dashboard: React.FC<DashboardProps> = ({ setActiveTab, onToggleSidebar }) 
                       </span>
                     </div>
                     <p className="text-xs lg:text-sm text-slate-500 truncate">{client.email}</p>
-                    {packageName && (
-                      <p className="text-xs text-blue-600 font-medium truncate">Package: {packageName}</p>
-                    )}
                   </div>
                   
                   {/* Progress */}
                   <div className="flex items-center space-x-2 lg:space-x-3">
                     <div className="w-16 lg:w-20 bg-slate-200 rounded-full h-2">
-                      <div
-                        className={`h-2 rounded-full transition-all duration-300 ${getProgressColor(client.status)}`}
-                        style={{ width: `${projectProgress}%` }}
-                      />
+                                          <div
+                      className={`h-2 rounded-full transition-all duration-300 ${getProgressColor()}`}
+                      style={{ width: `${projectProgress}%` }}
+                    />
                     </div>
                     <span className="text-xs font-medium text-slate-600 w-8">{projectProgress}%</span>
                   </div>
@@ -547,11 +590,45 @@ const Dashboard: React.FC<DashboardProps> = ({ setActiveTab, onToggleSidebar }) 
               })}
             </div>
           </div>
-          <div className="text-center py-6 lg:py-8">
-            <Calendar className="w-8 h-8 lg:w-12 lg:h-12 text-slate-400 mx-auto mb-2 lg:mb-3" />
-            <p className="text-slate-500 font-medium text-sm lg:text-base">No appointments scheduled</p>
-            <p className="text-xs lg:text-sm text-slate-400">Your calendar is clear for today</p>
-          </div>
+          {todaysAppointments.length > 0 ? (
+            <div className="space-y-3">
+              {todaysAppointments.map((appointment) => {
+                const client = clients.find(c => c.id === appointment.clientId);
+                const clientName = client?.businessName || client?.name || 'Unknown Client';
+                
+                return (
+                  <div key={appointment.id} className="flex items-center space-x-3 p-3 bg-slate-50 rounded-lg border border-slate-100">
+                    <div className="w-10 h-10 bg-blue-500 rounded-full flex items-center justify-center text-white text-sm font-medium flex-shrink-0">
+                      {clientName.split(' ').map(n => n[0]).join('').toUpperCase()}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <h4 className="font-semibold text-slate-900 text-sm truncate">{appointment.title}</h4>
+                      <p className="text-xs text-slate-500 truncate">{clientName}</p>
+                      <p className="text-xs text-blue-600 font-medium">
+                        {appointment.startTime} - {appointment.endTime}
+                      </p>
+                    </div>
+                    <div className="flex-shrink-0">
+                      <span className={`px-2 py-1 rounded-full text-xs font-medium ${
+                        appointment.type === 'meeting' ? 'bg-blue-100 text-blue-700' :
+                        appointment.type === 'call' ? 'bg-purple-100 text-purple-700' :
+                        appointment.type === 'deadline' ? 'bg-red-100 text-red-700' :
+                        'bg-green-100 text-green-700'
+                      }`}>
+                        {appointment.type}
+                      </span>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          ) : (
+            <div className="text-center py-6 lg:py-8">
+              <Calendar className="w-8 h-8 lg:w-12 lg:h-12 text-slate-400 mx-auto mb-2 lg:mb-3" />
+              <p className="text-slate-500 font-medium text-sm lg:text-base">No appointments scheduled</p>
+              <p className="text-xs lg:text-sm text-slate-400">Your calendar is clear for today</p>
+            </div>
+          )}
         </div>
       </div>
     </div>

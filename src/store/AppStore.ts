@@ -21,6 +21,7 @@ export interface Client {
   phone: string;
   status: string;
   packageName?: string;
+  pic?: string;
   tags?: string[];
   totalSales: number;
   totalCollection: number;
@@ -243,9 +244,16 @@ interface AppState {
   getComponentsByInvoiceId: (invoiceId: string) => Component[];
 
   addProgressStep: (step: Omit<ProgressStep, 'id' | 'createdAt' | 'updatedAt'>) => Promise<void>;
-  updateProgressStep: (id: string, updates: Partial<ProgressStep>) => void;
+  updateProgressStep: (id: string, updates: Partial<ProgressStep>) => Promise<void>;
   deleteProgressStep: (id: string) => void;
   getProgressStepsByClientId: (clientId: number) => ProgressStep[];
+  calculateClientProgressStatus: (clientId: number) => {
+    hasOverdue: boolean;
+    percentage: number;
+    overdueCount: number;
+    completedSteps: number;
+    totalSteps: number;
+  };
 
   addCommentToStep: (stepId: string, comment: { text: string; username: string; attachment_url?: string; attachment_type?: string; }) => Promise<void>;
   deleteCommentFromStep: (stepId: string, commentId: string) => Promise<void>;
@@ -261,24 +269,29 @@ interface AppState {
   addUser: (user: Omit<User, 'id' | 'createdAt' | 'updatedAt'>) => Promise<void>;
   updateUser: (id: string, updates: Partial<User>) => Promise<void>;
   deleteUser: (id: string) => Promise<void>;
+  getAdminTeam: () => Promise<User[]>;
+  assignUserToClient: (userId: string, clientId: number) => Promise<void>;
 
-  copyComponentsToProgressSteps: (clientId: number) => void;
-  fixOrphanedComponents: (clientId: number) => void;
+  autoCreateProgressStepsForInvoice: (clientId: number) => Promise<void>;
 
   addClientLink: (link: Omit<ClientLink, 'id' | 'createdAt' | 'created_at'> & { client_id: number }) => Promise<void>;
   deleteClientLink: (id: string) => Promise<void>;
-  getClientLinksByClientId: (clientId: number) => ClientLink[];
+  getClientLinksByClientId: (clientId: number) => ClientLink[],
 
   // Computed values
   getTotalSales: () => number;
   getTotalCollection: () => number;
   getTotalBalance: () => number;
+  getSalesByPaymentDate: () => { [key: string]: number };
+  getMonthlySalesData: () => { month: string; sales: number; displayValue: string }[];
   
   // Utility functions
   recalculateAllClientTotals: () => Promise<void>;
   createTestUsers: () => Promise<void>;
   cleanOrphanedChats: () => Promise<number>;
   mergeDuplicateChats: () => Promise<number>;
+
+  getClientRole: (clientId: number) => string;
 }
 
 export const useAppStore = create<AppState>((set, get) => ({
@@ -287,7 +300,20 @@ export const useAppStore = create<AppState>((set, get) => ({
   invoices: [],
   payments: [],
   components: [],
-  progressSteps: [],
+  progressSteps: (() => {
+    if (typeof window !== 'undefined') {
+      const savedProgressSteps = localStorage.getItem('progressStepsCache');
+      if (savedProgressSteps) {
+        try {
+          return JSON.parse(savedProgressSteps);
+        } catch (error) {
+          console.error('Error parsing progress steps from localStorage:', error);
+          localStorage.removeItem('progressStepsCache');
+        }
+      }
+    }
+    return [];
+  })(),
   calendarEvents: [],
   chats: [],
   tags: [],
@@ -371,6 +397,7 @@ export const useAppStore = create<AppState>((set, get) => ({
               email: demoClientEmail,
               phone: '+60123456789',
               status: 'Complete',
+              pic: 'Project Management',
               total_sales: 15000,
               total_collection: 10000,
               balance: 5000,
@@ -408,6 +435,7 @@ export const useAppStore = create<AppState>((set, get) => ({
           phone: dbClient.phone || '',
           status: dbClient.status,
           packageName: undefined,
+          pic: dbClient.pic,
           tags: clientTags[dbClient.id] || [], // Load tags from localStorage
           totalSales: Number(dbClient.total_sales) || 0,
           totalCollection: Number(dbClient.total_collection) || 0,
@@ -703,6 +731,12 @@ export const useAppStore = create<AppState>((set, get) => ({
         createdAt: dbStep.created_at,
         updatedAt: dbStep.updated_at,
       }));
+      
+      // Save to localStorage for persistence
+      if (typeof window !== 'undefined') {
+        localStorage.setItem('progressStepsCache', JSON.stringify(steps));
+      }
+      
       set({ progressSteps: steps });
     } catch (error) {
       console.error('Error fetching progress steps:', error);
@@ -1265,6 +1299,7 @@ export const useAppStore = create<AppState>((set, get) => ({
         email: clientData.email,
         phone: clientData.phone,
         status: clientData.status as 'Complete' | 'Pending' | 'Inactive',
+        pic: clientData.pic,
         total_sales: clientData.totalSales || 0,
         total_collection: clientData.totalCollection || 0,
         balance: clientData.balance || 0,
@@ -1282,6 +1317,7 @@ export const useAppStore = create<AppState>((set, get) => ({
         phone: dbClient.phone || '',
         status: dbClient.status,
         packageName: clientData.packageName,
+        pic: clientData.pic,
         tags: clientData.tags || [],
         totalSales: Number(dbClient.total_sales) || 0,
         totalCollection: Number(dbClient.total_collection) || 0,
@@ -1325,6 +1361,7 @@ export const useAppStore = create<AppState>((set, get) => ({
       if (updates.email) dbUpdates.email = updates.email;
       if (updates.phone) dbUpdates.phone = updates.phone;
       if (updates.status) dbUpdates.status = updates.status as 'Complete' | 'Pending' | 'Inactive';
+      if (updates.pic) dbUpdates.pic = updates.pic;
       
       // Only update database if there are database fields to update
       if (Object.keys(dbUpdates).length > 0) {
@@ -1458,8 +1495,8 @@ export const useAppStore = create<AppState>((set, get) => ({
         ),
       }));
       
-      // Note: Removed auto-creation of progress steps and tags to prevent clutter
-      // Note: Removed setTimeout refresh to prevent duplicate data display
+      // Auto create progress step for this invoice
+      await get().autoCreateProgressStepsForInvoice(invoiceData.clientId);
       
     } catch (error) {
       console.error('Error adding invoice:', error);
@@ -1514,7 +1551,9 @@ export const useAppStore = create<AppState>((set, get) => ({
   },
 
   getInvoicesByClientId: (clientId) => {
-    return get().invoices.filter((invoice) => invoice.clientId === clientId);
+    const filteredInvoices = get().invoices.filter((invoice) => invoice.clientId === clientId);
+    // Sort by creation date (newest first) to ensure consistent ordering
+    return filteredInvoices.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
   },
 
   addPayment: async (paymentData) => {
@@ -1905,13 +1944,38 @@ export const useAppStore = create<AppState>((set, get) => ({
   },
 
   getComponentsByClientId: (clientId) => {
-    return get().components.filter((component) => component.clientId === clientId);
+    const filteredComponents = get().components.filter((component) => component.clientId === clientId);
+    // Sort by ID to maintain consistent order
+    return filteredComponents.sort((a, b) => {
+      // For bulk components, sort by the number in the ID to maintain proper order
+      const aMatch = a.id.match(/bulk_\d+_(\d+)_/);
+      const bMatch = b.id.match(/bulk_\d+_(\d+)_/);
+      if (aMatch && bMatch) {
+        const aNum = parseInt(aMatch[1]);
+        const bNum = parseInt(bMatch[1]);
+        return aNum - bNum; // Lower number first (like KOMPONEN #1, #2, #3)
+      }
+      // For other components, sort by creation date (oldest first)
+      return new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime();
+    });
   },
 
   getComponentsByInvoiceId: (invoiceId) => {
     const allComponents = get().components;
     const filteredComponents = allComponents.filter((component) => component.invoiceId === invoiceId);
-    return filteredComponents;
+    // Sort by ID to maintain consistent order
+    return filteredComponents.sort((a, b) => {
+      // For bulk components, sort by the number in the ID to maintain proper order
+      const aMatch = a.id.match(/bulk_\d+_(\d+)_/);
+      const bMatch = b.id.match(/bulk_\d+_(\d+)_/);
+      if (aMatch && bMatch) {
+        const aNum = parseInt(aMatch[1]);
+        const bNum = parseInt(bMatch[1]);
+        return aNum - bNum; // Lower number first (like KOMPONEN #1, #2, #3)
+      }
+      // For other components, sort by creation date (oldest first)
+      return new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime();
+    });
   },
 
   addProgressStep: async (stepData) => {
@@ -1935,34 +1999,110 @@ export const useAppStore = create<AppState>((set, get) => ({
         createdAt: newDbStep.created_at,
         updatedAt: newDbStep.updated_at,
       };
-      set((state) => ({
-        progressSteps: [...state.progressSteps, newStep],
-      }));
+      set((state) => {
+        const updatedSteps = [...state.progressSteps, newStep];
+        
+        // Save to localStorage for persistence
+        if (typeof window !== 'undefined') {
+          localStorage.setItem('progressStepsCache', JSON.stringify(updatedSteps));
+        }
+        
+        return { progressSteps: updatedSteps };
+      });
     } catch (error) {
       console.error('Error adding progress step:', error);
       throw error;
     }
   },
 
-  updateProgressStep: (id, updates) => {
-    set((state) => ({
-      progressSteps: state.progressSteps.map((step) =>
-        step.id === id
-          ? { ...step, ...updates, updatedAt: new Date().toISOString() }
-          : step
-      ),
-    }));
+  updateProgressStep: async (id, updates) => {
+    try {
+      // Map store format to database format
+      const dbUpdates: any = {};
+      if (updates.title !== undefined) dbUpdates.title = updates.title;
+      if (updates.description !== undefined) dbUpdates.description = updates.description;
+      if (updates.deadline !== undefined) dbUpdates.deadline = updates.deadline;
+      if (updates.completed !== undefined) dbUpdates.completed = updates.completed;
+      if (updates.completedDate !== undefined) dbUpdates.completed_date = updates.completedDate;
+      if (updates.important !== undefined) dbUpdates.important = updates.important;
+      
+      // Update in database
+      const updatedDbStep = await progressService.update(id, dbUpdates);
+      
+      // Update local state
+      set((state) => {
+        const updatedSteps = state.progressSteps.map((step) =>
+          step.id === id
+            ? { 
+                ...step, 
+                ...updates, 
+                completedDate: updatedDbStep.completed_date,
+                updatedAt: updatedDbStep.updated_at 
+              }
+            : step
+        );
+        
+        // Save to localStorage for persistence
+        if (typeof window !== 'undefined') {
+          localStorage.setItem('progressStepsCache', JSON.stringify(updatedSteps));
+        }
+        
+        return { progressSteps: updatedSteps };
+      });
+    } catch (error) {
+      console.error('Error updating progress step:', error);
+      throw error;
+    }
   },
 
   deleteProgressStep: (id: string) => {
-    set((state) => ({
-      progressSteps: state.progressSteps.filter((step) => step.id !== id),
-    }));
+    set((state) => {
+      const updatedSteps = state.progressSteps.filter((step) => step.id !== id);
+      
+      // Save to localStorage for persistence
+      if (typeof window !== 'undefined') {
+        localStorage.setItem('progressStepsCache', JSON.stringify(updatedSteps));
+      }
+      
+      return { progressSteps: updatedSteps };
+    });
     progressService.delete(id).catch(err => console.error("Failed to delete progress step on server", err));
   },
 
   getProgressStepsByClientId: (clientId: number) => {
-    return get().progressSteps.filter((step) => step.clientId === clientId);
+    const steps = get().progressSteps.filter((step) => step.clientId === clientId);
+    // Sort by creation date (oldest first) to maintain proper order
+    return steps.sort((a, b) => {
+      return new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime();
+    });
+  },
+
+  // Helper function to calculate consistent progress status
+  calculateClientProgressStatus: (clientId: number) => {
+    const steps = get().progressSteps.filter(step => step.clientId === clientId);
+    const now = new Date();
+    
+    const hasOverdueSteps = steps.some(step => {
+      if (step.completed) return false;
+      const deadline = new Date(step.deadline);
+      return now > deadline;
+    });
+    
+    const completedSteps = steps.filter(step => step.completed).length;
+    const totalSteps = steps.length;
+    const progressPercentage = totalSteps > 0 ? Math.round((completedSteps / totalSteps) * 100) : 0;
+    
+    return {
+      hasOverdue: hasOverdueSteps,
+      percentage: progressPercentage,
+      overdueCount: steps.filter(step => {
+        if (step.completed) return false;
+        const deadline = new Date(step.deadline);
+        return now > deadline;
+      }).length,
+      completedSteps,
+      totalSteps
+    };
   },
 
   addCommentToStep: async (stepId, comment) => {
@@ -1974,8 +2114,8 @@ export const useAppStore = create<AppState>((set, get) => ({
       attachment_type: comment.attachment_type,
     });
 
-    set(state => ({
-      progressSteps: state.progressSteps.map(step => {
+    set(state => {
+      const updatedSteps = state.progressSteps.map(step => {
         if (step.id === stepId) {
           return {
             ...step,
@@ -1983,14 +2123,21 @@ export const useAppStore = create<AppState>((set, get) => ({
           };
         }
         return step;
-      })
-    }));
+      });
+      
+      // Save to localStorage for persistence
+      if (typeof window !== 'undefined') {
+        localStorage.setItem('progressStepsCache', JSON.stringify(updatedSteps));
+      }
+      
+      return { progressSteps: updatedSteps };
+    });
   },
 
   deleteCommentFromStep: async (stepId, commentId) => {
     await progressService.deleteComment(commentId);
-    set(state => ({
-      progressSteps: state.progressSteps.map(step => {
+    set(state => {
+      const updatedSteps = state.progressSteps.map(step => {
         if (step.id === stepId) {
           return {
             ...step,
@@ -1998,8 +2145,15 @@ export const useAppStore = create<AppState>((set, get) => ({
           };
         }
         return step;
-      })
-    }));
+      });
+      
+      // Save to localStorage for persistence
+      if (typeof window !== 'undefined') {
+        localStorage.setItem('progressStepsCache', JSON.stringify(updatedSteps));
+      }
+      
+      return { progressSteps: updatedSteps };
+    });
   },
 
   addCalendarEvent: async (event) => {
@@ -2235,129 +2389,56 @@ export const useAppStore = create<AppState>((set, get) => ({
     }
   },
 
-  copyComponentsToProgressSteps: async (clientId) => {
-    // First, delete all existing progress steps for this client to ensure a clean sync
+
+
+  autoCreateProgressStepsForInvoice: async (clientId: number) => {
     try {
-      // Get all steps for the client
-      const existingSteps = get().progressSteps.filter(step => step.clientId === clientId);
-      // Create a list of promises for deletion
-      const deletionPromises = existingSteps.map(step => progressService.delete(step.id));
-      // Wait for all deletions to complete
-      await Promise.all(deletionPromises);
-      console.log(`Deleted ${existingSteps.length} existing progress steps for client ${clientId}.`);
-      
-      // Update the local state to reflect the deletion immediately
-      set(state => ({
-        progressSteps: state.progressSteps.filter(step => step.clientId !== clientId)
-      }));
-
-    } catch (error) {
-      console.error(`Failed to delete existing progress steps for client ${clientId}:`, error);
-      // We can choose to stop here or continue, for now we'll continue
-    }
-    
-    // Now, proceed with fetching the latest data and creating new steps
-    const state = get();
-    await state.fetchComponents();
-    await state.fetchInvoices();
-    
-    const freshState = get();
-    const clientComponents = freshState.components.filter(comp => comp.clientId === clientId);
-    const clientInvoices = freshState.invoices.filter(inv => inv.clientId === clientId);
-    
-    const newStepsToCreate = [];
-
-    // Create steps for packages
-    for (const invoice of clientInvoices) {
-      newStepsToCreate.push({
-        client_id: clientId,
-          title: `${invoice.packageName} - Package Setup`,
-          description: `Complete the setup and delivery of ${invoice.packageName} package`,
-        deadline: new Date(Date.now() + 60 * 24 * 60 * 60 * 1000).toISOString(),
-          completed: false,
-        important: true,
-        comments: []
-      });
-    }
-    
-    // Create steps for components
-    for (const component of clientComponents) {
-      newStepsToCreate.push({
-        client_id: clientId,
-          title: component.name,
-          description: `Complete the ${component.name} component`,
-        deadline: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(),
-          completed: false,
-          important: false,
-        comments: []
-      });
-    }
-
-    if (newStepsToCreate.length > 0) {
-      try {
-        const createdDbSteps = await Promise.all(
-          newStepsToCreate.map(step => progressService.create(step))
-        );
-        const createdStepsForStore: ProgressStep[] = createdDbSteps.map(dbStep => ({
-          ...dbStep,
-          clientId: dbStep.client_id,
-          completedDate: dbStep.completed_date,
-          comments: dbStep.comments || [],
-          createdAt: dbStep.created_at,
-          updatedAt: dbStep.updated_at,
-        }));
-        set(currentState => ({
-          progressSteps: [...currentState.progressSteps.filter(s => s.clientId !== clientId), ...createdStepsForStore],
-        }));
-      } catch (error) {
-        console.error("Failed to batch create progress steps:", error);
-      }
-    } else {
-        // If there are no new steps, we still need to refresh the progress steps to clear the UI
-        await state.fetchProgressSteps();
-    }
-  },
-
-  fixOrphanedComponents: async (clientId: number) => {
-    try {
-      // Fetch latest data
-      await get().fetchComponents();
-      await get().fetchInvoices();
-      
       const state = get();
-      const clientComponents = state.components.filter(comp => comp.clientId === clientId);
       const clientInvoices = state.invoices.filter(inv => inv.clientId === clientId);
       
-      // Find components without proper invoice_id or with null/undefined invoice_id
-      const orphanedComponents = clientComponents.filter(comp => 
-        !comp.invoiceId || comp.invoiceId === null || comp.invoiceId === undefined
+      // Only create progress step for the latest invoice
+      const latestInvoice = clientInvoices[clientInvoices.length - 1];
+      if (!latestInvoice) return;
+      
+      // Check if progress step already exists for this invoice
+      const existingStep = state.progressSteps.find(step => 
+        step.clientId === clientId && 
+        step.title === `${latestInvoice.packageName} - Package Setup`
       );
       
-      if (orphanedComponents.length === 0) {
+      if (existingStep) {
+        console.log(`Progress step already exists for invoice ${latestInvoice.packageName}`);
         return;
       }
       
-      // If there are invoices for this client, link orphaned components to the first invoice
-      if (clientInvoices.length > 0) {
-        const targetInvoice = clientInvoices[0]; // Use the first invoice
-        
-        // Update each orphaned component in the database
-        for (const component of orphanedComponents) {
-          try {
-            await componentsService.update(component.id, {
-              invoice_id: targetInvoice.id
-            });
-          } catch (error) {
-            console.error(`Failed to update component "${component.name}":`, error);
-      }
-        }
-        
-        // Refresh components data to reflect the changes
-        await get().fetchComponents();
-      }
+      // Create progress step for the invoice
+      const newStep = await progressService.create({
+        client_id: clientId,
+        title: `${latestInvoice.packageName} - Package Setup`,
+        description: `Complete the setup and delivery of ${latestInvoice.packageName} package`,
+        deadline: new Date(Date.now() + 60 * 24 * 60 * 60 * 1000).toISOString(),
+        completed: false,
+        important: true,
+        comments: []
+      });
+      
+      const stepForStore: ProgressStep = {
+        ...newStep,
+        clientId: newStep.client_id,
+        completedDate: newStep.completed_date,
+        comments: newStep.comments || [],
+        createdAt: newStep.created_at,
+        updatedAt: newStep.updated_at,
+      };
+      
+      set(state => ({
+        progressSteps: [...state.progressSteps, stepForStore]
+      }));
+      
+      console.log(`Auto-created progress step for invoice: ${latestInvoice.packageName}`);
       
     } catch (error) {
-      console.error('Error fixing orphaned components:', error);
+      console.error('Error auto-creating progress step for invoice:', error);
     }
   },
 
@@ -2389,6 +2470,12 @@ export const useAppStore = create<AppState>((set, get) => ({
     return get().clientLinks.filter(link => link.client_id === clientId);
   },
 
+  getClientRole: (clientId) => {
+    const users = get().users;
+    const clientUser = users.find(user => user.clientId === clientId);
+    return clientUser ? clientUser.role : 'Client';
+  },
+
   getTotalSales: () => {
     return get().clients.reduce((total, client) => {
       const clientSales = Number(client.totalSales) || 0;
@@ -2408,6 +2495,45 @@ export const useAppStore = create<AppState>((set, get) => ({
       const clientBalance = Number(client.balance) || 0;
       return total + clientBalance;
     }, 0);
+  },
+
+  // Get sales data grouped by payment date (month/year)
+  getSalesByPaymentDate: () => {
+    const payments = get().payments;
+    const salesByMonth: { [key: string]: number } = {};
+    
+    payments.forEach(payment => {
+      if (payment.status === 'Paid' && payment.paidAt) {
+        const paymentDate = new Date(payment.paidAt);
+        const monthKey = paymentDate.toISOString().slice(0, 7); // YYYY-MM format
+        
+        if (!salesByMonth[monthKey]) {
+          salesByMonth[monthKey] = 0;
+        }
+        salesByMonth[monthKey] += Number(payment.amount) || 0;
+      }
+    });
+    
+    return salesByMonth;
+  },
+
+  // Get monthly sales data for current year
+  getMonthlySalesData: () => {
+    const currentYear = new Date().getFullYear();
+    const salesByMonth = get().getSalesByPaymentDate();
+    
+    return Array.from({ length: 12 }, (_, index) => {
+      const month = (index + 1).toString().padStart(2, '0');
+      const monthKey = `${currentYear}-${month}`;
+      const monthName = new Date(currentYear, index, 1).toLocaleDateString('en-US', { month: 'long' });
+      const sales = salesByMonth[monthKey] || 0;
+      
+      return {
+        month: monthName,
+        sales: sales,
+        displayValue: `RM ${sales.toLocaleString()}`
+      };
+    });
   },
 
   // Add this new function to recalculate all client financial data
@@ -2540,6 +2666,48 @@ export const useAppStore = create<AppState>((set, get) => ({
       return mergedCount;
     } catch (error) {
       console.error('Error merging duplicate chats:', error);
+      throw error;
+    }
+  },
+
+  getAdminTeam: async () => {
+    try {
+      const dbUsers = await usersService.getAdminTeam();
+      const users: User[] = dbUsers.map((dbUser) => ({
+        id: dbUser.id,
+        name: dbUser.name,
+        email: dbUser.email,
+        role: dbUser.role,
+        status: dbUser.status,
+        lastLogin: dbUser.last_login || new Date().toISOString(),
+        clientId: dbUser.client_id,
+        permissions: dbUser.permissions || [],
+        createdAt: dbUser.created_at,
+        updatedAt: dbUser.updated_at
+      }));
+      return users;
+    } catch (error) {
+      console.error('Error fetching admin team:', error);
+      throw error;
+    }
+  },
+
+  assignUserToClient: async (userId: string, clientId: number) => {
+    try {
+      const updatedUser = await usersService.assignToClient(userId, clientId);
+      
+      // Update local state
+      set((state) => ({
+        users: state.users.map((user) =>
+          user.id === userId
+            ? { ...user, clientId: updatedUser.client_id }
+            : user
+        ),
+      }));
+      
+      console.log(`User ${userId} assigned to client ${clientId}`);
+    } catch (error) {
+      console.error('Error assigning user to client:', error);
       throw error;
     }
   }

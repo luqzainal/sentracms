@@ -34,8 +34,10 @@ function getColorForName(name: string): { bg: string; text: string } {
 }
 
 // MessageList komponen memoized
-const MessageList = memo(({ messages, isAdmin }: { messages: any[]; isAdmin: boolean }) => {
+const MessageList = memo(({ messages, isAdmin, clientName, clientId }: { messages: any[]; isAdmin: boolean; clientName?: string; clientId?: number }) => {
   const scrollRef = useRef<HTMLDivElement>(null);
+  const { user, getClientRole } = useAppStore();
+  
   useEffect(() => {
     if (scrollRef.current) {
       scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
@@ -56,6 +58,21 @@ const MessageList = memo(({ messages, isAdmin }: { messages: any[]; isAdmin: boo
                 : 'bg-slate-100 text-slate-900'
             }`}
           >
+            {/* Show sender info for all messages */}
+            {msg.sender === 'admin' && (
+              <div className={`text-xs font-medium mb-1 ${
+                msg.sender === (isAdmin ? 'admin' : 'client') ? 'text-blue-100' : 'text-slate-600'
+              }`}>
+                {user?.role} - {user?.name}
+              </div>
+            )}
+            {msg.sender === 'client' && (
+              <div className={`text-xs font-medium mb-1 ${
+                msg.sender === (isAdmin ? 'admin' : 'client') ? 'text-blue-100' : 'text-slate-600'
+              }`}>
+                {clientId ? getClientRole(clientId) : 'Client'} - {clientName || 'Unknown Client'}
+              </div>
+            )}
             <p className="text-sm">{msg.content}</p>
             <p className={`text-xs mt-1 ${
               msg.sender === (isAdmin ? 'admin' : 'client') ? 'text-blue-100' : 'text-slate-500'
@@ -280,27 +297,15 @@ const ChatPage: React.FC<ChatPageProps> = ({ onToggleSidebar }) => {
                     >
                       <RefreshCw className="w-5 h-5" />
                     </button>
-                    <button className="p-2 text-slate-600 hover:text-slate-900 hover:bg-slate-100 rounded-lg transition-colors">
-                      <MessageSquare className="w-5 h-5" />
-                    </button>
-                    <button className="p-2 text-slate-600 hover:text-slate-900 hover:bg-slate-100 rounded-lg transition-colors">
-                      <Users className="w-5 h-5" />
-                    </button>
-                    <button className="p-2 text-slate-600 hover:text-slate-900 hover:bg-slate-100 rounded-lg transition-colors">
-                      <Clock className="w-5 h-5" />
-                    </button>
                   </div>
                 </div>
 
                 {/* Messages */}
-                <MessageList messages={messages} isAdmin={true} />
+                <MessageList messages={messages} isAdmin={true} clientName={activeClient?.client} clientId={activeClient?.clientId} />
 
                 {/* Message Input */}
                 <div className="p-4 border-t border-slate-200">
                   <div className="flex items-center space-x-2">
-                    <button className="p-2 text-slate-600 hover:text-slate-900 hover:bg-slate-100 rounded-lg transition-colors">
-                      <MessageSquare className="w-5 h-5" />
-                    </button>
                     <div className="flex-1 relative">
                       <input
                         type="text"
@@ -311,9 +316,6 @@ const ChatPage: React.FC<ChatPageProps> = ({ onToggleSidebar }) => {
                         className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none"
                       />
                     </div>
-                    <button className="p-2 text-slate-600 hover:text-slate-900 hover:bg-slate-100 rounded-lg transition-colors">
-                      <Users className="w-5 h-5" />
-                    </button>
                     <button
                       onClick={handleSendMessage}
                       disabled={!message.trim()}
@@ -430,26 +432,17 @@ const ChatPage: React.FC<ChatPageProps> = ({ onToggleSidebar }) => {
                   >
                     <RefreshCw className="w-4 h-4" />
                   </button>
-                  <button className="p-2 text-slate-600 hover:text-slate-900 hover:bg-slate-100 rounded-lg transition-colors">
-                    <MessageSquare className="w-4 h-4" />
-                  </button>
-                  <button className="p-2 text-slate-600 hover:text-slate-900 hover:bg-slate-100 rounded-lg transition-colors">
-                    <Users className="w-4 h-4" />
-                  </button>
                 </div>
               </div>
 
               {/* Mobile Messages */}
               {showChatView && (
-                <MessageList messages={messages} isAdmin={true} />
+                <MessageList messages={messages} isAdmin={true} clientName={activeClient?.client} clientId={activeClient?.clientId} />
               )}
 
               {/* Mobile Message Input */}
               <div className="p-3 border-t border-slate-200">
                 <div className="flex items-center space-x-2">
-                  <button className="p-2 hover:bg-slate-100 rounded-lg transition-colors">
-                    <MessageSquare className="w-4 h-4 text-slate-600" />
-                  </button>
                   <div className="flex-1 relative">
                     <input
                       type="text"

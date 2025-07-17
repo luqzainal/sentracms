@@ -73,6 +73,7 @@ export const clientsService = {
           email, 
           phone,
           status,
+          pic,
           total_sales,
           total_collection,
           balance
@@ -82,6 +83,7 @@ export const clientsService = {
           ${client.email}, 
           ${client.phone},
           ${client.status || 'Pending'},
+          ${client.pic || null},
           ${client.total_sales || 0},
           ${client.total_collection || 0},
           ${client.balance || 0}
@@ -112,6 +114,7 @@ export const clientsService = {
           email = COALESCE(${updates.email}, email),
           phone = COALESCE(${updates.phone}, phone),
           status = COALESCE(${updates.status}, status),
+          pic = COALESCE(${updates.pic}, pic),
           total_sales = COALESCE(${updates.total_sales}, total_sales),
           total_collection = COALESCE(${updates.total_collection}, total_collection),
           balance = COALESCE(${updates.balance}, balance),
@@ -337,6 +340,43 @@ export const usersService = {
       `;
     } catch (error) {
       console.error('Error deleting user:', error);
+      throw error;
+    }
+  },
+
+  async getAdminTeam(): Promise<DatabaseUser[]> {
+    if (!isDatabaseAvailable()) {
+      return handleDatabaseUnavailable('getAdminTeam users') as DatabaseUser[];
+    }
+    try {
+      const data = await sql!`
+        SELECT * FROM users
+        WHERE role = 'Team' AND status = 'Active'
+        ORDER BY name ASC
+      `;
+      return data as DatabaseUser[];
+    } catch (error) {
+      console.error('Error fetching admin team:', error);
+      throw error;
+    }
+  },
+
+  async assignToClient(userId: string, clientId: number): Promise<DatabaseUser> {
+    if (!isDatabaseAvailable()) {
+      throw new Error('Database connection not available. Please check your configuration.');
+    }
+    try {
+      const data = await sql!`
+        UPDATE users
+        SET 
+          client_id = ${clientId},
+          updated_at = NOW()
+        WHERE id = ${userId}
+        RETURNING *
+      `;
+      return data[0] as DatabaseUser;
+    } catch (error) {
+      console.error('Error assigning user to client:', error);
       throw error;
     }
   }
@@ -1607,6 +1647,9 @@ export const clientLinksService = {
       return data as ClientLink[];
     } catch (error) {
       console.error('Error fetching client links:', error);
+      if (error instanceof Error && error.message.includes('relation "client_links" does not exist')) {
+        throw new Error('Table client_links tidak wujud. Sila jalankan: npm run db:create-links');
+      }
       throw error;
     }
   },
@@ -1628,6 +1671,9 @@ export const clientLinksService = {
       return data[0] as ClientLink;
     } catch (error) {
       console.error('Error creating client link:', error);
+      if (error instanceof Error && error.message.includes('relation "client_links" does not exist')) {
+        throw new Error('Table client_links tidak wujud. Sila jalankan: npm run db:create-links');
+      }
       throw error;
     }
   },
@@ -1648,6 +1694,9 @@ export const clientLinksService = {
       }
     } catch (error) {
       console.error('Error deleting client link:', error);
+      if (error instanceof Error && error.message.includes('relation "client_links" does not exist')) {
+        throw new Error('Table client_links tidak wujud. Sila jalankan: npm run db:create-links');
+      }
       throw error;
     }
   }

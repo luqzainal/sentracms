@@ -2,7 +2,6 @@ import React, { useState, useEffect } from 'react';
 import { ArrowLeft, Plus, Check, Edit, Trash2, Calendar, Clock, User, MessageCircle, Star, X, Upload, Link, FileText, Trash } from 'lucide-react';
 import { useAppStore } from '../../store/AppStore';
 import { useSupabase } from '../../hooks/useSupabase';
-import FileUpload from '../common/FileUpload';
 
 interface ClientProgressTrackerProps {
   clientId: string;
@@ -24,6 +23,9 @@ interface ProgressStepWithHierarchy extends ProgressStep {
   isPackage?: boolean;
   packageName?: string;
   children?: ProgressStepWithHierarchy[];
+  clientId?: number;
+  createdAt?: string;
+  updatedAt?: string;
 }
 
 interface AttachedFile {
@@ -31,6 +33,8 @@ interface AttachedFile {
   name: string;
   size: string;
   uploadDate: string;
+  url?: string;
+  type?: string;
 }
 
 const ClientProgressTracker: React.FC<ClientProgressTrackerProps> = ({ clientId, onBack }) => {
@@ -41,7 +45,7 @@ const ClientProgressTracker: React.FC<ClientProgressTrackerProps> = ({ clientId,
   const [showCommentModal, setShowCommentModal] = useState(false);
   const [commentingStepId, setCommentingStepId] = useState<string | null>(null);
   const [newComment, setNewComment] = useState('');
-  const [uploadedFiles, setUploadedFiles] = useState<{ url: string; name: string; type: string; }[]>([]);
+
   const [showCompletionModal, setShowCompletionModal] = useState(false);
   const [completingStepId, setCompletingStepId] = useState<string | null>(null);
   const [completionDate, setCompletionDate] = useState('');
@@ -49,6 +53,10 @@ const ClientProgressTracker: React.FC<ClientProgressTrackerProps> = ({ clientId,
   const [showAddLink, setShowAddLink] = useState(false);
   const [newLinkTitle, setNewLinkTitle] = useState('');
   const [newLinkUrl, setNewLinkUrl] = useState('');
+  const [isAddingComment, setIsAddingComment] = useState(false);
+  const [isAddingLink, setIsAddingLink] = useState(false);
+  const [isDeletingLink, setIsDeletingLink] = useState(false);
+  const [isUploadingFile, setIsUploadingFile] = useState(false);
   
   const [newStep, setNewStep] = useState({
     title: '',
@@ -68,16 +76,17 @@ const ClientProgressTracker: React.FC<ClientProgressTrackerProps> = ({ clientId,
     getClientById, 
     getProgressStepsByClientId,
     getInvoicesByClientId,
+    getComponentsByClientId,
     addProgressStep,
     updateProgressStep,
     deleteProgressStep,
-    copyComponentsToProgressSteps,
     fetchClientLinks,
     addClientLink,
     deleteClientLink,
     getClientLinksByClientId,
     addCommentToStep,
-    deleteCommentFromStep
+    deleteCommentFromStep,
+    calculateClientProgressStatus
   } = useAppStore();
 
   const client = getClientById(parseInt(clientId));
@@ -87,30 +96,58 @@ const ClientProgressTracker: React.FC<ClientProgressTrackerProps> = ({ clientId,
 
   const progressSteps = getProgressStepsByClientId(parseInt(clientId));
   const clientInvoices = getInvoicesByClientId(parseInt(clientId));
+  const clientComponents = getComponentsByClientId(parseInt(clientId));
 
   // Create hierarchical structure for progress steps
   const createHierarchicalSteps = (): ProgressStepWithHierarchy[] => {
     const hierarchicalSteps: ProgressStepWithHierarchy[] = [];
+    const usedStepIds = new Set<string>(); // Track which steps have been used
+    
+    console.log('🔍 Debug createHierarchicalSteps:');
+    console.log('  Progress Steps:', progressSteps.map(s => ({ id: s.id, title: s.title })));
+    console.log('  Client Components:', clientComponents.map(c => ({ id: c.id, name: c.name, invoiceId: c.invoiceId })));
+    console.log('  Client Invoices:', clientInvoices.map(i => ({ id: i.id, packageName: i.packageName })));
     
     // Group steps by package
     clientInvoices.forEach(invoice => {
+      console.log(`\n📦 Processing invoice: ${invoice.packageName} (${invoice.id})`);
+      
       // Find package step
       const packageStep = progressSteps.find(step => 
         step.title === `${invoice.packageName} - Package Setup`
       );
       
       if (packageStep) {
-        // Find component steps for this package
-        const componentSteps = progressSteps.filter(step => 
-          step.title !== `${invoice.packageName} - Package Setup` &&
-          !step.title.includes(' - Package Setup') // Exclude other package steps
-        );
+        console.log(`  ✅ Found package step: ${packageStep.title}`);
+        
+        // Find component steps for this package - match by component name and invoice
+        const componentSteps = progressSteps.filter(step => {
+          // Skip package setup steps
+          if (step.title.includes(' - Package Setup')) return false;
+          
+          // Check if this step matches a component from this invoice
+          const matchingComponent = clientComponents.find(comp => 
+            comp.invoiceId === invoice.id && comp.name === step.title
+          );
+          
+          return matchingComponent !== undefined;
+        });
+        
+        console.log(`  📋 Found ${componentSteps.length} component steps:`, componentSteps.map(s => s.title));
+        
+        // Sort component steps by creation date (oldest first) to maintain proper order
+        const sortedComponentSteps = componentSteps.sort((a, b) => {
+          return new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime();
+        });
+        
+        // Mark these steps as used
+        sortedComponentSteps.forEach(step => usedStepIds.add(step.id));
         
         const packageWithChildren: ProgressStepWithHierarchy = {
           ...packageStep,
           isPackage: true,
           packageName: invoice.packageName,
-          children: componentSteps.map(step => ({
+          children: sortedComponentSteps.map(step => ({
             ...step,
             isPackage: false,
             packageName: invoice.packageName
@@ -118,25 +155,93 @@ const ClientProgressTracker: React.FC<ClientProgressTrackerProps> = ({ clientId,
         };
         
         hierarchicalSteps.push(packageWithChildren);
+      } else {
+        console.log(`  ❌ No package step found, creating virtual package`);
+        
+        // If no package step exists, create one and group components under it
+        const packageComponents = clientComponents.filter(comp => comp.invoiceId === invoice.id);
+        console.log(`  📦 Package components:`, packageComponents.map(c => c.name));
+        
+        if (packageComponents.length > 0) {
+          // Find component steps for this package
+          const componentSteps = progressSteps.filter(step => {
+            // Skip package setup steps
+            if (step.title.includes(' - Package Setup')) return false;
+            
+            // Check if this step matches a component from this invoice
+            const matchingComponent = packageComponents.find(comp => comp.name === step.title);
+            return matchingComponent !== undefined;
+          });
+          
+          console.log(`  📋 Found ${componentSteps.length} component steps:`, componentSteps.map(s => s.title));
+          
+          // Sort component steps by creation date (oldest first)
+          const sortedComponentSteps = componentSteps.sort((a, b) => {
+            return new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime();
+          });
+          
+          // Mark these steps as used
+          sortedComponentSteps.forEach(step => usedStepIds.add(step.id));
+          
+          // Create a virtual package step
+          const virtualPackageStep: ProgressStepWithHierarchy = {
+            id: `virtual-${invoice.id}`,
+            clientId: parseInt(clientId),
+            title: `${invoice.packageName} - Package Setup`,
+            description: `Complete the setup and delivery of ${invoice.packageName} package`,
+            deadline: new Date(Date.now() + 60 * 24 * 60 * 60 * 1000).toISOString(),
+            completed: false,
+            important: true,
+            comments: [],
+            createdAt: new Date().toISOString(),
+            updatedAt: new Date().toISOString(),
+            isPackage: true,
+            packageName: invoice.packageName,
+            children: sortedComponentSteps.map(step => ({
+              ...step,
+              isPackage: false,
+              packageName: invoice.packageName
+            }))
+          };
+          
+          hierarchicalSteps.push(virtualPackageStep);
+        }
       }
     });
     
-    // Add any standalone steps (manually added steps that don't belong to a package)
-    const standaloneSteps = progressSteps.filter(step => 
-      !step.title.includes(' - Package Setup') && // Not a package step
-      !clientInvoices.some(invoice => 
-        progressSteps.some(ps => 
-          ps.title === `${invoice.packageName} - Package Setup`
-        )
-      ) // Not part of any package's components
-    );
+    console.log(`\n📝 Used step IDs:`, Array.from(usedStepIds));
     
-    standaloneSteps.forEach(step => {
+    // Add any standalone steps (manually added steps that don't belong to a package)
+    const standaloneSteps = progressSteps.filter(step => {
+      // Skip package setup steps
+      if (step.title.includes(' - Package Setup')) return false;
+      
+      // Skip steps that have already been used in packages
+      if (usedStepIds.has(step.id)) return false;
+      
+      // Include truly standalone steps
+      return true;
+    });
+    
+    console.log(`\n🆓 Standalone steps:`, standaloneSteps.map(s => s.title));
+    
+    // Sort standalone steps by creation date (oldest first)
+    const sortedStandaloneSteps = standaloneSteps.sort((a, b) => {
+      return new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime();
+    });
+    
+    sortedStandaloneSteps.forEach(step => {
       hierarchicalSteps.push({
         ...step,
         isPackage: false
       });
     });
+    
+    console.log(`\n🏗️ Final hierarchical structure:`, hierarchicalSteps.map(h => ({
+      title: h.title,
+      isPackage: h.isPackage,
+      childrenCount: h.children?.length || 0
+    })));
     
     return hierarchicalSteps;
   };
@@ -163,7 +268,7 @@ const ClientProgressTracker: React.FC<ClientProgressTrackerProps> = ({ clientId,
     );
   }
 
-  const handleToggleComplete = (stepId: string) => {
+  const handleToggleComplete = async (stepId: string) => {
     const step = progressSteps.find(s => s.id === stepId);
     if (!step) return;
 
@@ -174,14 +279,46 @@ const ClientProgressTracker: React.FC<ClientProgressTrackerProps> = ({ clientId,
       setShowCompletionModal(true);
     } else {
       // Uncomplete the step
-      updateProgressStep(stepId, { completed: false, completedDate: undefined });
+      await updateProgressStep(stepId, { completed: false, completedDate: undefined });
+      
+      // If this is a package step, also uncomplete all its component steps
+      if (step.title.includes(' - Package Setup')) {
+        const packageName = step.title.replace(' - Package Setup', '');
+        const componentSteps = progressSteps.filter(s => 
+          s.title !== step.title && 
+          s.title !== `${packageName} - Package Setup` &&
+          clientComponents.some(comp => comp.name === s.title)
+        );
+        
+        for (const componentStep of componentSteps) {
+          await updateProgressStep(componentStep.id, { completed: false, completedDate: undefined });
+        }
+      }
     }
   };
 
-  const handleCompleteStep = () => {
+  const handleCompleteStep = async () => {
     if (!completingStepId || !completionDate) return;
 
-    updateProgressStep(completingStepId, { completed: true, completedDate: completionDate });
+    const step = progressSteps.find(s => s.id === completingStepId);
+    if (!step) return;
+
+    // Complete the main step
+    await updateProgressStep(completingStepId, { completed: true, completedDate: completionDate });
+
+    // If this is a package step, also complete all its component steps
+    if (step.title.includes(' - Package Setup')) {
+      const packageName = step.title.replace(' - Package Setup', '');
+      const componentSteps = progressSteps.filter(s => 
+        s.title !== step.title && 
+        s.title !== `${packageName} - Package Setup` &&
+        clientComponents.some(comp => comp.name === s.title)
+      );
+      
+      for (const componentStep of componentSteps) {
+        await updateProgressStep(componentStep.id, { completed: true, completedDate: completionDate });
+      }
+    }
 
     setShowCompletionModal(false);
     setCompletingStepId(null);
@@ -216,10 +353,10 @@ const ClientProgressTracker: React.FC<ClientProgressTrackerProps> = ({ clientId,
     setShowEditStep(true);
   };
 
-  const handleEditStepSave = () => {
+  const handleEditStepSave = async () => {
     if (!editStep.title.trim() || !editStep.deadline || !editingStepId) return;
     
-    updateProgressStep(editingStepId, {
+    await updateProgressStep(editingStepId, {
       title: editStep.title,
       description: editStep.description,
       deadline: editStep.deadline,
@@ -238,35 +375,31 @@ const ClientProgressTracker: React.FC<ClientProgressTrackerProps> = ({ clientId,
   };
 
   const handleAddComment = async () => {
-    if (!newComment.trim() && uploadedFiles.length === 0) {
-      alert("Please add a comment or select a file.");
+    if (!newComment.trim()) {
+      alert("Please add a comment.");
       return;
     }
     if (!commentingStepId) return;
 
-    // Handle file attachments
-    for (const file of uploadedFiles) {
-      await addCommentToStep(commentingStepId, {
-        text: newComment || `Attachment: ${file.name}`,
-        username: user?.name || 'Admin',
-        attachment_url: file.url,
-        attachment_type: file.type,
-      });
-    }
-
-    // Handle text-only comment
-    if (newComment.trim() && uploadedFiles.length === 0) {
+    setIsAddingComment(true);
+    
+    try {
+      // Add text comment
       await addCommentToStep(commentingStepId, {
         text: newComment,
         username: user?.name || 'Admin',
       });
-    }
 
       // Reset state
       setNewComment('');
-    setUploadedFiles([]);
       setShowCommentModal(false);
       setCommentingStepId(null);
+    } catch (error) {
+      console.error('Error adding comment:', error);
+      alert('Failed to add comment. Please try again.');
+    } finally {
+      setIsAddingComment(false);
+    }
   };
 
   const handleDeleteComment = async (stepId: string, commentId: string) => {
@@ -280,21 +413,83 @@ const ClientProgressTracker: React.FC<ClientProgressTrackerProps> = ({ clientId,
     }
   };
 
-  const handleFileUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const files = event.target.files;
     if (!files) return;
 
-    Array.from(files).forEach(file => {
-      const newFile: AttachedFile = {
-        id: Date.now().toString() + Math.random().toString(36).substr(2, 9),
-        name: file.name,
-        size: `${(file.size / 1024 / 1024).toFixed(1)} MB`,
-        uploadDate: new Date().toISOString()
-      };
-      setAttachedFiles(prev => [...prev, newFile]);
-    });
+    setIsUploadingFile(true);
 
-    setShowFileUpload(false);
+    try {
+      for (const file of Array.from(files)) {
+        // 1. Get pre-signed URL from our API
+        console.log('🔄 Requesting upload URL for:', file.name);
+        const res = await fetch('/api/generate-upload-url', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ fileName: file.name, fileType: file.type }),
+        });
+
+        console.log('📡 API Response status:', res.status);
+        
+        if (!res.ok) {
+          const errorText = await res.text();
+          console.error('❌ API Error:', errorText);
+          throw new Error(`Failed to get upload URL: ${res.status} ${errorText}`);
+        }
+
+        const responseData = await res.json();
+        console.log('✅ API Response data:', responseData);
+        
+        const { uploadUrl, fileUrl } = responseData;
+        
+        if (!uploadUrl || !fileUrl) {
+          throw new Error('Invalid response: missing uploadUrl or fileUrl');
+        }
+
+        // 2. Upload file to DigitalOcean Spaces
+        console.log('📤 Starting file upload to DigitalOcean Spaces...');
+        await new Promise((resolve, reject) => {
+          const xhr = new XMLHttpRequest();
+          xhr.open('PUT', uploadUrl, true);
+          
+          xhr.onload = () => {
+            console.log('📡 Upload response status:', xhr.status);
+            if (xhr.status === 200) {
+              console.log('✅ File uploaded successfully!');
+              const newFile: AttachedFile = {
+                id: Date.now().toString() + Math.random().toString(36).substr(2, 9),
+                name: file.name,
+                size: `${(file.size / 1024 / 1024).toFixed(1)} MB`,
+                uploadDate: new Date().toISOString(),
+                url: fileUrl,
+                type: file.type
+              };
+              setAttachedFiles(prev => [...prev, newFile]);
+              resolve(true);
+            } else {
+              console.error('❌ Upload failed with status:', xhr.status);
+              console.error('❌ Upload response:', xhr.responseText);
+              reject(new Error(`Upload failed with status ${xhr.status}`));
+            }
+          };
+
+          xhr.onerror = (error) => {
+            console.error('❌ Network error during upload:', error);
+            reject(new Error('Network error during upload.'));
+          };
+          
+          console.log('📤 Sending file to DigitalOcean Spaces...');
+          xhr.send(file);
+        });
+
+      }
+    } catch (error) {
+      console.error('Error uploading file:', error);
+      alert(`Failed to upload file. Please try again.`);
+    } finally {
+      setIsUploadingFile(false);
+      setShowFileUpload(false);
+    }
   };
 
   const handleDeleteFile = (fileId: string) => {
@@ -306,40 +501,72 @@ const ClientProgressTracker: React.FC<ClientProgressTrackerProps> = ({ clientId,
   const handleAddLink = async () => {
     if (!newLinkTitle.trim() || !newLinkUrl.trim() || !client) return;
 
-    let correctedUrl = newLinkUrl.trim();
-    if (!correctedUrl.startsWith('http://') && !correctedUrl.startsWith('https://')) {
-      correctedUrl = 'https://' + correctedUrl;
-    }
-
+    setIsAddingLink(true);
+    
     try {
+      let correctedUrl = newLinkUrl.trim();
+      if (!correctedUrl.startsWith('http://') && !correctedUrl.startsWith('https://')) {
+        correctedUrl = 'https://' + correctedUrl;
+      }
+
       await addClientLink({
         client_id: client.id,
         title: newLinkTitle,
         url: correctedUrl,
       });
+
+      // Reset form and close modal
       setNewLinkTitle('');
       setNewLinkUrl('');
       setShowAddLink(false);
     } catch (error) {
       console.error("Failed to add link:", error);
-      // You can add a toast notification here to inform the user
+      if (error instanceof Error && error.message.includes('client_links tidak wujud')) {
+        alert('Table client_links tidak wujud. Sila jalankan: npm run db:create-links');
+      } else {
+        alert('Gagal menambah link. Sila cuba semula.');
+      }
+    } finally {
+      setIsAddingLink(false);
     }
   };
 
   const handleDeleteLink = async (linkId: string) => {
     if (confirm('Are you sure you want to delete this link?')) {
+      setIsDeletingLink(true);
       try {
         await deleteClientLink(linkId);
+        // No need to refresh - store state is already updated
       } catch (error) {
         console.error("Failed to delete link:", error);
-        // You can add a toast notification here for the error
+        if (error instanceof Error && error.message.includes('client_links tidak wujud')) {
+          alert('Table client_links tidak wujud. Sila jalankan: npm run db:create-links');
+        } else {
+          alert('Gagal memadamkan link. Sila cuba semula.');
+        }
+      } finally {
+        setIsDeletingLink(false);
       }
     }
   };
 
-  const completedSteps = progressSteps.filter(step => step.completed).length;
-  const totalSteps = progressSteps.length;
-  const progressPercentage = totalSteps > 0 ? Math.round((completedSteps / totalSteps) * 100) : 0;
+  const handleClearAllSteps = async () => {
+    if (confirm('Are you sure you want to delete ALL progress steps? This action cannot be undone.')) {
+      try {
+        // Delete all progress steps for this client
+        const deletionPromises = progressSteps.map(step => deleteProgressStep(step.id));
+        await Promise.all(deletionPromises);
+        alert('All progress steps have been deleted successfully.');
+      } catch (error) {
+        console.error('Failed to delete progress steps:', error);
+        alert('Failed to delete progress steps. Please try again.');
+      }
+    }
+  };
+
+  // Use consistent progress calculation from store
+  const progressStatus = calculateClientProgressStatus(parseInt(clientId));
+  const { completedSteps, totalSteps, percentage: progressPercentage } = progressStatus;
 
   // Helper function to check if a step is overdue
   const isStepOverdue = (step: any) => {
@@ -409,6 +636,11 @@ const ClientProgressTracker: React.FC<ClientProgressTrackerProps> = ({ clientId,
                 {step.isPackage && (
                   <span className="px-2 sm:px-3 py-1 bg-blue-100 text-blue-700 text-xs font-medium rounded-full">
                     Package
+                  </span>
+                )}
+                {!step.isPackage && step.packageName && (
+                  <span className="px-2 sm:px-3 py-1 bg-purple-100 text-purple-700 text-xs font-medium rounded-full">
+                    From: {step.packageName}
                   </span>
                 )}
                 {isStepOverdue(step) && (
@@ -520,28 +752,16 @@ const ClientProgressTracker: React.FC<ClientProgressTrackerProps> = ({ clientId,
                             </button>
                           </div>
                           <span className="text-xs text-slate-500">
-                            {new Date(comment.timestamp).toLocaleDateString()} {new Date(comment.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                            {new Date(comment.created_at).toLocaleDateString()} {new Date(comment.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                           </span>
                         </div>
-                        {comment.text && <p className="text-xs sm:text-sm text-slate-700 break-words hyphens-auto overflow-wrap-anywhere word-break-break-word leading-relaxed"
+                        <p className="text-xs sm:text-sm text-slate-700 break-words hyphens-auto overflow-wrap-anywhere word-break-break-word leading-relaxed"
                         style={{ 
                           wordWrap: 'break-word',
                           overflowWrap: 'anywhere',
                           wordBreak: 'break-word',
                           hyphens: 'auto'
-                        }}>{comment.text}</p>}
-                        {comment.attachment_url && (
-                          <div className="mt-2">
-                            {comment.attachment_type?.startsWith('image/') ? (
-                              <img src={comment.attachment_url} alt="Attachment" className="max-w-full h-auto rounded-lg border border-slate-200" />
-                            ) : (
-                              <a href={comment.attachment_url} target="_blank" rel="noopener noreferrer" className="text-xs text-blue-600 hover:underline flex items-center space-x-1">
-                                <Link className="w-3 h-3" />
-                                <span>View Attachment</span>
-                              </a>
-                            )}
-                          </div>
-                        )}
+                        }}>{comment.text}</p>
                       </div>
                     ))}
                   </div>
@@ -608,13 +828,25 @@ const ClientProgressTracker: React.FC<ClientProgressTrackerProps> = ({ clientId,
                   <p className="text-slate-600 text-sm sm:text-base">Progress Tracker</p>
                 </div>
               </div>
-              <button
-                onClick={() => setShowAddStep(true)}
-                className="bg-green-600 text-white px-4 sm:px-6 py-2 sm:py-3 rounded-lg sm:rounded-xl flex items-center space-x-2 hover:bg-green-700 transition-all duration-200 shadow-sm font-medium text-sm sm:text-base self-start sm:self-auto"
-              >
-                <Plus className="w-4 h-4 sm:w-5 sm:h-5" />
-                <span>Add Step</span>
-              </button>
+              {/* Only show Add Step button for Admin users (Super Admin or Team) */}
+              {user && (user.role === 'Super Admin' || user.role === 'Team') && (
+                <div className="flex space-x-2">
+                  <button
+                    onClick={() => setShowAddStep(true)}
+                    className="bg-green-600 text-white px-4 sm:px-6 py-2 sm:py-3 rounded-lg sm:rounded-xl flex items-center space-x-2 hover:bg-green-700 transition-all duration-200 shadow-sm font-medium text-sm sm:text-base self-start sm:self-auto"
+                  >
+                    <Plus className="w-4 h-4 sm:w-5 sm:h-5" />
+                    <span>Add Step</span>
+                  </button>
+                  <button
+                    onClick={handleClearAllSteps}
+                    className="bg-red-600 text-white px-4 sm:px-6 py-2 sm:py-3 rounded-lg sm:rounded-xl flex items-center space-x-2 hover:bg-red-700 transition-all duration-200 shadow-sm font-medium text-sm sm:text-base self-start sm:self-auto"
+                  >
+                    <Trash2 className="w-4 h-4 sm:w-5 sm:h-5" />
+                    <span>Clear All Steps</span>
+                  </button>
+                </div>
+              )}
             </div>
           </div>
 
@@ -641,17 +873,18 @@ const ClientProgressTracker: React.FC<ClientProgressTrackerProps> = ({ clientId,
                       <div className="flex items-center space-x-2 flex-1 min-w-0">
                         <FileText className="w-4 h-4 text-blue-500 flex-shrink-0" />
                         <div className="min-w-0 flex-1">
-                          <button
-                            onClick={() => {
-                              // For demo purposes, show an alert. In a real app, this would download or open the file
-                              alert(`Opening ${file.name}...`);
-                              // In a real implementation, you would:
-                              // window.open(file.url, '_blank') or trigger download
-                            }}
-                            className="text-left w-full"
-                          >
-                            <p className="text-xs font-medium text-blue-600 hover:text-blue-800 truncate underline cursor-pointer" title={file.name}>{file.name}</p>
-                          </button>
+                          {file.url ? (
+                            <a
+                              href={file.url}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="text-left w-full block"
+                            >
+                              <p className="text-xs font-medium text-blue-600 hover:text-blue-800 truncate underline cursor-pointer" title={file.name}>{file.name}</p>
+                            </a>
+                          ) : (
+                            <p className="text-xs font-medium text-slate-600 truncate" title={file.name}>{file.name}</p>
+                          )}
                           <p className="text-xs text-slate-500">{file.size}</p>
                         </div>
                       </div>
@@ -702,9 +935,14 @@ const ClientProgressTracker: React.FC<ClientProgressTrackerProps> = ({ clientId,
                         </div>
                         <button
                           onClick={() => handleDeleteLink(link.id)}
-                          className="p-1 text-red-500 hover:text-red-700 flex-shrink-0 ml-2"
+                          disabled={isDeletingLink}
+                          className="p-1 text-red-500 hover:text-red-700 flex-shrink-0 ml-2 disabled:opacity-50 transition-opacity"
                         >
-                          <Trash className="w-3 h-3" />
+                          {isDeletingLink ? (
+                            <div className="w-3 h-3 border border-red-500 border-t-transparent rounded-full animate-spin" />
+                          ) : (
+                            <Trash className="w-3 h-3" />
+                          )}
                         </button>
                       </div>
                     </div>
@@ -766,13 +1004,16 @@ const ClientProgressTracker: React.FC<ClientProgressTrackerProps> = ({ clientId,
                 </div>
                 <h3 className="text-lg sm:text-xl font-semibold text-slate-900 mb-2">No progress steps yet</h3>
                 <p className="text-slate-600 mb-4 sm:mb-6 text-sm sm:text-base">Start tracking progress by adding your first milestone</p>
-                <button
-                  onClick={() => setShowAddStep(true)}
-                  className="bg-green-600 text-white px-4 sm:px-6 py-2 sm:py-3 rounded-xl flex items-center space-x-2 hover:bg-green-700 transition-all duration-200 mx-auto font-medium text-sm sm:text-base"
-                >
-                  <Plus className="w-4 h-4 sm:w-5 sm:h-5" />
-                  <span>Add First Step</span>
-                </button>
+                {/* Only show Add First Step button for Admin users (Super Admin or Team) */}
+                {user && (user.role === 'Super Admin' || user.role === 'Team') && (
+                  <button
+                    onClick={() => setShowAddStep(true)}
+                    className="bg-green-600 text-white px-4 sm:px-6 py-2 sm:py-3 rounded-xl flex items-center space-x-2 hover:bg-green-700 transition-all duration-200 mx-auto font-medium text-sm sm:text-base"
+                  >
+                    <Plus className="w-4 h-4 sm:w-5 sm:h-5" />
+                    <span>Add First Step</span>
+                  </button>
+                )}
               </div>
             )}
           </div>
@@ -786,20 +1027,32 @@ const ClientProgressTracker: React.FC<ClientProgressTrackerProps> = ({ clientId,
                 <h3 className="text-xl font-semibold text-slate-900">Upload Files</h3>
                 <button
                   onClick={() => setShowFileUpload(false)}
-                  className="p-2 hover:bg-slate-100 rounded-lg transition-colors"
+                  disabled={isUploadingFile}
+                  className="p-2 hover:bg-slate-100 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   <X className="w-5 h-5 text-slate-500" />
                 </button>
               </div>
               
               <div className="p-6">
-                <input
-                  type="file"
-                  multiple
-                  onChange={handleFileUpload}
-                  className="w-full px-4 py-3 border border-slate-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition-all duration-200"
-                />
-                <p className="text-xs text-slate-500 mt-2">Select one or more files to upload</p>
+                {isUploadingFile ? (
+                  <div className="text-center py-8">
+                    <div className="w-8 h-8 border-4 border-blue-500 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
+                    <p className="text-sm text-slate-600">Uploading files...</p>
+                    <p className="text-xs text-slate-500 mt-1">Please wait while your files are being uploaded</p>
+                  </div>
+                ) : (
+                  <>
+                    <input
+                      type="file"
+                      multiple
+                      onChange={handleFileUpload}
+                      className="w-full px-4 py-3 border border-slate-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition-all duration-200"
+                    />
+                    <p className="text-xs text-slate-500 mt-2">Select one or more files to upload (max 5MB each)</p>
+                    <p className="text-xs text-slate-400 mt-1">Supported: JPG, PNG, PDF, DOC, DOCX, XLS, XLSX</p>
+                  </>
+                )}
               </div>
             </div>
           </div>
@@ -857,10 +1110,17 @@ const ClientProgressTracker: React.FC<ClientProgressTrackerProps> = ({ clientId,
                   </button>
                   <button
                     onClick={handleAddLink}
-                    disabled={!newLinkTitle.trim() || !newLinkUrl.trim()}
-                    className="px-6 py-3 bg-blue-600 text-white rounded-xl hover:bg-blue-700 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed font-medium"
+                    disabled={!newLinkTitle.trim() || !newLinkUrl.trim() || isAddingLink}
+                    className="px-6 py-3 bg-blue-600 text-white rounded-xl hover:bg-blue-700 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed font-medium flex items-center space-x-2"
                   >
-                    Add Link
+                    {isAddingLink ? (
+                      <>
+                        <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                        <span>Adding...</span>
+                      </>
+                    ) : (
+                      <span>Add Link</span>
+                    )}
                   </button>
                 </div>
               </div>
@@ -1102,7 +1362,6 @@ const ClientProgressTracker: React.FC<ClientProgressTrackerProps> = ({ clientId,
                 <button
                   onClick={() => {
                     setShowCommentModal(false);
-                    setUploadedFiles([]); // Clear files on close
                   }}
                   className="p-2 hover:bg-slate-100 rounded-lg transition-colors"
                 >
@@ -1123,19 +1382,11 @@ const ClientProgressTracker: React.FC<ClientProgressTrackerProps> = ({ clientId,
                     placeholder="Enter your comment..."
                   />
                 </div>
-
-                <div>
-                  <label className="block text-sm font-semibold text-slate-700 mb-3">
-                    Attachments
-                  </label>
-                  <FileUpload onUploadComplete={(files) => setUploadedFiles(files)} multiple={true} />
-                </div>
                 
                 <div className="flex justify-end space-x-4 pt-4">
                   <button
                     onClick={() => {
                       setShowCommentModal(false);
-                      setUploadedFiles([]); // Clear files on close
                     }}
                     className="px-6 py-3 text-slate-700 bg-slate-100 rounded-xl hover:bg-slate-200 transition-all duration-200 font-medium"
                   >
@@ -1143,10 +1394,17 @@ const ClientProgressTracker: React.FC<ClientProgressTrackerProps> = ({ clientId,
                   </button>
                   <button
                     onClick={handleAddComment}
-                    disabled={!newComment.trim() && uploadedFiles.length === 0}
-                    className="px-6 py-3 bg-blue-600 text-white rounded-xl hover:bg-blue-700 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed font-medium"
+                    disabled={!newComment.trim() || isAddingComment}
+                    className="px-6 py-3 bg-blue-600 text-white rounded-xl hover:bg-blue-700 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed font-medium flex items-center space-x-2"
                   >
-                    Add Comment
+                    {isAddingComment ? (
+                      <>
+                        <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                        <span>Adding...</span>
+                      </>
+                    ) : (
+                      <span>Add Comment</span>
+                    )}
                   </button>
                 </div>
               </div>

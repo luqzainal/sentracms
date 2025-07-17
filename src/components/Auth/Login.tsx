@@ -215,13 +215,13 @@ const Login: React.FC = () => {
                   Demo Admin
                 </button>
                 <span className="text-slate-600">|</span>
-                <button
-                  type="button"
+              <button
+                type="button"
                   onClick={handleDemoClientLogin}
-                  className="text-slate-400 hover:text-[#eded21] transition-colors font-medium"
-                >
+                className="text-slate-400 hover:text-[#eded21] transition-colors font-medium"
+              >
                   Demo Client
-                </button>
+              </button>
               </div>
             </div>
           </form>

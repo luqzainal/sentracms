@@ -8,6 +8,43 @@ interface CalendarPageProps {
   onToggleSidebar?: () => void;
 }
 
+interface EventFormProps {
+  isEdit: boolean;
+  eventFormData: any;
+  handleFormChange: (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => void;
+  handleSubmitEvent: (e: React.FormEvent, isEdit: boolean) => void;
+  resetFormAndModals: () => void;
+  clients: any[];
+}
+
+const EventForm: React.FC<EventFormProps> = ({ isEdit, eventFormData, handleFormChange, handleSubmitEvent, resetFormAndModals, clients }) => (
+  <form onSubmit={(e) => handleSubmitEvent(e, isEdit)} className="space-y-4">
+    <h2 className="text-xl font-semibold">{isEdit ? 'Edit Event' : 'Create New Event'}</h2>
+    <input type="text" name="title" value={eventFormData.title} onChange={handleFormChange} placeholder="Event Title" required className="w-full p-2 border rounded" />
+    <select name="client" value={eventFormData.client} onChange={handleFormChange} required className="w-full p-2 border rounded">
+      <option value="">Select Client</option>
+      {clients.map(c => <option key={c.id} value={c.businessName}>{c.businessName}</option>)}
+    </select>
+    <div className="grid grid-cols-2 gap-4">
+        <input type="date" name="startDate" value={eventFormData.startDate} onChange={handleFormChange} required className="w-full p-2 border rounded" />
+        <input type="time" name="startTime" value={eventFormData.startTime} onChange={handleFormChange} required className="w-full p-2 border rounded" />
+        <input type="date" name="endDate" value={eventFormData.endDate} onChange={handleFormChange} required className="w-full p-2 border rounded" />
+        <input type="time" name="endTime" value={eventFormData.endTime} onChange={handleFormChange} required className="w-full p-2 border rounded" />
+    </div>
+    <select name="type" value={eventFormData.type} onChange={handleFormChange} required className="w-full p-2 border rounded">
+      <option value="meeting">Meeting</option>
+      <option value="call">Call</option>
+      <option value="deadline">Deadline</option>
+      <option value="payment">Payment</option>
+    </select>
+    <textarea name="description" value={eventFormData.description} onChange={handleFormChange} placeholder="Description" className="w-full p-2 border rounded" />
+    <div className="flex justify-end space-x-3">
+      <button type="button" onClick={resetFormAndModals} className="px-4 py-2 bg-slate-100 rounded-lg">Cancel</button>
+      <button type="submit" className="px-4 py-2 bg-blue-600 text-white rounded-lg">{isEdit ? 'Update Event' : 'Create Event'}</button>
+    </div>
+  </form>
+);
+
 const CalendarPage: React.FC<CalendarPageProps> = ({ onToggleSidebar }) => {
   const [currentDate, setCurrentDate] = useState(new Date());
   const [view, setView] = useState<'month' | 'week' | 'day'>('month');
@@ -51,10 +88,17 @@ const CalendarPage: React.FC<CalendarPageProps> = ({ onToggleSidebar }) => {
     let dateStr = '';
     if (event.startDate) {
       try {
-        dateStr = new Date(event.startDate).toISOString().split('T')[0];
+        // Handle date string properly to avoid timezone issues
+        // If startDate is already in YYYY-MM-DD format, use it directly
+        if (event.startDate.match(/^\d{4}-\d{2}-\d{2}$/)) {
+          dateStr = event.startDate;
+        } else {
+          // If it's a full datetime string, extract just the date part
+          dateStr = event.startDate.split('T')[0];
+        }
       } catch (e) {
-      dateStr = new Date().toISOString().split('T')[0];
-    }
+        dateStr = new Date().toISOString().split('T')[0];
+      }
     }
     return {
       ...event,
@@ -114,7 +158,19 @@ const CalendarPage: React.FC<CalendarPageProps> = ({ onToggleSidebar }) => {
   const handleEditEvent = () => {
     if (!selectedEvent) return;
     
-    const formatToYYYYMMDD = (date: any) => date ? new Date(date).toISOString().split('T')[0] : '';
+    const formatToYYYYMMDD = (date: any) => {
+      if (!date) return '';
+      // Handle date string properly to avoid timezone issues
+      if (typeof date === 'string') {
+        if (date.match(/^\d{4}-\d{2}-\d{2}$/)) {
+          return date; // Already in YYYY-MM-DD format
+        } else if (date.includes('T')) {
+          return date.split('T')[0]; // Extract date from datetime string
+        }
+      }
+      // Fallback to Date object processing
+      return new Date(date).toISOString().split('T')[0];
+    };
     const client = clients.find(c => c.id === selectedEvent.clientId);
 
     setEventFormData({
@@ -162,8 +218,8 @@ const CalendarPage: React.FC<CalendarPageProps> = ({ onToggleSidebar }) => {
     const eventData: Partial<CalendarEvent> = {
       ...eventFormData,
       clientId: client.id,
-      startDate: `${startDate}T${startTime || '00:00'}:00`,
-      endDate: `${endDate}T${endTime || '00:00'}:00`,
+      startDate: startDate, // Store just the date part, not datetime
+      endDate: endDate, // Store just the date part, not datetime
     };
 
     if (isEdit && selectedEvent) {
@@ -246,33 +302,7 @@ const CalendarPage: React.FC<CalendarPageProps> = ({ onToggleSidebar }) => {
     </div>
   );
 
-  const EventForm = ({ isEdit }: { isEdit: boolean }) => (
-      <form onSubmit={(e) => handleSubmitEvent(e, isEdit)} className="space-y-4">
-        <h2 className="text-xl font-semibold">{isEdit ? 'Edit Event' : 'Create New Event'}</h2>
-        <input type="text" name="title" value={eventFormData.title} onChange={handleFormChange} placeholder="Event Title" required className="w-full p-2 border rounded" />
-        <select name="client" value={eventFormData.client} onChange={handleFormChange} required className="w-full p-2 border rounded">
-          <option value="">Select Client</option>
-          {clients.map(c => <option key={c.id} value={c.businessName}>{c.businessName}</option>)}
-        </select>
-        <div className="grid grid-cols-2 gap-4">
-            <input type="date" name="startDate" value={eventFormData.startDate} onChange={handleFormChange} required className="w-full p-2 border rounded" />
-            <input type="time" name="startTime" value={eventFormData.startTime} onChange={handleFormChange} required className="w-full p-2 border rounded" />
-            <input type="date" name="endDate" value={eventFormData.endDate} onChange={handleFormChange} required className="w-full p-2 border rounded" />
-            <input type="time" name="endTime" value={eventFormData.endTime} onChange={handleFormChange} required className="w-full p-2 border rounded" />
-        </div>
-        <select name="type" value={eventFormData.type} onChange={handleFormChange} required className="w-full p-2 border rounded">
-          <option value="meeting">Meeting</option>
-          <option value="call">Call</option>
-          <option value="deadline">Deadline</option>
-          <option value="payment">Payment</option>
-        </select>
-        <textarea name="description" value={eventFormData.description} onChange={handleFormChange} placeholder="Description" className="w-full p-2 border rounded" />
-        <div className="flex justify-end space-x-3">
-          <button type="button" onClick={resetFormAndModals} className="px-4 py-2 bg-slate-100 rounded-lg">Cancel</button>
-          <button type="submit" className="px-4 py-2 bg-blue-600 text-white rounded-lg">{isEdit ? 'Update Event' : 'Create Event'}</button>
-        </div>
-      </form>
-  );
+
 
   return (
     <div className="p-6">
@@ -301,8 +331,34 @@ const CalendarPage: React.FC<CalendarPageProps> = ({ onToggleSidebar }) => {
           {view === 'day' && renderDayView()}
       </div>
 
-      {showNewEventModal && <Modal onClose={resetFormAndModals}><EventForm isEdit={false} /></Modal>}
-      {showEditEventModal && <Modal onClose={resetFormAndModals}><EventForm isEdit={true} /></Modal>}
+      {showNewEventModal && (
+        <div className="fixed inset-0 w-full h-screen bg-black bg-opacity-60 flex items-center justify-center p-4 z-50 backdrop-blur-sm">
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md p-6">
+            <EventForm 
+              isEdit={false} 
+              eventFormData={eventFormData}
+              handleFormChange={handleFormChange}
+              handleSubmitEvent={handleSubmitEvent}
+              resetFormAndModals={resetFormAndModals}
+              clients={clients}
+            />
+          </div>
+        </div>
+      )}
+      {showEditEventModal && (
+        <div className="fixed inset-0 w-full h-screen bg-black bg-opacity-60 flex items-center justify-center p-4 z-50 backdrop-blur-sm">
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md p-6">
+            <EventForm 
+              isEdit={true} 
+              eventFormData={eventFormData}
+              handleFormChange={handleFormChange}
+              handleSubmitEvent={handleSubmitEvent}
+              resetFormAndModals={resetFormAndModals}
+              clients={clients}
+            />
+          </div>
+        </div>
+      )}
 
       {showEventDetailsModal && selectedEvent && (
         <EventPopup
