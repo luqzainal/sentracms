@@ -147,7 +147,19 @@ const ClientProgressTracker: React.FC<ClientProgressTrackerProps> = ({ clientId,
     getClientFilesByClientId,
     fetchClientFiles
   } = useAppStore();
+
+  // Debug: Check if functions are properly destructured
+  console.log('🔍 Debug Store Functions:');
+  console.log('  addCommentToStep:', typeof addCommentToStep);
+  console.log('  deleteCommentFromStep:', typeof deleteCommentFromStep);
+  console.log('  addClientFile:', typeof addClientFile);
+  console.log('  deleteClientFile:', typeof deleteClientFile);
   const { success, error } = useToast();
+
+  // Debug: Check if toast functions are available
+  console.log('🔍 Debug Toast Functions:');
+  console.log('  success:', typeof success);
+  console.log('  error:', typeof error);
 
   // Custom confirmation modal
   const { confirmation, showConfirmation, hideConfirmation, handleConfirm } = useConfirmation();
@@ -539,6 +551,24 @@ const ClientProgressTracker: React.FC<ClientProgressTrackerProps> = ({ clientId,
   };
 
   const handleAddComment = async () => {
+    // Debug: Check if functions are available
+    console.log('🔍 handleAddComment called:');
+    console.log('  addCommentToStep:', typeof addCommentToStep);
+    console.log('  commentingStepId:', commentingStepId);
+    console.log('  newComment:', newComment);
+    console.log('  commentAttachment:', commentAttachment);
+
+    if (!addCommentToStep || typeof addCommentToStep !== 'function') {
+      console.error('❌ addCommentToStep is not a function:', addCommentToStep);
+      if (error && typeof error === 'function') {
+        error('System Error', 'Comment function not available. Please refresh the page.');
+      } else {
+        console.error('❌ error function also not available');
+        alert('System Error: Comment function not available. Please refresh the page.');
+      }
+      return;
+    }
+
     if (!newComment.trim() && !commentAttachment) {
       alert("Please add a comment or attachment.");
       return;
@@ -573,10 +603,15 @@ const ClientProgressTracker: React.FC<ClientProgressTrackerProps> = ({ clientId,
         }
 
         const responseData = await res.json();
-        const { uploadUrl, fileUrl } = responseData;
+        console.log('✅ Comment API Response data:', responseData);
         
-        if (!uploadUrl || !fileUrl) {
-          throw new Error('Invalid response: missing uploadUrl or fileUrl');
+        // Check for both possible response formats
+        const { uploadUrl, fileUrl, publicUrl } = responseData;
+        const finalFileUrl = fileUrl || publicUrl;
+        
+        if (!uploadUrl || !finalFileUrl) {
+          console.error('❌ Invalid API response:', responseData);
+          throw new Error('Invalid response: missing uploadUrl or fileUrl/publicUrl');
         }
 
         // 2. Upload file to DigitalOcean Spaces
@@ -587,7 +622,7 @@ const ClientProgressTracker: React.FC<ClientProgressTrackerProps> = ({ clientId,
           xhr.onload = () => {
             if (xhr.status === 200) {
               console.log('✅ Comment attachment uploaded successfully!');
-              attachmentUrl = fileUrl;
+              attachmentUrl = finalFileUrl;
               attachmentType = commentAttachment.type;
               resolve();
             } else {
@@ -618,10 +653,20 @@ const ClientProgressTracker: React.FC<ClientProgressTrackerProps> = ({ clientId,
       setShowCommentModal(false);
       setCommentingStepId(null);
       
-      success('Comment Added', 'Comment has been added successfully');
-    } catch (error: any) {
-      console.error('Error adding comment:', error);
-      error('Add Comment Failed', 'Failed to add comment. Please try again.');
+      if (success && typeof success === 'function') {
+        success('Comment Added', 'Comment has been added successfully');
+      } else {
+        console.log('✅ Comment added successfully (success function not available)');
+        alert('Comment Added: Comment has been added successfully');
+      }
+    } catch (err: any) {
+      console.error('Error adding comment:', err);
+      if (error && typeof error === 'function') {
+        error('Add Comment Failed', 'Failed to add comment. Please try again.');
+      } else {
+        console.error('❌ error function not available in catch block');
+        alert('Add Comment Failed: Failed to add comment. Please try again.');
+      }
     } finally {
       setIsAddingComment(false);
       setIsUploadingCommentAttachment(false);
@@ -629,6 +674,23 @@ const ClientProgressTracker: React.FC<ClientProgressTrackerProps> = ({ clientId,
   };
 
   const handleDeleteComment = async (stepId: string, commentId: string) => {
+    // Debug: Check if function is available
+    console.log('🔍 handleDeleteComment called:');
+    console.log('  deleteCommentFromStep:', typeof deleteCommentFromStep);
+    console.log('  stepId:', stepId);
+    console.log('  commentId:', commentId);
+
+    if (!deleteCommentFromStep || typeof deleteCommentFromStep !== 'function') {
+      console.error('❌ deleteCommentFromStep is not a function:', deleteCommentFromStep);
+      if (error && typeof error === 'function') {
+        error('System Error', 'Delete comment function not available. Please refresh the page.');
+      } else {
+        console.error('❌ error function also not available');
+        alert('System Error: Delete comment function not available. Please refresh the page.');
+      }
+      return;
+    }
+
     showConfirmation(
       () => deleteCommentFromStep(stepId, commentId),
       {
