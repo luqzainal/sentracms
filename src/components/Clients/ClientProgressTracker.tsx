@@ -550,7 +550,7 @@ const ClientProgressTracker: React.FC<ClientProgressTrackerProps> = ({ clientId,
         console.log('🔄 Uploading comment attachment:', commentAttachment.name);
         
         // 1. Get pre-signed URL from our API
-        const res = await fetch('/api/generate-upload-url', {
+        const res = await fetch('https://sentra-api-app-sxdm6.ondigitalocean.app/api/generate-upload-url', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ 
@@ -643,7 +643,7 @@ const ClientProgressTracker: React.FC<ClientProgressTrackerProps> = ({ clientId,
       for (const file of Array.from(files)) {
         // 1. Get pre-signed URL from our API
         console.log('🔄 Requesting upload URL for:', file.name);
-        const res = await fetch('/api/generate-upload-url', {
+        const res = await fetch('https://sentra-api-app-sxdm6.ondigitalocean.app/api/generate-upload-url', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ fileName: file.name, fileType: file.type }),

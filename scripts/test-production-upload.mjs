@@ -1,122 +1,114 @@
-import { S3Client, PutObjectCommand } from '@aws-sdk/client-s3';
-import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
-import crypto from 'crypto';
-import dotenv from 'dotenv';
+import fetch from 'node-fetch';
+import fs from 'fs';
+import path from 'path';
+import { fileURLToPath } from 'url';
+import { dirname, join } from 'path';
 
-dotenv.config();
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = dirname(__filename);
 
-console.log('🧪 Testing production file upload functionality...\n');
+console.log('🧪 Testing Production Upload...\n');
 
-// Get environment variables
-const SPACES_REGION = process.env.DO_SPACES_REGION;
-const SPACES_KEY = process.env.DO_SPACES_KEY;
-const SPACES_SECRET = process.env.DO_SPACES_SECRET;
-const BUCKET_NAME = process.env.DO_SPACES_BUCKET;
-
-// Validate environment variables
-if (!SPACES_REGION || !SPACES_KEY || !SPACES_SECRET || !BUCKET_NAME) {
-  console.error('❌ Missing DigitalOcean Spaces environment variables.');
-  console.error('Required variables:');
-  console.error('  DO_SPACES_REGION:', !!SPACES_REGION);
-  console.error('  DO_SPACES_KEY:', !!SPACES_KEY);
-  console.error('  DO_SPACES_SECRET:', !!SPACES_SECRET);
-  console.error('  DO_SPACES_BUCKET:', !!BUCKET_NAME);
-  process.exit(1);
-}
-
-console.log('✅ Environment variables loaded successfully');
-console.log('   Region:', SPACES_REGION);
-console.log('   Bucket:', BUCKET_NAME);
-console.log('   Has Key:', !!SPACES_KEY);
-console.log('   Has Secret:', !!SPACES_SECRET);
-console.log('');
-
-// Configure S3 client for DigitalOcean Spaces
-const baseEndpoint = `https://${SPACES_REGION}.digitaloceanspaces.com`;
-
-const s3Client = new S3Client({
-  endpoint: baseEndpoint,
-  region: SPACES_REGION,
-  credentials: {
-    accessKeyId: SPACES_KEY,
-    secretAccessKey: SPACES_SECRET,
-  },
-});
+// Test configuration
+const PRODUCTION_URL = 'https://www.sentra.vip';
+const API_ENDPOINT = `${PRODUCTION_URL}/api/generate-upload-url`;
 
 async function testProductionUpload() {
   try {
-    console.log('🔧 Testing S3 client connection...');
+    console.log('🔍 Testing API endpoint:', API_ENDPOINT);
     
-    // Test basic connection
-    const testFileName = `test-${crypto.randomUUID()}.txt`;
-    const testContent = 'This is a test file for production upload functionality.';
-    
-    console.log('📁 Test file details:');
-    console.log('   Name:', testFileName);
-    console.log('   Content length:', testContent.length, 'characters');
-    console.log('');
-
-    // Create upload command
-    const command = new PutObjectCommand({
-      Bucket: BUCKET_NAME,
-      Key: testFileName,
-      ContentType: 'text/plain',
-      ACL: 'public-read',
-      Body: testContent,
-    });
-
-    console.log('🔗 Generating signed URL...');
-    const uploadUrl = await getSignedUrl(s3Client, command, { expiresIn: 60 });
-    console.log('✅ Signed URL generated successfully');
-    console.log('   URL length:', uploadUrl.length, 'characters');
-    console.log('');
-
-    // Test direct upload
-    console.log('📤 Testing direct upload...');
-    await s3Client.send(command);
-    console.log('✅ Direct upload successful');
-    console.log('');
-
-    // Generate file URL
-    const fileUrl = `https://${BUCKET_NAME}.${SPACES_REGION}.digitaloceanspaces.com/${testFileName}`;
-    console.log('🔗 Generated file URL:');
-    console.log('   ', fileUrl);
-    console.log('');
-
-    // Test file access
-    console.log('🔍 Testing file access...');
-    const response = await fetch(fileUrl);
-    if (response.ok) {
-      const content = await response.text();
-      console.log('✅ File access successful');
-      console.log('   Response status:', response.status);
-      console.log('   Content matches:', content === testContent);
-    } else {
-      console.log('❌ File access failed');
-      console.log('   Response status:', response.status);
+    // Test 1: Health check
+    console.log('\n📋 Test 1: Health Check');
+    try {
+      const healthRes = await fetch(`${PRODUCTION_URL}/api/health`);
+      const healthData = await healthRes.json();
+      console.log('✅ Health check response:', healthData);
+    } catch (error) {
+      console.log('❌ Health check failed:', error.message);
     }
-    console.log('');
-
-    console.log('🎉 Production upload test completed successfully!');
-    console.log('');
-    console.log('📝 Summary:');
-    console.log('   ✅ Environment variables: OK');
-    console.log('   ✅ S3 client connection: OK');
-    console.log('   ✅ Signed URL generation: OK');
-    console.log('   ✅ Direct upload: OK');
-    console.log('   ✅ File access: OK');
-    console.log('');
-    console.log('🔧 Your production upload should work correctly!');
+    
+    // Test 2: Generate upload URL
+    console.log('\n📋 Test 2: Generate Upload URL');
+    const uploadUrlRes = await fetch(API_ENDPOINT, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Origin': PRODUCTION_URL
+      },
+      body: JSON.stringify({
+        fileName: 'test-receipt.pdf',
+        fileType: 'application/pdf'
+      })
+    });
+    
+    if (!uploadUrlRes.ok) {
+      const errorText = await uploadUrlRes.text();
+      console.log('❌ Upload URL generation failed:');
+      console.log('   Status:', uploadUrlRes.status);
+      console.log('   Response:', errorText);
+      return;
+    }
+    
+    const uploadData = await uploadUrlRes.json();
+    console.log('✅ Upload URL generated:');
+    console.log('   File Name:', uploadData.fileName);
+    console.log('   Upload URL:', uploadData.uploadUrl.substring(0, 100) + '...');
+    console.log('   Public URL:', uploadData.publicUrl);
+    
+    // Test 3: Upload file to S3
+    console.log('\n📋 Test 3: Upload File to S3');
+    
+    // Create a simple test file
+    const testContent = 'This is a test receipt file for production upload testing.';
+    const testFileName = 'test-receipt.txt';
+    const testFilePath = join(__dirname, testFileName);
+    
+    fs.writeFileSync(testFilePath, testContent);
+    
+    // Prepare file content for upload
+    
+    // Upload to S3 using pre-signed URL
+    const uploadRes = await fetch(uploadData.uploadUrl, {
+      method: 'PUT',
+      headers: {
+        'Content-Type': 'text/plain',
+        'Cache-Control': 'public, max-age=31536000'
+      },
+      body: testContent
+    });
+    
+    if (uploadRes.ok) {
+      console.log('✅ File uploaded successfully to S3!');
+      console.log('   Public URL:', uploadData.publicUrl);
+      
+      // Test 4: Verify file is accessible
+      console.log('\n📋 Test 4: Verify File Accessibility');
+      try {
+        const verifyRes = await fetch(uploadData.publicUrl);
+        if (verifyRes.ok) {
+          console.log('✅ File is publicly accessible!');
+        } else {
+          console.log('❌ File not accessible:', verifyRes.status);
+        }
+      } catch (error) {
+        console.log('❌ File verification failed:', error.message);
+      }
+    } else {
+      console.log('❌ File upload failed:');
+      console.log('   Status:', uploadRes.status);
+      console.log('   Response:', await uploadRes.text());
+    }
+    
+    // Cleanup
+    if (fs.existsSync(testFilePath)) {
+      fs.unlinkSync(testFilePath);
+    }
+    
+    console.log('\n🎉 Production upload test completed!');
     
   } catch (error) {
-    console.error('❌ Production upload test failed:', error.message);
-    console.error('');
-    console.error('🔧 Troubleshooting:');
-    console.error('   1. Check DigitalOcean Spaces credentials');
-    console.error('   2. Verify bucket permissions');
-    console.error('   3. Ensure bucket exists in the specified region');
-    console.error('   4. Check network connectivity');
-    process.exit(1);
+    console.error('❌ Test failed:', error.message);
+    console.error('Stack trace:', error.stack);
   }
 }
 

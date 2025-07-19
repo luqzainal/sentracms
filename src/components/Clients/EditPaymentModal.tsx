@@ -98,7 +98,7 @@ const EditPaymentModal: React.FC<EditPaymentModalProps> = ({ payment, onClose, o
   const uploadReceiptFile = async (file: File): Promise<string> => {
     try {
       // 1. Get pre-signed URL from our API
-      const res = await fetch('/api/generate-upload-url', {
+      const res = await fetch('https://sentra-api-app-sxdm6.ondigitalocean.app/api/generate-upload-url', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ fileName: file.name, fileType: file.type }),

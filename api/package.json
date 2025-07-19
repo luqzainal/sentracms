@@ -1,0 +1,20 @@
+{
+  "name": "sentra-api",
+  "version": "1.0.0",
+  "type": "module",
+  "main": "final-production-server.mjs",
+  "scripts": {
+    "start": "node final-production-server.mjs",
+    "dev": "node final-production-server.mjs"
+  },
+  "dependencies": {
+    "express": "^4.18.2",
+    "cors": "^2.8.5",
+    "dotenv": "^16.3.1",
+    "@aws-sdk/client-s3": "^3.450.0",
+    "@aws-sdk/s3-request-presigner": "^3.450.0"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  }
+} 
