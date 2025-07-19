@@ -163,6 +163,13 @@ const ClientProgressTracker: React.FC<ClientProgressTrackerProps> = ({ clientId,
   console.log('  Attached Files Length:', attachedFiles.length);
   console.log('  Website Links:', websiteLinks);
   
+  // Force refresh files and links on component mount
+  useEffect(() => {
+    console.log('🔄 Force refreshing client files and links for client:', clientId);
+    fetchClientFiles(parseInt(clientId));
+    fetchClientLinks(parseInt(clientId));
+  }, [clientId, fetchClientFiles, fetchClientLinks]);
+  
   // Debug individual files
   if (attachedFiles.length > 0) {
     console.log('  Sample attached file:', {

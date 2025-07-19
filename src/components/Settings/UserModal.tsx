@@ -116,6 +116,8 @@ const UserModal: React.FC<UserModalProps> = ({ user, onClose, onSave }) => {
   }, [user]);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
+    if (!e || !e.target) return;
+    
     const { name, value } = e.target;
     setFormData(prev => ({
       ...prev,
@@ -168,6 +170,8 @@ const UserModal: React.FC<UserModalProps> = ({ user, onClose, onSave }) => {
   };
 
   const handlePortalAccessChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (!e || !e.target) return;
+    
     const { name, value, type, checked } = e.target;
     setPortalAccess(prev => ({
       ...prev,
@@ -184,6 +188,8 @@ const UserModal: React.FC<UserModalProps> = ({ user, onClose, onSave }) => {
   };
 
   const handleDashboardAccessChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (!e || !e.target) return;
+    
     const { name, value, type, checked } = e.target;
     setDashboardAccess(prev => ({
       ...prev,

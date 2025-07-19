@@ -1633,6 +1633,8 @@ export const useAppStore = create<AppState>((set, get) => ({
 
   addPayment: async (paymentData) => {
     try {
+      console.log('🔍 addPayment called with data:', JSON.stringify(paymentData, null, 2));
+      
       const numericAmount = Number(paymentData.amount) || 0;
       if (numericAmount <= 0) {
         throw new Error("Invalid payment amount.");
@@ -1743,7 +1745,8 @@ export const useAppStore = create<AppState>((set, get) => ({
           amount: newAmount, // Ensure it's a number
           payment_source: updates.paymentSource || payment.paymentSource,
           status: (updates.status || payment.status) as 'Paid' | 'Pending' | 'Failed' | 'Refunded',
-          paid_at: updates.paidAt || payment.paidAt
+          paid_at: updates.paidAt || payment.paidAt,
+          receipt_file_url: updates.receiptFileUrl || updates.receiptUrl || payment.receiptFileUrl
         });
         console.log('Payment updated in database successfully');
         

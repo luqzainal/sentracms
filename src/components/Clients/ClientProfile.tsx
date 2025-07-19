@@ -685,10 +685,10 @@ const ClientProfile: React.FC<ClientProfileProps> = ({ clientId, onBack, onEdit 
                                         <>
                                           <button
                                             onClick={() => handleViewReceipt(payment.receiptFileUrl || payment.receiptUrl || '')}
-                                            className="text-green-600 hover:text-green-800"
+                                            className="px-2 py-1 text-xs bg-green-100 text-green-700 rounded border border-green-200 hover:bg-green-200 transition-colors"
                                             title="View Receipt"
                                           >
-                                            <Eye className="w-3 h-3" />
+                                            View Attachment
                                           </button>
                                           <button
                                             onClick={() => handleDownloadReceipt(payment.receiptFileUrl || payment.receiptUrl || '', payment.id)}

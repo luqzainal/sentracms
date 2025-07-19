@@ -1,0 +1,10 @@
+{
+  "name": "sentra-functions",
+  "version": "1.0.0",
+  "description": "Serverless functions for Sentra CMS",
+  "main": "generate-upload-url.js",
+  "dependencies": {
+    "@aws-sdk/client-s3": "^3.450.0",
+    "@aws-sdk/s3-request-presigner": "^3.450.0"
+  }
+} 
