@@ -141,6 +141,7 @@ export interface ChatMessage {
   sender: 'client' | 'admin';
   content: string;
   message_type: string;
+  attachmentUrl?: string;
   created_at: string;
 }
 
@@ -244,7 +245,7 @@ interface AppState {
   pollForUpdates: () => Promise<void>;
 
   // Chat actions
-  sendMessage: (chatId: number, content: string, sender: 'client' | 'admin') => Promise<void>;
+  sendMessage: (chatId: number, content: string, sender: 'client' | 'admin', attachmentUrl?: string) => Promise<void>;
   loadChatMessages: (chatId: number) => Promise<void>;
   markChatAsRead: (chatId: number) => Promise<void>;
   createChatForClient: (clientId: number) => Promise<void>;
@@ -1164,7 +1165,7 @@ export const useAppStore = create<AppState>((set, get) => ({
   },
 
   // Chat actions
-  sendMessage: async (chatId, content, sender) => {
+  sendMessage: async (chatId, content, sender, attachmentUrl?: string) => {
     // Create optimistic message immediately for instant UI response
     const optimisticMessage: ChatMessage = {
       id: Date.now(),
@@ -1172,6 +1173,7 @@ export const useAppStore = create<AppState>((set, get) => ({
       sender: sender,
       content: content,
       message_type: 'text',
+      attachmentUrl: attachmentUrl,
       created_at: new Date().toISOString(),
     };
     

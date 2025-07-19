@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { X, DollarSign, CreditCard, Calendar } from 'lucide-react';
+import { X, DollarSign, CreditCard, Calendar, UploadCloud, FileText, Trash2 } from 'lucide-react';
 
 interface EditPaymentModalProps {
   payment: any;
@@ -14,6 +14,8 @@ const EditPaymentModal: React.FC<EditPaymentModalProps> = ({ payment, onClose, o
     status: 'Paid',
     paidAt: ''
   });
+  const [attachment, setAttachment] = useState<File | null>(null);
+  const [isUploading, setIsUploading] = useState(false);
 
   useEffect(() => {
     if (payment) {
@@ -26,7 +28,7 @@ const EditPaymentModal: React.FC<EditPaymentModalProps> = ({ payment, onClose, o
     }
   }, [payment]);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
     // Parse amount to number and validate
@@ -36,12 +38,80 @@ const EditPaymentModal: React.FC<EditPaymentModalProps> = ({ payment, onClose, o
       return;
     }
     
-    onSave({
-      amount: amount,
-      paymentSource: formData.paymentSource,
-      status: formData.status,
-      paidAt: formData.paidAt
-    });
+    setIsUploading(true);
+    
+    try {
+      let attachmentUrl = '';
+      
+      // Upload attachment if present
+      if (attachment) {
+        console.log('🔄 Uploading payment attachment:', attachment.name);
+        
+        // 1. Get pre-signed URL from our API
+        const res = await fetch('/api/generate-upload-url', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ 
+            fileName: attachment.name, 
+            fileType: attachment.type 
+          }),
+        });
+
+        if (!res.ok) {
+          const errorText = await res.text();
+          console.error('❌ API Error:', errorText);
+          throw new Error(`Failed to get upload URL: ${res.status} ${errorText}`);
+        }
+
+        const responseData = await res.json();
+        const { uploadUrl, fileUrl } = responseData;
+        
+        if (!uploadUrl || !fileUrl) {
+          throw new Error('Invalid response: missing uploadUrl or fileUrl');
+        }
+
+        // 2. Upload file to DigitalOcean Spaces
+        console.log('📤 Starting file upload to DigitalOcean Spaces...');
+        await new Promise<void>((resolve, reject) => {
+          const xhr = new XMLHttpRequest();
+          xhr.open('PUT', uploadUrl, true);
+          
+          xhr.onload = async () => {
+            console.log('📡 Upload response status:', xhr.status);
+            if (xhr.status === 200) {
+              console.log('✅ File uploaded successfully!');
+              attachmentUrl = fileUrl;
+              resolve();
+            } else {
+              console.error('❌ Upload failed with status:', xhr.status);
+              console.error('❌ Upload response:', xhr.responseText);
+              reject(new Error(`Upload failed with status ${xhr.status}`));
+            }
+          };
+
+          xhr.onerror = (error) => {
+            console.error('❌ Network error during upload:', error);
+            reject(new Error('Network error during upload.'));
+          };
+          
+          console.log('📤 Sending file to DigitalOcean Spaces...');
+          xhr.send(attachment);
+        });
+      }
+      
+              onSave({
+          amount: amount,
+          paymentSource: formData.paymentSource,
+          status: formData.status,
+          paidAt: formData.paidAt,
+          receiptFileUrl: attachmentUrl || payment.receiptFileUrl
+        });
+    } catch (error) {
+      console.error('Error uploading file:', error);
+      alert('Failed to upload file. Please try again.');
+    } finally {
+      setIsUploading(false);
+    }
   };
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
@@ -51,7 +121,20 @@ const EditPaymentModal: React.FC<EditPaymentModalProps> = ({ payment, onClose, o
     });
   };
 
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      if (file.size > 5 * 1024 * 1024) {
+        alert('File size must be less than 5MB');
+        return;
+      }
+      setAttachment(file);
+    }
+  };
 
+  const removeAttachment = () => {
+    setAttachment(null);
+  };
 
   return (
     <div className="fixed inset-0 w-full h-full bg-black bg-opacity-60 flex items-center justify-center p-4 z-50 backdrop-blur-sm">
@@ -141,19 +224,88 @@ const EditPaymentModal: React.FC<EditPaymentModalProps> = ({ payment, onClose, o
             </div>
           </div>
 
+          {/* File Attachment Section */}
+          <div>
+            <label className="block text-sm font-medium text-slate-700 mb-2">
+              Payment Receipt/Proof
+            </label>
+            
+            {/* Show existing attachment if any */}
+            {payment.receiptFileUrl && !attachment && (
+              <div className="mb-3 p-3 bg-green-50 rounded-lg border border-green-200">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center space-x-2">
+                    <FileText className="w-4 h-4 text-green-600" />
+                    <a
+                      href={payment.receiptFileUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-sm text-green-700 hover:text-green-800 underline"
+                    >
+                      View existing attachment
+                    </a>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Show new attachment if selected */}
+            {attachment && (
+              <div className="mb-3 p-3 bg-blue-50 rounded-lg border border-blue-200">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center space-x-2">
+                    <FileText className="w-4 h-4 text-blue-600" />
+                    <span className="text-sm text-blue-700">{attachment.name}</span>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={removeAttachment}
+                    className="text-red-500 hover:text-red-700"
+                  >
+                    <Trash2 className="w-4 h-4" />
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {/* File upload input */}
+            {!attachment && (
+              <div className="border-2 border-dashed border-slate-300 rounded-xl p-4 text-center hover:border-slate-400 transition-colors">
+                <input
+                  type="file"
+                  onChange={handleFileChange}
+                  accept="image/*,.pdf,.doc,.docx,.xls,.xlsx"
+                  className="hidden"
+                  id="payment-attachment"
+                />
+                <label htmlFor="payment-attachment" className="cursor-pointer">
+                  <UploadCloud className="w-8 h-8 text-slate-400 mx-auto mb-2" />
+                  <p className="text-sm text-slate-600">
+                    Click to attach payment proof (max 5MB)
+                  </p>
+                  <p className="text-xs text-slate-500 mt-1">
+                    Supports: Images, PDF, DOC, DOCX, XLS, XLSX
+                  </p>
+                </label>
+              </div>
+            )}
+          </div>
+
           <div className="flex justify-end space-x-3 pt-4">
             <button
               type="button"
               onClick={onClose}
-              className="px-4 py-2 text-slate-700 bg-slate-100 rounded-lg hover:bg-slate-200 transition-colors"
+              disabled={isUploading}
+              className="px-4 py-2 text-slate-700 bg-slate-100 rounded-lg hover:bg-slate-200 transition-colors disabled:opacity-50"
             >
               Cancel
             </button>
             <button
               type="submit"
-              className="bg-blue-600 text-white px-6 py-2 rounded-lg hover:bg-blue-700 transition-colors font-medium"
+              disabled={isUploading}
+              className="bg-blue-600 text-white px-6 py-2 rounded-lg hover:bg-blue-700 transition-colors font-medium disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              Update Payment
+              {isUploading ? 'Uploading...' : 'Update Payment'}
             </button>
           </div>
         </form>

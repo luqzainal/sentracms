@@ -1,9 +1,18 @@
 import React, { useState, useEffect } from 'react';
-import { ArrowLeft, Calendar, MessageSquare, DollarSign, HelpCircle, Package, Plus, Clock, CheckCircle, AlertCircle, User, Phone, Mail, MapPin, ChevronLeft, ChevronRight, X, Send, Eye } from 'lucide-react';
-import ClientProgressTracker from '../Clients/ClientProgressTracker';
-import AddOnServiceModal from '../common/AddOnServiceModal';
+import { 
+  ArrowLeft, 
+  MessageSquare, 
+  Calendar, 
+  FileText, 
+  DollarSign, 
+  Plus, 
+  Send, 
+  UploadCloud, 
+  X 
+} from 'lucide-react';
 import { useAppStore } from '../../store/AppStore';
 import { useToast } from '../../hooks/useToast';
+import AddOnServiceModal from '../common/AddOnServiceModal';
 
 interface ClientPortalDashboardProps {
   user: any;
@@ -18,6 +27,7 @@ const ClientPortalDashboard: React.FC<ClientPortalDashboardProps> = ({ user, onB
   const [showAddOnModal, setShowAddOnModal] = useState(false);
   const [showMyRequests, setShowMyRequests] = useState(false);
   const [message, setMessage] = useState('');
+  const [attachment, setAttachment] = useState<File | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
   const { addOnServices, fetchAddOnServices, addClientServiceRequest, getClientServiceRequestsByClientId, fetchClientServiceRequests } = useAppStore();
@@ -63,24 +73,14 @@ const ClientPortalDashboard: React.FC<ClientPortalDashboardProps> = ({ user, onB
     getClientRole
   } = useAppStore();
 
-  const client = clients.length > 0 ? clients[0] : null;
+  // Find the client data based on the user email
+  const client = clients.find(c => c.email === user.email);
+  const clientChat = chats.find(chat => chat.clientId === client?.id);
 
-  // Effect to manage user's online status
+  // Load data on component mount
   useEffect(() => {
-    const chat = chats.find(c => c.clientId === client?.id);
-    if (chat) {
-      updateChatOnlineStatus(chat.id, true);
-
-      // Set to offline on component unmount
-      return () => {
-        updateChatOnlineStatus(chat.id, false);
-      };
-    }
-  }, [client, chats, updateChatOnlineStatus]);
-
-  // Fetch data when component mounts to ensure sync with admin
-  useEffect(() => {
-    const fetchData = async () => {
+    const loadData = async () => {
+      setIsLoading(true);
       try {
         await Promise.all([
           fetchClients(),
@@ -92,84 +92,126 @@ const ClientPortalDashboard: React.FC<ClientPortalDashboardProps> = ({ user, onB
           fetchCalendarEvents()
         ]);
       } catch (error) {
-        console.error("Failed to fetch client portal data:", error);
+        console.error('Error loading data:', error);
       } finally {
         setIsLoading(false);
       }
     };
 
-    fetchData();
+    loadData();
   }, [fetchClients, fetchProgressSteps, fetchComponents, fetchInvoices, fetchPayments, fetchChats, fetchCalendarEvents]);
 
-  // If a client is logged in, the clients array should contain exactly one client.
-  
-  if (isLoading) {
-    return (
-      <div className="min-h-screen bg-slate-50 flex items-center justify-center p-4">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
-      </div>
-    );
-  }
-  
-  if (!client) {
-    return (
-      <div className="min-h-screen bg-slate-50 flex items-center justify-center p-4">
-        <div className="text-center">
-          <h2 className="text-xl font-semibold text-slate-900 mb-2">Client data not found</h2>
-          <p className="text-slate-600 mb-4">Unable to load client information</p>
-          <button 
-            onClick={onBack}
-            className="text-blue-600 hover:text-blue-700 font-medium"
-          >
-            Go back
-          </button>
-        </div>
-      </div>
-    );
-  }
-
-  const progressSteps = getProgressStepsByClientId(client.id);
-  const components = getComponentsByClientId(client.id);
-  const invoices = getInvoicesByClientId(client.id);
-  const clientChat = chats.find(chat => chat.clientId === client.id);
-
-  // Calculate progress using consistent calculation from store
-  const progressStatus = calculateClientProgressStatus(client.id);
-  const { percentage: progressPercentage } = progressStatus;
-
-  // Calculate billing summary
-  const totalAmount = invoices.reduce((sum, inv) => sum + inv.amount, 0);
-  const paidAmount = invoices.reduce((sum, inv) => sum + inv.paid, 0);
-  const dueAmount = invoices.reduce((sum, inv) => sum + inv.due, 0);
-
-  // Get the actual package name from invoices if available
-  const actualPackageName = invoices.length > 0 ? invoices[0].packageName : 'No Package Assigned';
+  // Load messages when chat is available
+  useEffect(() => {
+    if (clientChat) {
+      loadChatMessages(clientChat.id);
+    }
+  }, [clientChat?.id, loadChatMessages]);
 
   const handleSendMessage = async () => {
-    if (message.trim() && client) {
-      let currentChat = chats.find(chat => chat.clientId === client.id);
-      
+    if ((message.trim() || attachment) && client) {
       try {
-        // If no chat exists, create one
-        if (!currentChat) {
-          await createChatForClient(client.id);
-          // Re-fetch chats to get the new chat ID
-          const newChats = useAppStore.getState().chats;
-          currentChat = newChats.find(chat => chat.clientId === client.id);
-        }
+        let attachmentUrl = '';
+        
+        // Upload attachment if present
+        if (attachment) {
+          console.log('🔄 Uploading chat attachment:', attachment.name);
+          
+          // 1. Get pre-signed URL from our API
+          const res = await fetch('/api/generate-upload-url', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ 
+              fileName: attachment.name, 
+              fileType: attachment.type 
+            }),
+          });
 
-        if (currentChat) {
-          await sendMessage(currentChat.id, message.trim(), 'client');
-        setMessage('');
-          // Reload messages for the chat to show the new one
-          await loadChatMessages(currentChat.id);
-        } else {
-          console.error("Failed to create or find chat for the client.");
+          if (!res.ok) {
+            const errorText = await res.text();
+            console.error('❌ API Error:', errorText);
+            throw new Error(`Failed to get upload URL: ${res.status} ${errorText}`);
+          }
+
+          const responseData = await res.json();
+          const { uploadUrl, fileUrl } = responseData;
+          
+          if (!uploadUrl || !fileUrl) {
+            throw new Error('Invalid response: missing uploadUrl or fileUrl');
+          }
+
+          // 2. Upload file to DigitalOcean Spaces
+          console.log('📤 Starting file upload to DigitalOcean Spaces...');
+          await new Promise<void>((resolve, reject) => {
+            const xhr = new XMLHttpRequest();
+            xhr.open('PUT', uploadUrl, true);
+            
+            xhr.onload = async () => {
+              console.log('📡 Upload response status:', xhr.status);
+              if (xhr.status === 200) {
+                console.log('✅ File uploaded successfully!');
+                attachmentUrl = fileUrl;
+                resolve();
+              } else {
+                console.error('❌ Upload failed with status:', xhr.status);
+                console.error('❌ Upload response:', xhr.responseText);
+                reject(new Error(`Upload failed with status ${xhr.status}`));
+              }
+            };
+
+            xhr.onerror = (error) => {
+              console.error('❌ Network error during upload:', error);
+              reject(new Error('Network error during upload.'));
+            };
+            
+            console.log('📤 Sending file to DigitalOcean Spaces...');
+            xhr.send(attachment);
+          });
+        }
+        
+        let currentChat = chats.find(chat => chat.clientId === client.id);
+        
+        try {
+          // If no chat exists, create one
+          if (!currentChat) {
+            await createChatForClient(client.id);
+            // Re-fetch chats to get the new chat ID
+            const newChats = useAppStore.getState().chats;
+            currentChat = newChats.find(chat => chat.clientId === client.id);
+          }
+
+          if (currentChat) {
+            await sendMessage(currentChat.id, message.trim() || 'Sent an attachment', 'client', attachmentUrl);
+            setMessage('');
+            setAttachment(null);
+            // Reload messages for the chat to show the new one
+            await loadChatMessages(currentChat.id);
+          } else {
+            console.error("Failed to create or find chat for the client.");
+          }
+        } catch (error) {
+          console.error('Error sending message:', error);
         }
       } catch (error) {
-        console.error('Error sending message:', error);
+        console.error('Error uploading file:', error);
+        alert('Failed to upload file. Please try again.');
       }
     }
+  };
+
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      if (file.size > 5 * 1024 * 1024) {
+        alert('File size must be less than 5MB');
+        return;
+      }
+      setAttachment(file);
+    }
+  };
+
+  const removeAttachment = () => {
+    setAttachment(null);
   };
 
   const formatTime = (timestamp: string) => {
@@ -180,7 +222,7 @@ const ClientPortalDashboard: React.FC<ClientPortalDashboardProps> = ({ user, onB
     console.log('Selected add-on services:', selectedServices);
     
     if (!client) {
-      error('Client Error', 'Client information not available. Please contact support.');
+      alert('Client information not available. Please contact support.');
       return;
     }
 
@@ -203,636 +245,352 @@ const ClientPortalDashboard: React.FC<ClientPortalDashboardProps> = ({ user, onB
         total + parseFloat(service.price.replace('RM ', '')), 0
       );
       
-      success(
-        'Add-on Services Requested!',
-        `Services: ${selectedServiceDetails.map(s => s.name).join(', ')}\nTotal Cost: RM ${totalCost.toFixed(2)}\n\nOur team will review your request and contact you shortly.`
-      );
+      alert(`Add-on services requested successfully!\n\nServices: ${selectedServiceDetails.map(s => s.name).join(', ')}\nTotal Cost: RM ${totalCost.toFixed(2)}\n\nOur team will review your request and contact you shortly.`);
       
-      // Refresh client service requests to show the new request
-      await fetchClientServiceRequests();
-      
-    } catch (err) {
-      console.error('Error submitting add-on services:', err);
-      error('Request Failed', 'Failed to submit add-on services. Please try again or contact support.');
+    } catch (error) {
+      console.error('Error submitting add-on services:', error);
+      alert('Failed to submit add-on services. Please try again or contact support.');
     }
   };
 
-  // Show Progress Tracker
-  if (showProgressTracker) {
+  // Auto scroll to bottom when new messages arrive
+  useEffect(() => {
+    const chatContainer = document.getElementById('chat-messages');
+    if (chatContainer) {
+      chatContainer.scrollTop = chatContainer.scrollHeight;
+    }
+  }, [clientChat?.messages]);
+
+  // Update clientChat reference when chats change
+  useEffect(() => {
+    if (client && chats.length > 0) {
+      const updatedClientChat = chats.find(chat => chat.clientId === client.id);
+      if (updatedClientChat && !clientChat) {
+        // Load messages for the chat
+        const { loadChatMessages } = useAppStore.getState();
+        loadChatMessages(updatedClientChat.id);
+      }
+    }
+  }, [chats, client, clientChat]);
+
+  if (isLoading) {
     return (
-      <ClientProgressTracker
-        clientId={client.id.toString()}
-        onBack={() => setShowProgressTracker(false)}
-      />
-    );
-  }
-
-  // Show Package Components
-  if (showPackageComponents) {
-    return (
-      <div className="min-h-screen bg-slate-50">
-        <div className="bg-white border-b border-slate-200 px-4 lg:px-8 py-4 lg:py-6">
-          <div className="max-w-7xl mx-auto flex items-center justify-between">
-            <div className="flex items-center space-x-4">
-              <button
-                onClick={() => setShowPackageComponents(false)}
-                className="flex items-center space-x-2 px-3 py-2 text-slate-600 hover:text-slate-900 hover:bg-slate-100 rounded-lg transition-colors"
-              >
-                <ArrowLeft className="w-5 h-5" />
-                <span className="font-medium">Back</span>
-              </button>
-              <div>
-                <h1 className="text-xl lg:text-2xl font-bold text-slate-900 flex items-center space-x-2">
-                  <Package className="w-6 h-6 text-orange-600" />
-                  <span>My Packages</span>
-                </h1>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <div className="max-w-4xl mx-auto p-4 lg:p-8">
-          <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-6">
-            <div className="mb-6">
-              <p className="text-slate-600 mb-2">Current Package :</p>
-              <h2 className="text-2xl font-bold text-slate-900">{actualPackageName}</h2>
-            </div>
-
-            <div className="mb-6">
-              <h3 className="text-lg font-semibold text-slate-900 mb-4">List of Components</h3>
-              <div className="space-y-3">
-                {components.map((component, index) => (
-                  <div key={component.id} className="flex items-center justify-between p-4 border border-slate-200 rounded-lg">
-                    <div className="flex items-center space-x-3">
-                      <div className="w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center flex-shrink-0">
-                        <span className="text-xs font-bold text-blue-600">{index + 1}</span>
-                      </div>
-                      <Package className="w-5 h-5 text-slate-600" />
-                      <div>
-                        <span className="font-medium text-slate-900">No. {index + 1} - {component.name}</span>
-                        <p className="text-sm text-slate-600">{component.price}</p>
-                      </div>
-                      {component.active && (
-                        <span className="px-2 py-1 bg-green-100 text-green-700 text-xs font-medium rounded-full">
-                          Completed
-                        </span>
-                      )}
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-          </div>
+      <div className="min-h-screen bg-slate-50 flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
+          <p className="text-slate-600">Loading your dashboard...</p>
         </div>
       </div>
     );
   }
 
-  // Show Billing
-  if (showBilling) {
+  if (!client) {
     return (
-      <div className="min-h-screen bg-slate-50">
-        <div className="bg-white border-b border-slate-200 px-4 lg:px-8 py-4 lg:py-6">
-          <div className="max-w-7xl mx-auto flex items-center justify-between">
-            <div className="flex items-center space-x-4">
-              <button
-                onClick={() => setShowBilling(false)}
-                className="flex items-center space-x-2 px-3 py-2 text-slate-600 hover:text-slate-900 hover:bg-slate-100 rounded-lg transition-colors"
-              >
-                <ArrowLeft className="w-5 h-5" />
-                <span className="font-medium">Back</span>
-              </button>
-              <div>
-                <h1 className="text-xl lg:text-2xl font-bold text-slate-900">My Account & Billing</h1>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <div className="max-w-4xl mx-auto p-4 lg:p-8 space-y-6">
-          {/* Account Information */}
-          <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-6">
-            <h3 className="text-lg font-semibold text-slate-900 mb-4">Account Information</h3>
-            <div className="space-y-3">
-              <div>
-                <span className="font-medium text-slate-700">Name: </span>
-                <span className="text-slate-900">{client.name}</span>
-              </div>
-              <div>
-                <span className="font-medium text-slate-700">Email: </span>
-                <span className="text-slate-900">{client.email}</span>
-              </div>
-              <div>
-                <span className="font-medium text-slate-700">Phone: </span>
-                <span className="text-slate-900">{client.phone || 'Not provided'}</span>
-              </div>
-              <div>
-                <span className="font-medium text-slate-700">Business: </span>
-                <span className="text-slate-900">{client.businessName}</span>
-              </div>
-              <div>
-                <span className="font-medium text-slate-700">Registered Package: </span>
-                <span className="text-slate-900">{actualPackageName}</span>
-              </div>
-            </div>
-          </div>
-
-          {/* Payment Summary */}
-          <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-6">
-            <h3 className="text-lg font-semibold text-slate-900 mb-4">Payment Summary</h3>
-            <div className="space-y-3">
-              <div>
-                <span className="font-medium text-slate-700">Total Invoiced: </span>
-                <span className="text-slate-900">RM {totalAmount.toLocaleString()}</span>
-              </div>
-              <div>
-                <span className="font-medium text-slate-700">Total Paid: </span>
-                <span className="text-green-600">RM {paidAmount.toLocaleString()}</span>
-              </div>
-              <div>
-                <span className="font-medium text-slate-700">Balance: </span>
-                <span className="text-red-600">RM {dueAmount.toLocaleString()}</span>
-              </div>
-            </div>
-          </div>
-
-          {/* Invoice & Payment History */}
-          <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-6">
-            <h3 className="text-lg font-semibold text-slate-900 mb-4">Invoice & Payment History</h3>
-            <div className="overflow-x-auto">
-              <table className="w-full">
-                <thead className="bg-slate-50 border-b border-slate-200">
-                  <tr>
-                    <th className="text-left py-3 px-4 font-medium text-slate-900">Invoice</th>
-                    <th className="text-left py-3 px-4 font-medium text-slate-900">Amount</th>
-                    <th className="text-left py-3 px-4 font-medium text-slate-900">Date</th>
-                    <th className="text-left py-3 px-4 font-medium text-slate-900">Payment</th>
-                    <th className="text-left py-3 px-4 font-medium text-slate-900">Receipt</th>
-                    <th className="text-left py-3 px-4 font-medium text-slate-900">Status</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-slate-200">
-                  {invoices.map((invoice) => (
-                    <tr key={invoice.id}>
-                      <td className="py-3 px-4 text-slate-900">{invoice.packageName || 'Package Invoice'}</td>
-                      <td className="py-3 px-4 text-slate-900">RM {invoice.amount.toLocaleString()}</td>
-                      <td className="py-3 px-4 text-slate-600">{new Date(invoice.createdAt).toLocaleDateString()}</td>
-                      <td className="py-3 px-4 text-slate-900">RM {invoice.paid.toLocaleString()}</td>
-                      <td className="py-3 px-4 text-slate-600">-</td>
-                      <td className="py-3 px-4">
-                        <span className={`px-2 py-1 text-xs font-medium rounded-full ${
-                          invoice.paid >= invoice.amount ? 'bg-green-100 text-green-700' : 'bg-yellow-100 text-yellow-700'
-                        }`}>
-                          {invoice.paid >= invoice.amount ? 'Paid' : 'Partial'}
-                        </span>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          </div>
+      <div className="min-h-screen bg-slate-50 flex items-center justify-center">
+        <div className="text-center">
+          <p className="text-red-600 mb-4">Client information not found.</p>
+          <button
+            onClick={onBack}
+            className="px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors"
+          >
+            Go Back
+          </button>
         </div>
       </div>
     );
   }
 
-  // Show View Appointments
-  if (showViewAppointments) {
-    const clientEvents = calendarEvents.filter(event => event.clientId === client.id);
-    
-    return (
-      <div className="min-h-screen bg-slate-50">
-        <div className="bg-white border-b border-slate-200 px-4 lg:px-8 py-4 lg:py-6">
-          <div className="max-w-7xl mx-auto flex items-center justify-between">
-            <div className="flex items-center space-x-4">
-              <button
-                onClick={() => setShowViewAppointments(false)}
-                className="flex items-center space-x-2 px-3 py-2 text-slate-600 hover:text-slate-900 hover:bg-slate-100 rounded-lg transition-colors"
-              >
-                <ArrowLeft className="w-5 h-5" />
-                <span className="font-medium">Back</span>
-              </button>
-              <div>
-                <h1 className="text-xl lg:text-2xl font-bold text-slate-900 flex items-center space-x-2">
-                  <Package className="w-6 h-6 text-orange-600" />
-                  <span>View Appointments</span>
-                </h1>
-              </div>
-            </div>
-          </div>
-        </div>
+  // Get client data
+  const progressSteps = getProgressStepsByClientId(client.id);
+  const components = getComponentsByClientId(client.id);
+  const invoices = getInvoicesByClientId(client.id);
+  const clientEvents = calendarEvents.filter(event => event.clientId === client.id);
 
-        <div className="max-w-4xl mx-auto p-4 lg:p-8">
-          <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-6">
-            <h3 className="text-lg font-semibold text-slate-900 mb-4">Your Appointments</h3>
-            {clientEvents.length > 0 ? (
-              <div className="overflow-x-auto">
-                <table className="w-full">
-                  <thead className="bg-slate-50 border-b border-slate-200">
-                    <tr>
-                      <th className="text-left py-3 px-4 font-medium text-slate-900">Title</th>
-                      <th className="text-left py-3 px-4 font-medium text-slate-900">Date</th>
-                      <th className="text-left py-3 px-4 font-medium text-slate-900">Time</th>
-                      <th className="text-left py-3 px-4 font-medium text-slate-900">Description</th>
-                      <th className="text-left py-3 px-4 font-medium text-slate-900">Type</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-slate-200">
-                    {clientEvents.map((event) => (
-                      <tr key={event.id}>
-                        <td className="py-3 px-4 text-slate-900">{event.title}</td>
-                        <td className="py-3 px-4 text-slate-600">{new Date(event.startDate).toLocaleDateString()}</td>
-                        <td className="py-3 px-4 text-slate-600">{event.startTime} - {event.endTime}</td>
-                        <td className="py-3 px-4 text-slate-600">{event.description || '-'}</td>
-                        <td className="py-3 px-4">
-                          <span className="px-2 py-1 bg-blue-100 text-blue-700 text-xs font-medium rounded-full">
-                            {event.type}
-                          </span>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            ) : (
-              <div className="text-center py-8 text-slate-500">
-                <Calendar className="w-12 h-12 text-slate-300 mx-auto mb-3" />
-                <p>No appointments scheduled</p>
-                <p className="text-sm">Contact support to schedule an appointment</p>
-              </div>
-            )}
-          </div>
-        </div>
-      </div>
-    );
-  }
+  // Calculate progress
+  const totalSteps = progressSteps.length;
+  const completedSteps = progressSteps.filter(step => step.status === 'Completed').length;
+  const progressPercentage = totalSteps > 0 ? Math.round((completedSteps / totalSteps) * 100) : 0;
+  const progressStatusData = calculateClientProgressStatus(client.id);
+  const progressStatus = progressStatusData.hasOverdue ? 'Behind' : progressStatusData.percentage >= 80 ? 'On Track' : 'Behind';
 
-  // Show My Requests
-  if (showMyRequests) {
-    const clientRequests = getClientServiceRequestsByClientId(client.id);
-    
-    return (
-      <div className="min-h-screen bg-slate-50">
-        <div className="bg-white border-b border-slate-200 px-4 lg:px-8 py-4 lg:py-6">
-          <div className="max-w-7xl mx-auto flex items-center justify-between">
-            <div className="flex items-center space-x-4">
-              <button
-                onClick={() => setShowMyRequests(false)}
-                className="flex items-center space-x-2 px-3 py-2 text-slate-600 hover:text-slate-900 hover:bg-slate-100 rounded-lg transition-colors"
-              >
-                <ArrowLeft className="w-5 h-5" />
-                <span className="font-medium">Back</span>
-              </button>
-              <div>
-                <h1 className="text-xl lg:text-2xl font-bold text-slate-900 flex items-center space-x-2">
-                  <Clock className="w-6 h-6 text-indigo-600" />
-                  <span>My Add-On Service Requests</span>
-                </h1>
-              </div>
-            </div>
-          </div>
-        </div>
+  // Calculate billing summary
+  const totalAmount = invoices.reduce((sum, inv) => sum + inv.amount, 0);
+  const paidAmount = invoices.reduce((sum, inv) => sum + inv.paid, 0);
+  const dueAmount = invoices.reduce((sum, inv) => sum + inv.due, 0);
 
-        <div className="max-w-4xl mx-auto p-4 lg:p-8">
-          <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-6">
-            <h3 className="text-lg font-semibold text-slate-900 mb-4">Your Service Requests</h3>
-            {clientRequests.length > 0 ? (
-              <div className="overflow-x-auto">
-                <table className="w-full">
-                  <thead className="bg-slate-50 border-b border-slate-200">
-                    <tr>
-                      <th className="text-left py-3 px-4 font-medium text-slate-900">Service</th>
-                      <th className="text-left py-3 px-4 font-medium text-slate-900">Category</th>
-                      <th className="text-left py-3 px-4 font-medium text-slate-900">Price</th>
-                      <th className="text-left py-3 px-4 font-medium text-slate-900">Request Date</th>
-                      <th className="text-left py-3 px-4 font-medium text-slate-900">Status</th>
-                      <th className="text-left py-3 px-4 font-medium text-slate-900">Notes</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-slate-200">
-                    {clientRequests.map((request) => {
-                      const service = addOnServices.find(s => s.id === request.service_id);
-                      return (
-                        <tr key={request.id}>
-                          <td className="py-3 px-4 text-slate-900">
-                            <div>
-                              <div className="font-medium">{service?.name || 'Unknown Service'}</div>
-                              <div className="text-sm text-slate-600">{service?.description || ''}</div>
-                            </div>
-                          </td>
-                          <td className="py-3 px-4 text-slate-600">{service?.category || '-'}</td>
-                          <td className="py-3 px-4 text-slate-900">RM {service?.price?.toLocaleString() || '0'}</td>
-                          <td className="py-3 px-4 text-slate-600">
-                            {new Date(request.request_date).toLocaleDateString()}
-                          </td>
-                          <td className="py-3 px-4">
-                            <span className={`px-2 py-1 text-xs font-medium rounded-full ${
-                              request.status === 'Pending' ? 'bg-yellow-100 text-yellow-700' :
-                              request.status === 'Approved' ? 'bg-green-100 text-green-700' :
-                              request.status === 'Rejected' ? 'bg-red-100 text-red-700' :
-                              request.status === 'Completed' ? 'bg-blue-100 text-blue-700' :
-                              'bg-slate-100 text-slate-700'
-                            }`}>
-                              {request.status}
-                            </span>
-                          </td>
-                          <td className="py-3 px-4 text-slate-600">
-                            {request.admin_notes || request.rejection_reason || '-'}
-                          </td>
-                        </tr>
-                      );
-                    })}
-                  </tbody>
-                </table>
-              </div>
-            ) : (
-              <div className="text-center py-8 text-slate-500">
-                <Clock className="w-12 h-12 text-slate-300 mx-auto mb-3" />
-                <p>No service requests found</p>
-                <p className="text-sm">You haven't requested any add-on services yet</p>
-                <button
-                  onClick={() => {
-                    setShowMyRequests(false);
-                    setShowAddOnModal(true);
-                  }}
-                  className="mt-4 bg-indigo-600 text-white px-4 py-2 rounded-lg hover:bg-indigo-700 transition-colors"
-                >
-                  Request Add-On Services
-                </button>
-              </div>
-            )}
-          </div>
-        </div>
-      </div>
-    );
-  }
+  // Get the actual package name from invoices if available
+  const actualPackageName = invoices.length > 0 ? invoices[0].packageName : 'No Package Assigned';
 
   return (
     <div className="min-h-screen bg-slate-50">
       {/* Header */}
-      <div className="bg-white border-b border-slate-200 px-4 lg:px-8 py-4 lg:py-6">
-        <div className="max-w-7xl mx-auto flex items-center justify-between">
-            <div>
-              <h1 className="text-xl lg:text-2xl font-bold text-slate-900">
-                Hai, {client.name} 👋
-              </h1>
-              <p className="text-slate-600 text-sm lg:text-base">Welcome to your client portal</p>
+      <div className="bg-white border-b border-slate-200 px-4 lg:px-8 py-6">
+        <div className="max-w-7xl mx-auto">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center space-x-4">
+              <button
+                onClick={onBack}
+                className="p-2 text-slate-600 hover:text-slate-900 hover:bg-slate-100 rounded-lg transition-colors"
+              >
+                <ArrowLeft className="w-5 h-5" />
+              </button>
+              <div>
+                <h1 className="text-2xl lg:text-3xl font-bold text-slate-900">Welcome back, {client.name}!</h1>
+                <p className="text-slate-600">Here's your project overview</p>
+              </div>
             </div>
-          <button 
-            onClick={onBack}
-            className="bg-red-600 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-red-700 transition-colors flex items-center space-x-2"
-          >
-            <ArrowLeft className="w-4 h-4" />
-            <span>Logout</span>
-          </button>
+            <div className="flex items-center space-x-2">
+              <span className="text-sm text-slate-500">Package:</span>
+              <span className="text-sm font-medium text-slate-900">{actualPackageName}</span>
+            </div>
+          </div>
         </div>
       </div>
 
       {/* Main Content */}
-      <div className="max-w-7xl mx-auto p-4 lg:p-8">
-        {/* Top Cards Grid */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-6 gap-4 lg:gap-6 mb-6 lg:mb-8">
-          {/* Progress Tracking */}
-          <div 
-            className="bg-white rounded-xl p-6 shadow-sm border border-slate-200 hover:shadow-md transition-shadow cursor-pointer"
-            onClick={() => setShowProgressTracker(true)}
-          >
-            <div className="text-center">
-              <div className="w-12 h-12 bg-blue-100 rounded-full flex items-center justify-center mx-auto mb-3">
-                <CheckCircle className="w-6 h-6 text-blue-600" />
-              </div>
-              <h3 className="font-semibold text-slate-900 mb-2">Progress Tracking</h3>
-              <p className="text-sm text-slate-600 mb-3">View your onboarding journey</p>
-              <div className="w-full bg-slate-200 rounded-full h-2 mb-2">
-                <div
-                  className="bg-blue-500 h-2 rounded-full transition-all duration-300"
-                  style={{ width: `${progressPercentage}%` }}
-                />
-              </div>
-              <p className="text-xs text-slate-500">{progressPercentage}% Complete</p>
-            </div>
-          </div>
-
-          {/* Package Component */}
-          <div 
-            className="bg-white rounded-xl p-6 shadow-sm border border-slate-200 hover:shadow-md transition-shadow cursor-pointer"
-            onClick={() => setShowPackageComponents(true)}
-          >
-            <div className="text-center">
-              <div className="w-12 h-12 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-3">
-                <Package className="w-6 h-6 text-green-600" />
-              </div>
-              <h3 className="font-semibold text-slate-900 mb-2">Package Component</h3>
-              <p className="text-sm text-slate-600 mb-3">List of modules you have access to</p>
-              <div className="text-lg font-bold text-green-600">{components.length}</div>
-              <p className="text-xs text-slate-500">Active Components</p>
-            </div>
-          </div>
-
-          {/* My Billing */}
-          <div 
-            className="bg-white rounded-xl p-6 shadow-sm border border-slate-200 hover:shadow-md transition-shadow cursor-pointer"
-            onClick={() => setShowBilling(true)}
-          >
-            <div className="text-center">
-              <div className="w-12 h-12 bg-purple-100 rounded-full flex items-center justify-center mx-auto mb-3">
-                <DollarSign className="w-6 h-6 text-purple-600" />
-              </div>
-              <h3 className="font-semibold text-slate-900 mb-2">My Billing</h3>
-              <p className="text-sm text-slate-600 mb-3">Check your invoices & payment status</p>
-              <div className="text-lg font-bold text-purple-600">RM {Number(dueAmount).toLocaleString('en-MY', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</div>
-              <p className="text-xs text-slate-500">Outstanding</p>
-            </div>
-          </div>
-
-          {/* Schedule Appointment */}
-          <div 
-            className="bg-white rounded-xl p-6 shadow-sm border border-slate-200 hover:shadow-md transition-shadow cursor-pointer"
-            onClick={() => setShowViewAppointments(true)}
-          >
-            <div className="text-center">
-              <div className="w-12 h-12 bg-orange-100 rounded-full flex items-center justify-center mx-auto mb-3">
-                <Eye className="w-6 h-6 text-orange-600" />
-              </div>
-              <h3 className="font-semibold text-slate-900 mb-2">View Appointments</h3>
-              <p className="text-sm text-slate-600 mb-3">View your scheduled appointments</p>
-              <div className="flex items-center justify-center text-orange-600">
-                <Eye className="w-4 h-4 mr-1" />
-                <span className="text-sm font-medium">View Appointments</span>
-              </div>
-            </div>
-          </div>
-
-          {/* Add-On Services */}
-          <div 
-            className="bg-white rounded-xl p-6 shadow-sm border border-slate-200 hover:shadow-md transition-shadow cursor-pointer"
-            onClick={() => setShowAddOnModal(true)}
-          >
-            <div className="text-center">
-              <div className="w-12 h-12 bg-purple-100 rounded-full flex items-center justify-center mx-auto mb-3">
-                <Plus className="w-6 h-6 text-purple-600" />
-              </div>
-              <h3 className="font-semibold text-slate-900 mb-2">Add-On Services</h3>
-              <p className="text-sm text-slate-600 mb-3">Enhance your package with additional services</p>
-              <div className="flex items-center justify-center text-purple-600">
-                <Plus className="w-4 h-4 mr-1" />
-                <span className="text-sm font-medium">Browse Services</span>
-              </div>
-            </div>
-          </div>
-
-          {/* My Requests */}
-          <div 
-            className="bg-white rounded-xl p-6 shadow-sm border border-slate-200 hover:shadow-md transition-shadow cursor-pointer"
-            onClick={() => setShowMyRequests(true)}
-          >
-            <div className="text-center">
-              <div className="w-12 h-12 bg-indigo-100 rounded-full flex items-center justify-center mx-auto mb-3">
-                <Clock className="w-6 h-6 text-indigo-600" />
-              </div>
-              <h3 className="font-semibold text-slate-900 mb-2">My Requests</h3>
-              <p className="text-sm text-slate-600 mb-3">Track your add-on service requests</p>
-              <div className="text-lg font-bold text-indigo-600">
-                {getClientServiceRequestsByClientId(client.id).length}
-              </div>
-              <p className="text-xs text-slate-500">Total Requests</p>
-            </div>
-          </div>
-
-
-        </div>
-
-        {/* Bottom Section */}
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 lg:gap-8">
-          {/* Need Help */}
-          <div className="bg-white rounded-xl p-6 shadow-sm border border-slate-200">
-            <div className="text-center mb-6">
-              <div className="w-12 h-12 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-3">
-                <HelpCircle className="w-6 h-6 text-red-600" />
-              </div>
-              <h3 className="font-semibold text-slate-900 mb-2">Need Help?</h3>
-              <p className="text-sm text-slate-600">Contact us for assistance</p>
-            </div>
-            
-            <div className="space-y-3">
-              <div className="flex items-center space-x-3 p-3 bg-slate-50 rounded-lg">
-                <Phone className="w-4 h-4 text-slate-500" />
-                <div>
-                  <p className="text-sm font-medium text-slate-900">Phone Support</p>
-                  <p className="text-xs text-slate-600">03 9388 0531</p>
-                </div>
+      <div className="max-w-7xl mx-auto px-4 lg:px-8 py-8">
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+          {/* Left Column - Main Dashboard */}
+          <div className="lg:col-span-2 space-y-8">
+            {/* Progress Overview */}
+            <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-6">
+              <div className="flex items-center justify-between mb-6">
+                <h2 className="text-xl font-semibold text-slate-900">Project Progress</h2>
+                <button
+                  onClick={() => setShowProgressTracker(true)}
+                  className="text-blue-600 hover:text-blue-700 text-sm font-medium"
+                >
+                  View Details
+                </button>
               </div>
               
-              <div className="flex items-center space-x-3 p-3 bg-slate-50 rounded-lg">
-                <Mail className="w-4 h-4 text-slate-500" />
-                <div>
-                  <p className="text-sm font-medium text-slate-900">Email Support</p>
-                  <p className="text-xs text-slate-600">evodagang.malaysia@gmail.com</p>
+              <div className="space-y-4">
+                <div className="flex items-center justify-between">
+                  <span className="text-sm text-slate-600">Overall Progress</span>
+                  <span className="text-sm font-medium text-slate-900">{progressPercentage}%</span>
                 </div>
+                <div className="w-full bg-slate-200 rounded-full h-2">
+                  <div 
+                    className="bg-blue-500 h-2 rounded-full transition-all duration-300"
+                    style={{ width: `${progressPercentage}%` }}
+                  ></div>
+                </div>
+                <div className="flex items-center justify-between text-sm">
+                  <span className="text-slate-600">{completedSteps} of {totalSteps} steps completed</span>
+                  <span className={`px-2 py-1 rounded-full text-xs font-medium ${
+                    progressStatus === 'On Track' ? 'bg-green-100 text-green-800' :
+                    progressStatus === 'Behind' ? 'bg-yellow-100 text-yellow-800' :
+                    'bg-red-100 text-red-800'
+                  }`}>
+                    {progressStatus}
+                  </span>
+                </div>
+              </div>
+            </div>
+
+            {/* Quick Actions */}
+            <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-6">
+              <h2 className="text-xl font-semibold text-slate-900 mb-6">Quick Actions</h2>
+              <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+                <button
+                  onClick={() => setShowPackageComponents(true)}
+                  className="p-4 border border-slate-200 rounded-lg hover:border-blue-300 hover:bg-blue-50 transition-colors text-center"
+                >
+                  <FileText className="w-8 h-8 text-blue-600 mx-auto mb-2" />
+                  <span className="text-sm font-medium text-slate-900">View Components</span>
+                </button>
+                
+                <button
+                  onClick={() => setShowBilling(true)}
+                  className="p-4 border border-slate-200 rounded-lg hover:border-blue-300 hover:bg-blue-50 transition-colors text-center"
+                >
+                  <DollarSign className="w-8 h-8 text-green-600 mx-auto mb-2" />
+                  <span className="text-sm font-medium text-slate-900">Billing</span>
+                </button>
+                
+                <button
+                  onClick={() => setShowViewAppointments(true)}
+                  className="p-4 border border-slate-200 rounded-lg hover:border-blue-300 hover:bg-blue-50 transition-colors text-center"
+                >
+                  <Calendar className="w-8 h-8 text-purple-600 mx-auto mb-2" />
+                  <span className="text-sm font-medium text-slate-900">Appointments</span>
+                </button>
+                
+                <button
+                  onClick={() => setShowAddOnModal(true)}
+                  className="p-4 border border-slate-200 rounded-lg hover:border-blue-300 hover:bg-blue-50 transition-colors text-center"
+                >
+                  <Plus className="w-8 h-8 text-orange-600 mx-auto mb-2" />
+                  <span className="text-sm font-medium text-slate-900">Add Services</span>
+                </button>
+              </div>
+            </div>
+
+            {/* Recent Activity */}
+            <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-6">
+              <div className="flex items-center justify-between mb-6">
+                <h2 className="text-xl font-semibold text-slate-900">Recent Activity</h2>
+                <button
+                  onClick={() => setShowMyRequests(true)}
+                  className="text-blue-600 hover:text-blue-700 text-sm font-medium"
+                >
+                  View All
+                </button>
               </div>
               
-              {clientChat && (
-                <div className="flex items-center space-x-3 p-3 bg-blue-50 rounded-lg border border-blue-200">
-                  <MessageSquare className="w-4 h-4 text-blue-600" />
-                  <div className="flex-1">
-                    <p className="text-sm font-medium text-blue-900">Live Chat</p>
-                    <p className="text-xs text-blue-700">
-                      {clientChat.unread_count > 0 ? `${clientChat.unread_count} new messages` : 'No new messages'}
-                    </p>
-                  </div>
-                  {clientChat.unread_count > 0 && (
-                    <div className="w-5 h-5 bg-blue-500 rounded-full flex items-center justify-center">
-                      <span className="text-xs text-white font-medium">{clientChat.unread_count}</span>
-                    </div>
-                  )}
-                </div>
-              )}
-            </div>
-          </div>
-
-          {/* Chat Box */}
-          <div className="lg:col-span-2 bg-white rounded-xl shadow-sm border border-slate-200 flex flex-col h-96">
-            {/* Chat Header */}
-            <div className="p-4 border-b border-slate-200 flex items-center justify-between">
-              <div className="flex items-center space-x-3">
-                <div className="w-10 h-10 bg-blue-500 rounded-full flex items-center justify-center text-white font-medium">
-                  {client.businessName.substring(0, 2).toUpperCase()}
-                </div>
-                <div>
-                  <h3 className="font-medium text-slate-900">{client.businessName}</h3>
-                  <p className="text-sm text-slate-500">Online</p>
-                </div>
-              </div>
-              {/* Chat action buttons removed - keeping only essential functional elements */}
-            </div>
-
-            {/* Messages */}
-            <div className="flex-1 overflow-y-auto p-4 space-y-4">
-              {clientChat && clientChat.messages && clientChat.messages.length > 0 ? (
-                clientChat.messages.map((msg) => (
-                  <div
-                    key={msg.id}
-                    className={`flex ${msg.sender === 'client' ? 'justify-end' : 'justify-start'}`}
-                  >
-                    <div
-                      className={`max-w-xs lg:max-w-md px-4 py-2 rounded-lg ${
-                        msg.sender === 'client'
-                          ? 'bg-blue-500 text-white'
-                          : 'bg-slate-100 text-slate-900'
-                      }`}
-                    >
-                      {/* Show sender info for all messages */}
-                      {msg.sender === 'admin' && (
-                        <div className="text-xs font-medium mb-1 text-slate-600">
-                          Admin Team - Support
-                        </div>
-                      )}
-                      {msg.sender === 'client' && (
-                        <div className="text-xs font-medium mb-1 text-blue-100">
-                          {getClientRole(client.id)} - {client.name}
-                        </div>
-                      )}
-                      <p className="text-sm">{msg.content}</p>
-                      <p className={`text-xs mt-1 ${
-                        msg.sender === 'client' ? 'text-blue-100' : 'text-slate-500'
-                      }`}>
-                        {formatTime(msg.created_at)}
+              <div className="space-y-4">
+                {clientEvents.slice(0, 3).map((event) => (
+                  <div key={event.id} className="flex items-center space-x-3 p-3 bg-slate-50 rounded-lg">
+                    <Calendar className="w-5 h-5 text-blue-600" />
+                    <div className="flex-1">
+                      <p className="text-sm font-medium text-slate-900">{event.title}</p>
+                      <p className="text-xs text-slate-600">
+                        {new Date(event.startDate).toLocaleDateString()} at {event.startTime}
                       </p>
                     </div>
                   </div>
-                ))
-              ) : (
-                <div className="flex items-center justify-center h-full text-slate-500">
-                  <div className="text-center">
-                    <MessageSquare className="w-12 h-12 text-slate-300 mx-auto mb-3" />
-                    <p>No messages yet</p>
-                    <p className="text-sm">Start a conversation with your team</p>
+                ))}
+                
+                {clientEvents.length === 0 && (
+                  <p className="text-sm text-slate-500 text-center py-4">No recent activity</p>
+                )}
+              </div>
+            </div>
+          </div>
+
+          {/* Right Column - Chat */}
+          <div className="lg:col-span-1">
+            <div className="bg-white rounded-xl shadow-sm border border-slate-200 h-full flex flex-col">
+              <div className="p-4 border-b border-slate-200">
+                <div className="flex items-center justify-between">
+                  <h3 className="font-semibold text-slate-900">Chat with Support</h3>
+                  <div className="flex items-center space-x-2">
+                    <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
+                    <span className="text-xs text-green-600">Online</span>
                   </div>
                 </div>
-              )}
-            </div>
+              </div>
 
-            {/* Message Input */}
-            <div className="p-4 border-t border-slate-200">
-              <div className="flex items-center space-x-2">
-                {/* Removed non-functional attachment and emoji buttons */}
-                <div className="flex-1">
-                  <input
-                    type="text"
-                    value={message}
-                    onChange={(e) => setMessage(e.target.value)}
-                    onKeyPress={(e) => e.key === 'Enter' && handleSendMessage()}
-                    placeholder="Type a message..."
-                    className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none"
-                  />
+              <div className="flex-1 overflow-y-auto p-4 space-y-4" id="chat-messages">
+                {clientChat && clientChat.messages && clientChat.messages.length > 0 ? (
+                  clientChat.messages.map((msg) => (
+                    <div
+                      key={msg.id}
+                      className={`flex ${msg.sender === 'client' ? 'justify-end' : 'justify-start'}`}
+                    >
+                      <div
+                        className={`max-w-xs lg:max-w-md px-4 py-2 rounded-lg ${
+                          msg.sender === 'client'
+                            ? 'bg-blue-500 text-white'
+                            : 'bg-slate-100 text-slate-900'
+                        }`}
+                      >
+                        {/* Show sender info for all messages */}
+                        {msg.sender === 'admin' && (
+                          <div className="text-xs font-medium mb-1 text-slate-600">
+                            Admin Team - Support
+                          </div>
+                        )}
+                        {msg.sender === 'client' && (
+                          <div className="text-xs font-medium mb-1 text-blue-100">
+                            {getClientRole(client.id)} - {client.name}
+                          </div>
+                        )}
+                        <p className="text-sm">{msg.content}</p>
+                        
+                        {/* Show attachment if exists */}
+                        {msg.attachmentUrl && (
+                          <div className="mt-2">
+                            <a
+                              href={msg.attachmentUrl}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className={`text-xs flex items-center space-x-1 ${
+                                msg.sender === 'client' 
+                                  ? 'text-blue-100 hover:text-blue-200' 
+                                  : 'text-blue-600 hover:text-blue-800'
+                              }`}
+                            >
+                              <FileText className="w-3 h-3" />
+                              <span>View attachment</span>
+                            </a>
+                          </div>
+                        )}
+                        
+                        <p className={`text-xs mt-1 ${
+                          msg.sender === 'client' ? 'text-blue-100' : 'text-slate-500'
+                        }`}>
+                          {formatTime(msg.created_at)}
+                        </p>
+                      </div>
+                    </div>
+                  ))
+                ) : (
+                  <div className="flex items-center justify-center h-full text-slate-500">
+                    <div className="text-center">
+                      <MessageSquare className="w-12 h-12 text-slate-300 mx-auto mb-3" />
+                      <p>No messages yet</p>
+                      <p className="text-sm">Start a conversation with your team</p>
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {/* Message Input */}
+              <div className="p-4 border-t border-slate-200">
+                {/* Show attachment if selected */}
+                {attachment && (
+                  <div className="mb-3 p-2 bg-blue-50 rounded-lg border border-blue-200">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center space-x-2">
+                        <FileText className="w-3 h-3 text-blue-600" />
+                        <span className="text-xs text-blue-700">{attachment.name}</span>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={removeAttachment}
+                        className="text-red-500 hover:text-red-700"
+                      >
+                        <X className="w-3 h-3" />
+                      </button>
+                    </div>
+                  </div>
+                )}
+                
+                <div className="flex items-center space-x-2">
+                  {/* File upload button */}
+                  <div className="relative">
+                    <input
+                      type="file"
+                      onChange={handleFileChange}
+                      accept="image/*,.pdf,.doc,.docx,.xls,.xlsx"
+                      className="hidden"
+                      id="dashboard-chat-attachment"
+                    />
+                    <label htmlFor="dashboard-chat-attachment" className="cursor-pointer p-2 text-slate-600 hover:text-slate-900 hover:bg-slate-100 rounded-lg transition-colors">
+                      <UploadCloud className="w-4 h-4" />
+                    </label>
+                  </div>
+                  
+                  <div className="flex-1">
+                    <input
+                      type="text"
+                      value={message}
+                      onChange={(e) => setMessage(e.target.value)}
+                      onKeyPress={(e) => e.key === 'Enter' && handleSendMessage()}
+                      placeholder="Type a message..."
+                      className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none"
+                      disabled={!clientChat}
+                    />
+                  </div>
+                  <button
+                    onClick={handleSendMessage}
+                    disabled={(!message.trim() && !attachment) || !clientChat}
+                    className="p-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    <Send className="w-4 h-4" />
+                  </button>
                 </div>
-                <button
-                  onClick={handleSendMessage}
-                  className="p-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors"
-                >
-                  <Send className="w-4 h-4" />
-                </button>
               </div>
             </div>
           </div>
@@ -840,7 +598,6 @@ const ClientPortalDashboard: React.FC<ClientPortalDashboardProps> = ({ user, onB
       </div>
 
       {/* Admin Links Modal */}
-
 
       {/* Add-On Service Modal */}
       <AddOnServiceModal

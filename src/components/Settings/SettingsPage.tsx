@@ -23,6 +23,7 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ onToggleSidebar }) => {
   const [selectedUserForProfile, setSelectedUserForProfile] = useState<any>(null);
   const [isCleaningChats, setIsCleaningChats] = useState(false);
   const [isMergingChats, setIsMergingChats] = useState(false);
+  const [isFixingFiles, setIsFixingFiles] = useState(false);
   const [toast, setToast] = useState<{ type: 'success' | 'error' | 'warning' | 'info'; message: string } | null>(null);
 
   const { 
@@ -197,6 +198,46 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ onToggleSidebar }) => {
     );
   };
 
+  const handleFixAllFiles = async () => {
+    showConfirmation(
+      async () => {
+        setIsFixingFiles(true);
+        try {
+          const response = await fetch('/api/run-script', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ 
+              script: 'quick-fix-files',
+              description: 'Fix ACL for all files'
+            }),
+          });
+          
+          if (response.ok) {
+            const result = await response.json();
+            const message = result.fixedCount 
+              ? `Successfully fixed ACL for ${result.fixedCount} files!`
+              : result.message;
+            alert(message);
+          } else {
+            const errorData = await response.json();
+            throw new Error(errorData.details || 'Failed to fix files');
+          }
+        } catch (error) {
+          console.error('Error fixing files:', error);
+          alert(`Failed to fix files: ${error.message}`);
+        } finally {
+          setIsFixingFiles(false);
+        }
+      },
+      {
+        title: 'Fix All Files ACL',
+        message: 'Are you sure you want to fix ACL for all files? This will make all uploaded files publicly accessible.',
+        confirmText: 'Fix Files',
+        type: 'warning'
+      }
+    );
+  };
+
   const roleStats = {
     'Super Admin': users.filter(u => u.role === 'Super Admin').length,
     'Team': users.filter(u => u.role === 'Team').length,
@@ -328,6 +369,42 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ onToggleSidebar }) => {
                         <span>Merge Duplicate Chats</span>
                       </>
                     )}
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            {/* Fix All Files ACL */}
+            <div className="bg-gradient-to-br from-green-50 to-emerald-50 rounded-xl p-6 border border-green-200 hover:shadow-md transition-all duration-200">
+              <div className="flex items-start space-x-4">
+                <div className="bg-green-100 rounded-full p-3 flex-shrink-0">
+                  <svg className="w-6 h-6 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  </svg>
+                </div>
+                <div className="flex-1">
+                  <h3 className="font-semibold text-green-800 mb-2">Fix All Files ACL</h3>
+                  <p className="text-sm text-green-700 mb-4 leading-relaxed">
+                    Fix access permissions for all uploaded files. This makes files accessible if they show "access denied" errors.
+                  </p>
+                  <button
+                    onClick={handleFixAllFiles}
+                    disabled={isFixingFiles}
+                    className="bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors text-sm font-medium flex items-center space-x-2"
+                  >
+                                         {isFixingFiles ? (
+                       <>
+                         <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                         <span>Fixing...</span>
+                       </>
+                     ) : (
+                       <>
+                         <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                         </svg>
+                         <span>Fix All Files</span>
+                       </>
+                     )}
                   </button>
                 </div>
               </div>

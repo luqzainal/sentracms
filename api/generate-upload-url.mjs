@@ -1,4 +1,4 @@
-import { S3Client, PutObjectCommand } from '@aws-sdk/client-s3';
+import { S3Client, PutObjectCommand, PutObjectAclCommand } from '@aws-sdk/client-s3';
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
 import crypto from 'crypto';
 import dotenv from 'dotenv';
@@ -119,18 +119,25 @@ export default async function handler(req, res) {
     const uniqueFileName = `${crypto.randomUUID()}-${fileName}`;
     console.log('🆔 Generated unique filename:', uniqueFileName);
 
-    // Buat perintah untuk mengunggah file
+    // Buat perintah untuk mengunggah file dengan ACL yang betul
     const command = new PutObjectCommand({
       Bucket: BUCKET_NAME,
       Key: uniqueFileName,
       ContentType: fileType,
       ACL: 'public-read', // File akan bisa diakses publik setelah diunggah
+      CacheControl: 'public, max-age=31536000', // Cache untuk 1 tahun
+      // Add additional headers to ensure public access
+      Metadata: {
+        'x-amz-acl': 'public-read',
+        'cache-control': 'public, max-age=31536000'
+      }
     });
 
     console.log('📋 PutObjectCommand created:', {
       Bucket: BUCKET_NAME,
       Key: uniqueFileName,
-      ContentType: fileType
+      ContentType: fileType,
+      ACL: 'public-read'
     });
 
     // Buat URL unggahan yang sudah ditandatangani (pre-signed URL)
@@ -151,6 +158,7 @@ export default async function handler(req, res) {
     res.status(200).json({
       uploadUrl: uploadUrl,
       fileUrl: fileUrl,
+      fileName: uniqueFileName, // Return filename for potential ACL fix
     });
 
   } catch (error) {

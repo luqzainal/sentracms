@@ -94,7 +94,7 @@ const FileUpload: React.FC<FileUploadProps> = ({ onUploadComplete, multiple = tr
 
         if (!res.ok) throw new Error('Failed to get upload URL.');
 
-        const { uploadUrl, fileUrl } = await res.json();
+        const { uploadUrl, fileUrl, fileName } = await res.json();
 
         // 2. Upload file to DigitalOcean Spaces
         const xhr = new XMLHttpRequest();
@@ -107,8 +107,42 @@ const FileUpload: React.FC<FileUploadProps> = ({ onUploadComplete, multiple = tr
           }
         };
 
-        xhr.onload = () => {
+        xhr.onload = async () => {
           if (xhr.status === 200) {
+            // Automatically fix ACL after successful upload with timeout
+            // Skip auto-fix in production to prevent message channel issues
+            const isProduction = import.meta.env.PROD;
+            
+            if (!isProduction) {
+              try {
+                console.log('🔧 Auto-fixing ACL for uploaded file...');
+                
+                // Add timeout to prevent hanging
+                const timeoutPromise = new Promise((_, reject) => {
+                  setTimeout(() => reject(new Error('ACL fix timeout')), 10000); // 10 second timeout
+                });
+                
+                const fixPromise = fetch('/api/fix-file-acl', {
+                  method: 'POST',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({ fileName: fileName }),
+                });
+                
+                const fixRes = await Promise.race([fixPromise, timeoutPromise]) as Response;
+                
+                if (fixRes.ok) {
+                  console.log('✅ ACL auto-fixed successfully');
+                } else {
+                  console.warn('⚠️ Auto ACL fix failed, but upload successful');
+                }
+              } catch (error) {
+                console.warn('⚠️ Auto ACL fix error (non-critical):', error);
+                // Don't throw error - upload is still successful
+              }
+            } else {
+              console.log('🚀 Production mode: Skipping auto ACL fix to prevent message channel issues');
+            }
+            
             updateFileStatus(i, { status: 'success', progress: 100, url: fileUrl });
             const uploadedFile = { url: fileUrl, name: file.name, type: file.type, size: file.size };
             uploadedFiles.push(uploadedFile);

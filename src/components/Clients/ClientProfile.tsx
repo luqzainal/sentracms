@@ -664,6 +664,20 @@ const ClientProfile: React.FC<ClientProfileProps> = ({ clientId, onBack, onEdit 
                                   <div className="text-xs text-green-600">
                                         {payment.paymentSource} • {payment.status}
                                       </div>
+                                      {/* Show attachment if exists */}
+                                      {payment.receiptFileUrl && (
+                                        <div className="mt-1">
+                                          <a
+                                            href={payment.receiptFileUrl}
+                                            target="_blank"
+                                            rel="noopener noreferrer"
+                                            className="text-xs text-blue-600 hover:text-blue-800 underline flex items-center space-x-1"
+                                          >
+                                            <FileText className="w-3 h-3" />
+                                            <span>View receipt</span>
+                                          </a>
+                                        </div>
+                                      )}
                                     </div>
                                     <div className="flex items-center space-x-1 ml-2">
                                       <button

@@ -27,8 +27,8 @@ if (!SPACES_ENDPOINT || !SPACES_REGION || !SPACES_KEY || !SPACES_SECRET || !BUCK
 }
 
 // Configure S3 client
-// Extract the base endpoint from the full URL
-const baseEndpoint = SPACES_ENDPOINT.replace(`https://${BUCKET_NAME}.`, 'https://');
+// Use the correct endpoint format for DigitalOcean Spaces
+const baseEndpoint = `https://${SPACES_REGION}.digitaloceanspaces.com`;
 
 console.log('🔧 S3 Client Configuration:');
 console.log('   Base Endpoint:', baseEndpoint);
