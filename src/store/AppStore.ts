@@ -61,6 +61,7 @@ export interface Payment {
   status: string;
   paidAt: string;
   receiptFileUrl?: string;
+  receiptUrl?: string;
   createdAt: string;
   updatedAt: string;
 }
@@ -1644,7 +1645,8 @@ export const useAppStore = create<AppState>((set, get) => ({
         amount: numericAmount,
         payment_source: paymentData.paymentSource,
         status: (paymentData.status || 'Paid') as 'Paid' | 'Pending' | 'Failed' | 'Refunded',
-        paid_at: paymentData.paidAt || new Date().toISOString()
+        paid_at: paymentData.paidAt || new Date().toISOString(),
+        receipt_file_url: paymentData.receiptUrl || undefined
       });
 
       // Convert to store format

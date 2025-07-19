@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { useAppStore } from '../../store/AppStore';
 import { Client, Invoice, Payment, Component, CalendarEvent } from '../../store/AppStore';
-import { Edit, Calendar, FileText, Package, Plus, Trash2, ArrowLeft } from 'lucide-react';
+import { Edit, Calendar, FileText, Package, Plus, Trash2, ArrowLeft, Eye, Download, X } from 'lucide-react';
 import AddInvoiceModal from './AddInvoiceModal';
 import AddPaymentModal from './AddPaymentModal';
 import AddComponentModal from './AddComponentModal';
@@ -71,6 +71,8 @@ const ClientProfile: React.FC<ClientProfileProps> = ({ clientId, onBack, onEdit 
   const [showEditPaymentModal, setShowEditPaymentModal] = useState(false);
   const [editingPayment, setEditingPayment] = useState<Payment | null>(null);
   const [selectedInvoiceForPayment, setSelectedInvoiceForPayment] = useState<Invoice | null>(null);
+  const [showReceiptViewer, setShowReceiptViewer] = useState(false);
+  const [selectedReceiptUrl, setSelectedReceiptUrl] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [client, setClient] = useState<Client | null>(null);
 
@@ -341,6 +343,18 @@ const ClientProfile: React.FC<ClientProfileProps> = ({ clientId, onBack, onEdit 
         type: 'danger'
       }
     );
+  };
+
+  const handleViewReceipt = (receiptUrl: string) => {
+    setSelectedReceiptUrl(receiptUrl);
+    setShowReceiptViewer(true);
+  };
+
+  const handleDownloadReceipt = (receiptUrl: string, paymentId: string) => {
+    const link = document.createElement('a');
+    link.href = receiptUrl;
+    link.download = `receipt-${paymentId}.pdf`;
+    link.click();
   };
 
 
@@ -666,15 +680,36 @@ const ClientProfile: React.FC<ClientProfileProps> = ({ clientId, onBack, onEdit 
                                       </div>
                                     </div>
                                     <div className="flex items-center space-x-1 ml-2">
+                                      {/* Receipt buttons */}
+                                      {(payment.receiptFileUrl || payment.receiptUrl) && (
+                                        <>
+                                          <button
+                                            onClick={() => handleViewReceipt(payment.receiptFileUrl || payment.receiptUrl || '')}
+                                            className="text-green-600 hover:text-green-800"
+                                            title="View Receipt"
+                                          >
+                                            <Eye className="w-3 h-3" />
+                                          </button>
+                                          <button
+                                            onClick={() => handleDownloadReceipt(payment.receiptFileUrl || payment.receiptUrl || '', payment.id)}
+                                            className="text-blue-600 hover:text-blue-800"
+                                            title="Download Receipt"
+                                          >
+                                            <Download className="w-3 h-3" />
+                                          </button>
+                                        </>
+                                      )}
                                       <button
                                         onClick={() => handleEditPayment(payment)}
                                         className="text-blue-500 hover:text-blue-700"
+                                        title="Edit Payment"
                                       >
                                         <Edit className="w-3 h-3" />
                                       </button>
                                       <button
                                         onClick={() => handleDeletePayment(payment.id)}
                                         className="text-red-500 hover:text-red-700"
+                                        title="Delete Payment"
                                       >
                                         <Trash2 className="w-3 h-3" />
                                       </button>
@@ -782,6 +817,47 @@ const ClientProfile: React.FC<ClientProfileProps> = ({ clientId, onBack, onEdit 
           type={confirmation.type}
           icon={confirmation.icon}
         />
+      )}
+
+      {/* Receipt Viewer Modal */}
+      {showReceiptViewer && selectedReceiptUrl && (
+        <div className="fixed inset-0 w-full h-full bg-black bg-opacity-75 flex items-center justify-center p-4 z-[60]">
+          <div className="bg-white rounded-xl shadow-2xl w-full max-w-4xl max-h-[90vh] overflow-hidden">
+            <div className="flex items-center justify-between p-4 border-b border-slate-200">
+              <h3 className="text-lg font-semibold text-slate-900">Receipt Viewer</h3>
+              <div className="flex items-center space-x-2">
+                <button
+                  onClick={() => handleDownloadReceipt(selectedReceiptUrl, 'receipt')}
+                  className="p-2 text-green-600 hover:text-green-800 hover:bg-green-50 rounded-lg"
+                  title="Download Receipt"
+                >
+                  <Download className="w-5 h-5" />
+                </button>
+                <button
+                  onClick={() => setShowReceiptViewer(false)}
+                  className="p-2 hover:bg-slate-100 rounded-lg transition-colors"
+                >
+                  <X className="w-5 h-5 text-slate-500" />
+                </button>
+              </div>
+            </div>
+            <div className="p-4 h-[calc(90vh-80px)] overflow-auto">
+              {selectedReceiptUrl.endsWith('.pdf') ? (
+                <iframe
+                  src={selectedReceiptUrl}
+                  className="w-full h-full border-0"
+                  title="Receipt PDF"
+                />
+              ) : (
+                <img
+                  src={selectedReceiptUrl}
+                  alt="Receipt"
+                  className="w-full h-auto max-h-full object-contain"
+                />
+              )}
+            </div>
+          </div>
+        </div>
       )}
 
     </>

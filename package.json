@@ -28,14 +28,15 @@
     "debug-upload": "node scripts/debug-upload-process.mjs",
     "test-actual-upload": "node scripts/test-actual-upload.mjs",
     "test-cors": "node scripts/test-cors-config.mjs",
+    "test-aws-upload": "node scripts/test-aws-s3-upload.mjs",
     "test-file-access": "node scripts/test-file-access.js",
     "fix-existing-files-acl": "node scripts/fix-existing-files-acl.js",
     "verify-deployment": "node scripts/verify-deployment.js",
     "fix-deployment": "node scripts/fix-deployment.js"
   },
   "dependencies": {
-    "@aws-sdk/client-s3": "^3.583.0",
-    "@aws-sdk/s3-request-presigner": "^3.844.0",
+    "@aws-sdk/client-s3": "^3.848.0",
+    "@aws-sdk/s3-request-presigner": "^3.848.0",
     "@neondatabase/serverless": "^1.0.1",
     "@types/cors": "^2.8.19",
     "@types/react-dropzone": "^4.2.2",

@@ -651,11 +651,12 @@ export const paymentsService = {
     try {
       const data = await sql!`
         INSERT INTO payments (
-          client_id, invoice_id, amount, payment_source, status, paid_at
+          client_id, invoice_id, amount, payment_source, status, paid_at, receipt_file_url
         ) VALUES (
           ${payment.client_id}, ${payment.invoice_id}, 
           ${payment.amount}, ${payment.payment_source}, 
-          ${payment.status || 'Pending'}, ${payment.paid_at || new Date().toISOString()}
+          ${payment.status || 'Pending'}, ${payment.paid_at || new Date().toISOString()},
+          ${payment.receipt_file_url || null}
         )
         RETURNING *
       `;

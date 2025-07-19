@@ -1,6 +1,5 @@
-import { S3Client, PutObjectCommand, PutObjectAclCommand } from '@aws-sdk/client-s3';
+import { S3Client, PutObjectCommand } from '@aws-sdk/client-s3';
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
-import crypto from 'crypto';
 import dotenv from 'dotenv';
 import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
@@ -35,6 +34,21 @@ if (!envLoaded) {
   console.log('⚠️ No .env file found in any of the expected locations');
 }
 
+// Environment variables validation
+const AWS_ACCESS_KEY_ID = process.env.AWS_ACCESS_KEY_ID;
+const AWS_SECRET_ACCESS_KEY = process.env.AWS_SECRET_ACCESS_KEY;
+const AWS_REGION = process.env.AWS_REGION;
+const AWS_S3_BUCKET = process.env.AWS_S3_BUCKET;
+
+// Configure AWS S3 client
+const s3Client = new S3Client({
+  region: AWS_REGION,
+  credentials: {
+    accessKeyId: AWS_ACCESS_KEY_ID,
+    secretAccessKey: AWS_SECRET_ACCESS_KEY,
+  },
+});
+
 // This is the main handler for the serverless function
 // Suitable for platforms like Vercel or Netlify
 export default async function handler(req, res) {
@@ -53,6 +67,16 @@ export default async function handler(req, res) {
     console.log('   File name:', fileName);
     console.log('   File type:', fileType);
     
+    // Validate environment variables
+    if (!AWS_REGION || !AWS_ACCESS_KEY_ID || !AWS_SECRET_ACCESS_KEY || !AWS_S3_BUCKET) {
+      console.error('❌ Missing AWS S3 environment variables');
+      return res.status(500).json({ error: 'AWS S3 configuration missing' });
+    }
+    
+    console.log('✅ Environment variables validated');
+    console.log('   Bucket:', AWS_S3_BUCKET);
+    console.log('   Region:', AWS_REGION);
+    
     // Generate unique filename
     const timestamp = Date.now();
     const randomString = Math.random().toString(36).substring(2, 15);
@@ -61,41 +85,20 @@ export default async function handler(req, res) {
     
     console.log('🆔 Generated unique filename:', uniqueFileName);
     
-    // Validate environment variables
-    if (!SPACES_ENDPOINT || !SPACES_REGION || !SPACES_KEY || !SPACES_SECRET || !BUCKET_NAME) {
-      console.error('❌ Missing DigitalOcean Spaces environment variables');
-      console.error('   SPACES_ENDPOINT:', !!SPACES_ENDPOINT);
-      console.error('   SPACES_REGION:', !!SPACES_REGION);
-      console.error('   SPACES_KEY:', !!SPACES_KEY);
-      console.error('   SPACES_SECRET:', !!SPACES_SECRET);
-      console.error('   BUCKET_NAME:', !!BUCKET_NAME);
-      return res.status(500).json({ error: 'DigitalOcean Spaces configuration missing' });
-    }
-    
-    console.log('✅ Environment variables validated');
-    console.log('   Bucket:', BUCKET_NAME);
-    console.log('   Region:', SPACES_REGION);
-    
-    // Buat perintah untuk mengunggah file dengan ACL yang betul
+    // Create S3 upload command
     const command = new PutObjectCommand({
-      Bucket: BUCKET_NAME,
+      Bucket: AWS_S3_BUCKET,
       Key: uniqueFileName,
       ContentType: fileType,
-      ACL: 'public-read', // File akan bisa diakses publik setelah diunggah
-      CacheControl: 'public, max-age=31536000', // Cache untuk 1 tahun
-      // Add additional headers to ensure public access
-      Metadata: {
-        'x-amz-acl': 'public-read',
-        'cache-control': 'public, max-age=31536000'
-      }
+      CacheControl: 'public, max-age=31536000',
     });
     
     console.log('📤 Creating pre-signed URL...');
     console.log('   Command details:', {
-      Bucket: BUCKET_NAME,
+      Bucket: AWS_S3_BUCKET,
       Key: uniqueFileName,
       ContentType: fileType,
-      ACL: 'public-read'
+      CacheControl: 'public, max-age=31536000'
     });
     
     // Generate pre-signed URL
@@ -106,7 +109,7 @@ export default async function handler(req, res) {
     console.log('   URL starts with:', presignedUrl.substring(0, 50) + '...');
     
     // Generate public URL for the file
-    const publicUrl = `https://${BUCKET_NAME}.${SPACES_REGION}.digitaloceanspaces.com/${uniqueFileName}`;
+    const publicUrl = `https://${AWS_S3_BUCKET}.s3.${AWS_REGION}.amazonaws.com/${uniqueFileName}`;
     
     console.log('🔗 Public URL generated:', publicUrl);
     

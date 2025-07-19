@@ -109,7 +109,7 @@ const FileUpload: React.FC<FileUploadProps> = ({ onUploadComplete, multiple = tr
         
         xhr.open('PUT', uploadUrl, true);
         xhr.setRequestHeader('Content-Type', file.type);
-        xhr.setRequestHeader('x-amz-acl', 'public-read');
+        // Cache control header
         xhr.setRequestHeader('cache-control', 'public, max-age=31536000');
         
         console.log('🔧 Request headers set');

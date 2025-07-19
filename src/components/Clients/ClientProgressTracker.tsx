@@ -667,14 +667,14 @@ const ClientProgressTracker: React.FC<ClientProgressTrackerProps> = ({ clientId,
         const responseData = await res.json();
         console.log('✅ API Response data:', responseData);
         
-        const { uploadUrl, fileUrl } = responseData;
+        const { uploadUrl, publicUrl } = responseData;
         
-        if (!uploadUrl || !fileUrl) {
-          throw new Error('Invalid response: missing uploadUrl or fileUrl');
+        if (!uploadUrl || !publicUrl) {
+          throw new Error('Invalid response: missing uploadUrl or publicUrl');
         }
 
-        // 2. Upload file to DigitalOcean Spaces
-        console.log('📤 Starting file upload to DigitalOcean Spaces...');
+        // 2. Upload file to AWS S3
+        console.log('📤 Starting file upload to AWS S3...');
         await new Promise<void>((resolve, reject) => {
           const xhr = new XMLHttpRequest();
           xhr.open('PUT', uploadUrl, true);
@@ -687,7 +687,7 @@ const ClientProgressTracker: React.FC<ClientProgressTrackerProps> = ({ clientId,
                 clientId: parseInt(clientId),
                 fileName: file.name,
                 fileSize: `${(file.size / 1024 / 1024).toFixed(1)} MB`,
-                fileUrl: fileUrl,
+                fileUrl: publicUrl,
                 fileType: file.type,
                 uploadDate: new Date().toISOString()
               };
@@ -708,7 +708,7 @@ const ClientProgressTracker: React.FC<ClientProgressTrackerProps> = ({ clientId,
             reject(new Error('Network error during upload.'));
           };
           
-          console.log('📤 Sending file to DigitalOcean Spaces...');
+          console.log('📤 Sending file to AWS S3...');
           xhr.send(file);
         });
 
