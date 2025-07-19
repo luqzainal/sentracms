@@ -153,6 +153,54 @@ async function runMigrations() {
       `;
       console.log('✅ Users table created');
 
+      // Create add_on_services table
+      await sql`
+        CREATE TABLE IF NOT EXISTS add_on_services (
+          id SERIAL PRIMARY KEY,
+          name VARCHAR(255) NOT NULL,
+          description TEXT NOT NULL,
+          category VARCHAR(100) NOT NULL CHECK (category IN ('Support', 'Analytics', 'Domain', 'Integration', 'Mobile', 'Security')),
+          price DECIMAL(10,2) NOT NULL,
+          status VARCHAR(50) NOT NULL DEFAULT 'Available' CHECK (status IN ('Available', 'Unavailable')),
+          features JSONB,
+          created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+          updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+        );
+      `;
+      console.log('✅ Add-on services table created');
+
+      // Create client_service_requests table
+      await sql`
+        CREATE TABLE IF NOT EXISTS client_service_requests (
+          id SERIAL PRIMARY KEY,
+          client_id INTEGER NOT NULL REFERENCES clients(id) ON DELETE CASCADE,
+          service_id INTEGER NOT NULL REFERENCES add_on_services(id) ON DELETE CASCADE,
+          status VARCHAR(50) NOT NULL DEFAULT 'Pending' CHECK (status IN ('Pending', 'Approved', 'Rejected', 'Completed')),
+          request_date TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+          approved_date TIMESTAMP WITH TIME ZONE,
+          rejected_date TIMESTAMP WITH TIME ZONE,
+          completed_date TIMESTAMP WITH TIME ZONE,
+          admin_notes TEXT,
+          rejection_reason TEXT,
+          created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+          updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+        );
+      `;
+      console.log('✅ Client service requests table created');
+
+      // Insert sample add-on services data
+      await sql`
+        INSERT INTO add_on_services (name, description, category, price, status, features) VALUES
+        ('Premium Support', '24/7 priority support with dedicated account manager', 'Support', 299.00, 'Available', '["24/7 Support", "Dedicated Account Manager", "Priority Response", "Phone Support", "Email Support"]'),
+        ('Advanced Analytics', 'Detailed reporting and analytics dashboard', 'Analytics', 199.00, 'Available', '["Custom Reports", "Real-time Analytics", "Data Export", "Performance Metrics", "User Behavior Tracking"]'),
+        ('Custom Domain', 'Use your own domain name with SSL certificate', 'Domain', 99.00, 'Available', '["Custom Domain", "SSL Certificate", "DNS Management", "Domain Transfer", "Email Setup"]'),
+        ('API Integration', 'Connect with third-party services via API', 'Integration', 399.00, 'Available', '["API Access", "Webhook Support", "Third-party Integration", "Custom Endpoints", "Documentation"]'),
+        ('Mobile App', 'Native mobile application for iOS and Android', 'Mobile', 999.00, 'Unavailable', '["iOS App", "Android App", "Push Notifications", "Offline Support", "App Store Publishing"]'),
+        ('Advanced Security', 'Enhanced security features and monitoring', 'Security', 149.00, 'Available', '["Two-Factor Authentication", "Security Monitoring", "Backup Encryption", "Access Control", "Audit Logs"]')
+        ON CONFLICT (id) DO NOTHING;
+      `;
+      console.log('✅ Sample add-on services data inserted');
+
     } catch (error) {
       console.warn('⚠️  Some tables might already exist:', error.message);
     }

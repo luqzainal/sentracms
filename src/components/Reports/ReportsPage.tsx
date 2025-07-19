@@ -274,16 +274,19 @@ const ReportsPage: React.FC<ReportsPageProps> = ({ onToggleSidebar }) => {
   const { 
     clients,
     fetchPayments,
-    getMonthlySalesData
+    fetchProgressSteps,
+    getMonthlySalesData,
+    calculateClientProgressStatus
     // getTotalSales, 
     // getTotalCollection, 
     // getTotalBalance 
   } = useAppStore();
 
-  // Fetch payments data on component mount
+  // Fetch data on component mount
   useEffect(() => {
     fetchPayments();
-  }, [fetchPayments]);
+    fetchProgressSteps();
+  }, [fetchPayments, fetchProgressSteps]);
 
   // Filter clients based on date range if custom dates are selected
   const getFilteredClients = () => {
@@ -331,6 +334,10 @@ const ReportsPage: React.FC<ReportsPageProps> = ({ onToggleSidebar }) => {
     const clientCollection = Number(client.totalCollection) || 0;
     const clientBalance = Number(client.balance) || 0;
     
+    // Use consistent progress calculation from store
+    const progressStatus = calculateClientProgressStatus(client.id);
+    const projectProgress = progressStatus.percentage;
+    
     return {
       name: client.name,
       status: client.status,
@@ -338,7 +345,8 @@ const ReportsPage: React.FC<ReportsPageProps> = ({ onToggleSidebar }) => {
       totalCollection: clientCollection,
       balance: clientBalance,
       collectionRate: clientSales > 0 ? (clientCollection / clientSales) * 100 : 0,
-      clientCompletion: client.status === 'Complete' ? 100 : client.status === 'Pending' ? 50 : 0
+      projectProgress: projectProgress, // Use actual progress steps instead of status-based
+      hasOverdue: progressStatus.hasOverdue
     };
   });
 
@@ -637,7 +645,7 @@ const ReportsPage: React.FC<ReportsPageProps> = ({ onToggleSidebar }) => {
                 <th className="text-left py-2 lg:py-3 px-2 lg:px-4 font-medium text-slate-900 text-xs lg:text-sm min-w-[100px] hidden md:table-cell">Collection</th>
                 <th className="text-left py-2 lg:py-3 px-2 lg:px-4 font-medium text-slate-900 text-xs lg:text-sm min-w-[100px] hidden lg:table-cell">Balance</th>
                 <th className="text-left py-2 lg:py-3 px-2 lg:px-4 font-medium text-slate-900 text-xs lg:text-sm min-w-[120px]">Collection Rate</th>
-                <th className="text-left py-2 lg:py-3 px-2 lg:px-4 font-medium text-slate-900 text-xs lg:text-sm min-w-[100px] hidden lg:table-cell">Client Status</th>
+                <th className="text-left py-2 lg:py-3 px-2 lg:px-4 font-medium text-slate-900 text-xs lg:text-sm min-w-[100px] hidden lg:table-cell">Project Progress</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-200">
@@ -676,14 +684,15 @@ const ReportsPage: React.FC<ReportsPageProps> = ({ onToggleSidebar }) => {
                       <div className="w-12 lg:w-16 bg-slate-200 rounded-full h-2">
                         <div
                           className={`h-2 rounded-full ${
-                            client.status === 'Complete' ? 'bg-green-500' :
-                            client.status === 'Pending' ? 'bg-yellow-500' : 'bg-gray-400'
+                            client.hasOverdue ? 'bg-red-500' :
+                            client.projectProgress === 100 ? 'bg-green-500' :
+                            client.projectProgress >= 50 ? 'bg-blue-500' : 'bg-yellow-500'
                           }`}
-                          style={{ width: `${Math.min(client.clientCompletion, 100)}%` }}
+                          style={{ width: `${Math.min(client.projectProgress, 100)}%` }}
                         />
                       </div>
                       <span className="text-xs lg:text-sm min-w-[35px] lg:min-w-[45px] text-slate-600">
-                        {client.status}
+                        {client.projectProgress}%
                       </span>
                     </div>
                   </td>

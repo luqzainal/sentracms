@@ -1,8 +1,11 @@
-import React, { useState, useEffect } from 'react';
-import { ChevronLeft, ChevronRight, Plus, Calendar as CalendarIcon, Clock, Users, X, Menu } from 'lucide-react';
+import React, { useState, useEffect, useMemo } from 'react';
+import { ChevronLeft, ChevronRight, Plus, Edit, Trash2, Calendar as CalendarIcon, Clock, Users, FileText, X } from 'lucide-react';
 import { useAppStore } from '../../store/AppStore';
 import EventPopup from '../common/EventPopup';
 import { CalendarEvent } from '../../store/AppStore';
+import { useToast } from '../../hooks/useToast';
+import ConfirmationModal from '../common/ConfirmationModal';
+import { useConfirmation } from '../../hooks/useConfirmation';
 
 interface CalendarPageProps {
   onToggleSidebar?: () => void;
@@ -52,15 +55,23 @@ const CalendarPage: React.FC<CalendarPageProps> = ({ onToggleSidebar }) => {
   const [showEventDetailsModal, setShowEventDetailsModal] = useState(false);
   const [showEditEventModal, setShowEditEventModal] = useState(false);
   const [selectedEvent, setSelectedEvent] = useState<CalendarEvent | null>(null);
-  const [eventFormData, setEventFormData] = useState({
-    title: '',
-    startDate: '',
-    endDate: '',
-    startTime: '',
-    endTime: '',
-    description: '',
-    client: '',
-    type: 'meeting',
+  const [eventFormData, setEventFormData] = useState(() => {
+    const today = new Date();
+    // Use local date formatting instead of toISOString to avoid timezone issues
+    const year = today.getFullYear();
+    const month = String(today.getMonth() + 1).padStart(2, '0');
+    const day = String(today.getDate()).padStart(2, '0');
+    const todayStr = `${year}-${month}-${day}`;
+    return {
+      title: '',
+      startDate: todayStr,
+      endDate: todayStr,
+      startTime: '09:00',
+      endTime: '10:00',
+      description: '',
+      client: '',
+      type: 'meeting',
+    };
   });
 
   const {
@@ -72,6 +83,9 @@ const CalendarPage: React.FC<CalendarPageProps> = ({ onToggleSidebar }) => {
     fetchCalendarEvents,
     fetchClients,
   } = useAppStore();
+
+  // Custom confirmation modal
+  const { confirmation, showConfirmation, hideConfirmation, handleConfirm } = useConfirmation();
 
   useEffect(() => {
     fetchCalendarEvents();
@@ -86,27 +100,59 @@ const CalendarPage: React.FC<CalendarPageProps> = ({ onToggleSidebar }) => {
   const events = calendarEvents.map(event => {
     const client = clients.find(c => c.id === event.clientId);
     let dateStr = '';
+    
     if (event.startDate) {
       try {
         // Handle date string properly to avoid timezone issues
-        // If startDate is already in YYYY-MM-DD format, use it directly
-        if (event.startDate.match(/^\d{4}-\d{2}-\d{2}$/)) {
-          dateStr = event.startDate;
+        if (typeof event.startDate === 'string') {
+          // If startDate is already in YYYY-MM-DD format, use it directly
+          if (event.startDate.match(/^\d{4}-\d{2}-\d{2}$/)) {
+            dateStr = event.startDate;
+          } else if (event.startDate.includes('T')) {
+            // If it's a full datetime string, extract just the date part
+            dateStr = event.startDate.split('T')[0];
+          } else {
+            // Try to parse as Date object and format locally to avoid timezone issues
+            const parsedDate = new Date(event.startDate);
+            if (!isNaN(parsedDate.getTime())) {
+              // Use local date formatting instead of toISOString to avoid timezone issues
+              const year = parsedDate.getFullYear();
+              const month = String(parsedDate.getMonth() + 1).padStart(2, '0');
+              const day = String(parsedDate.getDate()).padStart(2, '0');
+              dateStr = `${year}-${month}-${day}`;
+            }
+          }
         } else {
-          // If it's a full datetime string, extract just the date part
-          dateStr = event.startDate.split('T')[0];
+          // If it's a Date object, format locally
+          const parsedDate = new Date(event.startDate);
+          if (!isNaN(parsedDate.getTime())) {
+            // Use local date formatting instead of toISOString to avoid timezone issues
+            const year = parsedDate.getFullYear();
+            const month = String(parsedDate.getMonth() + 1).padStart(2, '0');
+            const day = String(parsedDate.getDate()).padStart(2, '0');
+            dateStr = `${year}-${month}-${day}`;
+          }
         }
       } catch (e) {
-        dateStr = new Date().toISOString().split('T')[0];
+        console.error('Error parsing event date:', event.startDate, e);
+        // Don't fall back to today's date, just skip this event
+        return null;
       }
     }
+    
+    // Only return event if we have a valid date
+    if (!dateStr) {
+      console.warn('Event has no valid start date:', event);
+      return null;
+    }
+    
     return {
       ...event,
       date: dateStr,
       time: event.startTime || '',
       client: client?.businessName || 'Unknown Client',
     };
-  });
+  }).filter((event): event is NonNullable<typeof event> => event !== null); // Remove null events with proper typing
 
   const daysInMonth = new Date(currentDate.getFullYear(), currentDate.getMonth() + 1, 0).getDate();
   const firstDayOfMonth = new Date(currentDate.getFullYear(), currentDate.getMonth(), 1).getDay();
@@ -132,8 +178,25 @@ const CalendarPage: React.FC<CalendarPageProps> = ({ onToggleSidebar }) => {
   };
 
   const getEventsForDate = (date: number) => {
+    // Use consistent date formatting that matches the events mapping
     const dateStr = `${currentDate.getFullYear()}-${String(currentDate.getMonth() + 1).padStart(2, '0')}-${String(date).padStart(2, '0')}`;
-    return events.filter(event => event.date === dateStr);
+    
+    // Also check for events that might have different date formats
+    return events.filter(event => {
+      // Direct match
+      if (event.date === dateStr) return true;
+      
+      // Try to parse and compare dates if formats don't match
+      try {
+        const eventDate = new Date(event.date);
+        const targetDate = new Date(dateStr);
+        return eventDate.getFullYear() === targetDate.getFullYear() &&
+               eventDate.getMonth() === targetDate.getMonth() &&
+               eventDate.getDate() === targetDate.getDate();
+      } catch (e) {
+        return false;
+      }
+    });
   };
 
   const handleEventClick = (event: any) => {
@@ -149,9 +212,24 @@ const CalendarPage: React.FC<CalendarPageProps> = ({ onToggleSidebar }) => {
     setShowEditEventModal(false);
     setShowEventDetailsModal(false);
     setSelectedEvent(null);
+    
+    // Set default dates to today when resetting for new event
+    const today = new Date();
+    // Use local date formatting instead of toISOString to avoid timezone issues
+    const year = today.getFullYear();
+    const month = String(today.getMonth() + 1).padStart(2, '0');
+    const day = String(today.getDate()).padStart(2, '0');
+    const todayStr = `${year}-${month}-${day}`;
+    
     setEventFormData({
-      title: '', startDate: '', endDate: '', startTime: '',
-      endTime: '', description: '', client: '', type: 'meeting',
+      title: '', 
+      startDate: todayStr, 
+      endDate: todayStr, 
+      startTime: '09:00',
+      endTime: '10:00', 
+      description: '', 
+      client: '', 
+      type: 'meeting',
     });
   };
 
@@ -168,8 +246,15 @@ const CalendarPage: React.FC<CalendarPageProps> = ({ onToggleSidebar }) => {
           return date.split('T')[0]; // Extract date from datetime string
         }
       }
-      // Fallback to Date object processing
-      return new Date(date).toISOString().split('T')[0];
+      // Fallback to Date object processing with local formatting
+      const parsedDate = new Date(date);
+      if (!isNaN(parsedDate.getTime())) {
+        const year = parsedDate.getFullYear();
+        const month = String(parsedDate.getMonth() + 1).padStart(2, '0');
+        const day = String(parsedDate.getDate()).padStart(2, '0');
+        return `${year}-${month}-${day}`;
+      }
+      return '';
     };
     const client = clients.find(c => c.id === selectedEvent.clientId);
 
@@ -189,10 +274,16 @@ const CalendarPage: React.FC<CalendarPageProps> = ({ onToggleSidebar }) => {
   };
 
   const handleDeleteEvent = async () => {
-    if (selectedEvent && confirm('Are you sure you want to delete this event?')) {
-        await deleteCalendarEvent(selectedEvent.id);
-      resetFormAndModals();
-      fetchCalendarEvents();
+    if (selectedEvent) {
+      showConfirmation(
+        () => deleteCalendarEvent(selectedEvent.id),
+        {
+          title: 'Delete Event',
+          message: 'Are you sure you want to delete this event?',
+          confirmText: 'Delete',
+          type: 'danger'
+        }
+      );
     }
   };
 
@@ -204,8 +295,12 @@ const CalendarPage: React.FC<CalendarPageProps> = ({ onToggleSidebar }) => {
     e.preventDefault();
     const { startDate, startTime, endDate, endTime, client: clientName } = eventFormData;
     
-    if (new Date(`${endDate}T${endTime}`) <= new Date(`${startDate}T${startTime}`)) {
-      alert('End date must be after start date.');
+    // Fix validation: Allow same start and end date, but end time must be after start time if same date
+    const startDateTime = new Date(`${startDate}T${startTime}`);
+    const endDateTime = new Date(`${endDate}T${endTime}`);
+    
+    if (endDateTime < startDateTime) {
+      alert('End date and time must be after or equal to start date and time.');
       return;
     }
     
@@ -292,7 +387,7 @@ const CalendarPage: React.FC<CalendarPageProps> = ({ onToggleSidebar }) => {
   };
   
   const Modal = ({ children, onClose }: { children: React.ReactNode, onClose: () => void }) => (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex justify-center items-center z-50 p-4">
+    <div className="fixed top-0 left-0 right-0 bottom-0 w-full h-full bg-black bg-opacity-50 flex justify-center items-center z-50 p-4 backdrop-blur-sm">
       <div className="bg-white rounded-xl shadow-2xl w-full max-w-lg max-h-[90vh] overflow-y-auto">
         <div className="flex justify-end p-2">
             <button onClick={onClose} className="p-2 hover:bg-slate-100 rounded-lg"><X className="w-5 h-5" /></button>
@@ -332,32 +427,28 @@ const CalendarPage: React.FC<CalendarPageProps> = ({ onToggleSidebar }) => {
       </div>
 
       {showNewEventModal && (
-        <div className="fixed inset-0 w-full h-screen bg-black bg-opacity-60 flex items-center justify-center p-4 z-50 backdrop-blur-sm">
-          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md p-6">
-            <EventForm 
-              isEdit={false} 
-              eventFormData={eventFormData}
-              handleFormChange={handleFormChange}
-              handleSubmitEvent={handleSubmitEvent}
-              resetFormAndModals={resetFormAndModals}
-              clients={clients}
-            />
-          </div>
-        </div>
+        <Modal onClose={() => setShowNewEventModal(false)}>
+          <EventForm 
+            isEdit={false} 
+            eventFormData={eventFormData}
+            handleFormChange={handleFormChange}
+            handleSubmitEvent={handleSubmitEvent}
+            resetFormAndModals={resetFormAndModals}
+            clients={clients}
+          />
+        </Modal>
       )}
       {showEditEventModal && (
-        <div className="fixed inset-0 w-full h-screen bg-black bg-opacity-60 flex items-center justify-center p-4 z-50 backdrop-blur-sm">
-          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md p-6">
-            <EventForm 
-              isEdit={true} 
-              eventFormData={eventFormData}
-              handleFormChange={handleFormChange}
-              handleSubmitEvent={handleSubmitEvent}
-              resetFormAndModals={resetFormAndModals}
-              clients={clients}
-            />
-          </div>
-        </div>
+        <Modal onClose={() => setShowEditEventModal(false)}>
+          <EventForm 
+            isEdit={true} 
+            eventFormData={eventFormData}
+            handleFormChange={handleFormChange}
+            handleSubmitEvent={handleSubmitEvent}
+            resetFormAndModals={resetFormAndModals}
+            clients={clients}
+          />
+        </Modal>
       )}
 
       {showEventDetailsModal && selectedEvent && (
@@ -367,6 +458,21 @@ const CalendarPage: React.FC<CalendarPageProps> = ({ onToggleSidebar }) => {
           onClose={resetFormAndModals}
           onEdit={handleEditEvent}
           onDelete={handleDeleteEvent}
+        />
+      )}
+
+      {/* Custom Confirmation Modal */}
+      {confirmation && (
+        <ConfirmationModal
+          isOpen={confirmation.isOpen}
+          onClose={hideConfirmation}
+          onConfirm={handleConfirm}
+          title={confirmation.title || 'Confirm Action'}
+          message={confirmation.message}
+          confirmText={confirmation.confirmText}
+          cancelText={confirmation.cancelText}
+          type={confirmation.type}
+          icon={confirmation.icon}
         />
       )}
         </div>

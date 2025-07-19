@@ -6,6 +6,8 @@ import ClientProgressTracker from './ClientProgressTracker';
 import { useAppStore } from '../../store/AppStore';
 import { useNavigate } from 'react-router-dom';
 import toast from 'react-hot-toast';
+import ConfirmationModal from '../common/ConfirmationModal';
+import { useConfirmation } from '../../hooks/useConfirmation';
 
 interface ClientsPageProps {
   setActiveTab?: (tab: string) => void;
@@ -35,9 +37,11 @@ const ClientsPage: React.FC<ClientsPageProps> = ({ setActiveTab, onToggleSidebar
     updateClient, 
     deleteClient,
     addUser,
-    copyComponentsToProgressSteps,
     calculateClientProgressStatus
   } = useAppStore();
+
+  // Custom confirmation modal
+  const { confirmation, showConfirmation, hideConfirmation, handleConfirm } = useConfirmation();
 
   const navigate = useNavigate();
 
@@ -59,6 +63,59 @@ const ClientsPage: React.FC<ClientsPageProps> = ({ setActiveTab, onToggleSidebar
   // Helper function to get client progress status - use consistent calculation from store
   const getClientProgressStatus = (clientId: number) => {
     return calculateClientProgressStatus(clientId);
+  };
+
+  // Helper function to get deadline data for a client
+  const getClientDeadlines = (clientId: number) => {
+    const clientSteps = progressSteps.filter(step => step.clientId === clientId);
+    const packageStep = clientSteps.find(step => step.title.includes(' - Package Setup'));
+    
+    if (!packageStep) {
+      return {
+        onboarding: null,
+        firstDraft: null,
+        secondDraft: null,
+        onboardingCompleted: false,
+        firstDraftCompleted: false,
+        secondDraftCompleted: false
+      };
+    }
+
+    return {
+      onboarding: packageStep.onboardingDeadline,
+      firstDraft: packageStep.firstDraftDeadline,
+      secondDraft: packageStep.secondDraftDeadline,
+      onboardingCompleted: packageStep.onboardingCompleted || false,
+      firstDraftCompleted: packageStep.firstDraftCompleted || false,
+      secondDraftCompleted: packageStep.secondDraftCompleted || false
+    };
+  };
+
+  // Helper function to format deadline date
+  const formatDeadline = (deadline: string | null | undefined) => {
+    if (!deadline) return 'Not set';
+    const date = new Date(deadline);
+    return date.toLocaleDateString('en-MY', { 
+      day: '2-digit', 
+      month: 'short',
+      year: '2-digit'
+    });
+  };
+
+  // Helper function to check if deadline is overdue
+  const isDeadlineOverdue = (deadline: string | null | undefined, completed: boolean) => {
+    if (!deadline || completed) return false;
+    const now = new Date();
+    const deadlineDate = new Date(deadline);
+    return now > deadlineDate;
+  };
+
+  // Helper function to get deadline status color
+  const getDeadlineStatusColor = (deadline: string | null | undefined, completed: boolean) => {
+    if (!deadline) return 'text-gray-400';
+    if (completed) return 'text-green-600';
+    if (isDeadlineOverdue(deadline, completed)) return 'text-red-600';
+    return 'text-blue-600';
   };
 
   const formatCurrency = (amount: number) => {
@@ -139,7 +196,14 @@ const ClientsPage: React.FC<ClientsPageProps> = ({ setActiveTab, onToggleSidebar
       // Update existing client
       try {
         await updateClient(selectedClient.id, clientData);
-      toast.success('Client updated successfully!');
+        
+        // Refresh data from database to get updated tags
+        await Promise.all([
+          fetchClients(),
+          fetchTags()
+        ]);
+        
+        toast.success('Client updated successfully!');
       } catch (error) {
         console.error('Error updating client:', error);
         toast.error('Failed to update client');
@@ -175,14 +239,15 @@ const ClientsPage: React.FC<ClientsPageProps> = ({ setActiveTab, onToggleSidebar
   };
 
   const handleDeleteClient = (clientId: number) => {
-    if (confirm('Are you sure you want to delete this client? This will also delete all related data.')) {
-      const promise = deleteClient(clientId);
-      toast.promise(promise, {
-        loading: 'Deleting client...',
-        success: <b>Client deleted successfully!</b>,
-        error: <b>Could not delete client.</b>,
-      });
-    }
+    showConfirmation(
+      () => deleteClient(clientId),
+      {
+        title: 'Delete Client',
+        message: 'Are you sure you want to delete this client? This will also delete all related data.',
+        confirmText: 'Delete',
+        type: 'danger'
+      }
+    );
   };
 
   if (showProgressTracker) {
@@ -334,16 +399,17 @@ const ClientsPage: React.FC<ClientsPageProps> = ({ setActiveTab, onToggleSidebar
                 <th className="text-center py-3 lg:py-4 px-2 lg:px-3 font-semibold text-slate-900 text-xs lg:text-sm w-[120px] hidden lg:table-cell">Contact</th>
                 <th className="text-center py-3 lg:py-4 px-2 lg:px-3 font-semibold text-slate-900 text-xs lg:text-sm w-[80px]">Status</th>
                 <th className="text-center py-3 lg:py-4 px-2 lg:px-3 font-semibold text-slate-900 text-xs lg:text-sm w-[100px]">Progress</th>
-                <th className="text-center py-3 lg:py-4 px-2 lg:px-3 font-semibold text-slate-900 text-xs lg:text-sm w-[80px] hidden md:table-cell">Total<br/>Sales</th>
-                <th className="text-center py-3 lg:py-4 px-2 lg:px-3 font-semibold text-slate-900 text-xs lg:text-sm w-[80px] hidden md:table-cell">Total<br/>Collection</th>
-                <th className="text-center py-3 lg:py-4 px-2 lg:px-3 font-semibold text-slate-900 text-xs lg:text-sm w-[80px] hidden lg:table-cell">Balance</th>
-                <th className="text-center py-3 lg:py-4 px-2 lg:px-3 font-semibold text-slate-900 text-xs lg:text-sm w-[100px] hidden lg:table-cell">Tags</th>
+                <th className="text-center py-3 lg:py-4 px-2 lg:px-3 font-semibold text-slate-900 text-xs lg:text-sm w-[100px]">Onboarding</th>
+                <th className="text-center py-3 lg:py-4 px-2 lg:px-3 font-semibold text-slate-900 text-xs lg:text-sm w-[100px]">First Draft</th>
+                <th className="text-center py-3 lg:py-4 px-2 lg:px-3 font-semibold text-slate-900 text-xs lg:text-sm w-[100px]">Second Draft</th>
+                <th className="text-center py-3 lg:py-4 px-2 lg:px-3 font-semibold text-slate-900 text-xs lg:text-sm w-[100px]">Tags</th>
                 <th className="text-center py-3 lg:py-4 px-2 lg:px-3 font-semibold text-slate-900 text-xs lg:text-sm w-[100px]">Actions</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-200">
               {filteredClients.map((client) => {
                 const progressStatus = getClientProgressStatus(client.id);
+                const deadlines = getClientDeadlines(client.id);
                 const tagObjects = client.tags ? client.tags.map(tagName => {
                   const globalTag = tags.find(t => t.name === tagName);
                   return globalTag || { name: tagName, color: '#3B82F6' };
@@ -401,22 +467,22 @@ const ClientsPage: React.FC<ClientsPageProps> = ({ setActiveTab, onToggleSidebar
                         )}
                       </div>
                     </td>
-                    <td className="py-3 lg:py-4 px-2 lg:px-3 text-center hidden md:table-cell">
-                      <div className="text-xs lg:text-sm font-medium text-slate-900">
-                        {formatCurrency(client.totalSales)}
-                      </div>
+                    <td className="py-3 lg:py-4 px-2 lg:px-3 text-center">
+                      <span className={`text-xs lg:text-sm font-medium ${getDeadlineStatusColor(deadlines.onboarding, deadlines.onboardingCompleted)}`}>
+                        {formatDeadline(deadlines.onboarding)}
+                      </span>
                     </td>
-                    <td className="py-3 lg:py-4 px-2 lg:px-3 text-center hidden md:table-cell">
-                      <div className="text-xs lg:text-sm font-medium text-green-600">
-                        {formatCurrency(client.totalCollection)}
-                      </div>
+                    <td className="py-3 lg:py-4 px-2 lg:px-3 text-center">
+                      <span className={`text-xs lg:text-sm font-medium ${getDeadlineStatusColor(deadlines.firstDraft, deadlines.firstDraftCompleted)}`}>
+                        {formatDeadline(deadlines.firstDraft)}
+                      </span>
                     </td>
-                    <td className="py-3 lg:py-4 px-2 lg:px-3 text-center hidden lg:table-cell">
-                      <div className="text-xs lg:text-sm font-medium text-orange-600">
-                        {formatCurrency(client.balance)}
-                      </div>
+                    <td className="py-3 lg:py-4 px-2 lg:px-3 text-center">
+                      <span className={`text-xs lg:text-sm font-medium ${getDeadlineStatusColor(deadlines.secondDraft, deadlines.secondDraftCompleted)}`}>
+                        {formatDeadline(deadlines.secondDraft)}
+                      </span>
                     </td>
-                    <td className="py-3 lg:py-4 px-2 lg:px-3 text-center hidden lg:table-cell">
+                    <td className="py-3 lg:py-4 px-2 lg:px-3 text-center">
                       <div className="flex flex-wrap gap-1 justify-center">
                         {tagObjects.slice(0, 3).map((tag, index) => (
                           <span 
@@ -484,6 +550,21 @@ const ClientsPage: React.FC<ClientsPageProps> = ({ setActiveTab, onToggleSidebar
           client={selectedClient}
           onClose={() => setShowModal(false)}
           onSave={handleSaveClient}
+        />
+      )}
+
+      {/* Custom Confirmation Modal */}
+      {confirmation && (
+        <ConfirmationModal
+          isOpen={confirmation.isOpen}
+          onClose={hideConfirmation}
+          onConfirm={handleConfirm}
+          title={confirmation.title || 'Confirm Action'}
+          message={confirmation.message}
+          confirmText={confirmation.confirmText}
+          cancelText={confirmation.cancelText}
+          type={confirmation.type}
+          icon={confirmation.icon}
         />
       )}
     </div>

@@ -1,9 +1,12 @@
-import React, { useState } from 'react';
-import { useEffect } from 'react';
-import { Plus, Search, Edit, Trash2, Shield, Users, Key, Eye, EyeOff, UserCheck, UserX, Crown, Briefcase, User, Menu, ExternalLink, Settings, Database } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { useAppStore } from '../../store/AppStore';
+import { User, Trash2, Edit, Eye, Crown, Briefcase, Users, Plus, Search, Filter, RefreshCw, MessageSquare, ArrowRightLeft, Menu, Database } from 'lucide-react';
+import { useToast } from '../../hooks/useToast';
+import ConfirmationModal from '../common/ConfirmationModal';
+import { useConfirmation } from '../../hooks/useConfirmation';
 import UserModal from './UserModal';
 import UserProfileView from './UserProfileView';
-import { useAppStore } from '../../store/AppStore';
+import Toast from '../common/Toast';
 
 interface SettingsPageProps {
   onToggleSidebar?: () => void;
@@ -20,6 +23,7 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ onToggleSidebar }) => {
   const [selectedUserForProfile, setSelectedUserForProfile] = useState<any>(null);
   const [isCleaningChats, setIsCleaningChats] = useState(false);
   const [isMergingChats, setIsMergingChats] = useState(false);
+  const [toast, setToast] = useState<{ type: 'success' | 'error' | 'warning' | 'info'; message: string } | null>(null);
 
   const { 
     users, 
@@ -31,6 +35,9 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ onToggleSidebar }) => {
     cleanOrphanedChats,
     mergeDuplicateChats 
   } = useAppStore();
+
+  // Custom confirmation modal
+  const { confirmation, showConfirmation, hideConfirmation, handleConfirm } = useConfirmation();
 
   useEffect(() => {
     // Fetch initial data
@@ -96,23 +103,42 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ onToggleSidebar }) => {
   };
 
   const handleDeleteUser = (userId: string) => {
-    if (confirm('Are you sure you want to delete this user?')) {
-      deleteUser(userId);
-    }
+    showConfirmation(
+      () => deleteUser(userId),
+      {
+        title: 'Delete User',
+        message: 'Are you sure you want to delete this user?',
+        confirmText: 'Delete',
+        type: 'danger'
+      }
+    );
   };
 
-  const handleSaveUser = (userData: any) => {
-    if (selectedUser) {
-      // Update existing user
-      updateUser(selectedUser.id, userData);
-    } else {
-      // Add new user
-      addUser({
-        ...userData,
-        lastLogin: null
-      });
+  const handleSaveUser = async (userData: any) => {
+    try {
+      if (selectedUser) {
+        // Update existing user
+        const result = await updateUser(selectedUser.id, userData);
+        if (result.success) {
+          if (result.passwordUpdated) {
+            setToast({ type: 'success', message: 'User updated successfully! Password has been changed and saved to database.' });
+          } else {
+            setToast({ type: 'success', message: 'User updated successfully!' });
+          }
+        }
+      } else {
+        // Add new user
+        await addUser({
+          ...userData,
+          lastLogin: null
+        });
+        setToast({ type: 'success', message: 'User created successfully!' });
+      }
+      setShowUserModal(false);
+    } catch (error) {
+      console.error('Error saving user:', error);
+      setToast({ type: 'error', message: 'Failed to save user. Please try again.' });
     }
-    setShowUserModal(false);
   };
 
   const handleViewUserProfile = (user: any) => {
@@ -126,33 +152,49 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ onToggleSidebar }) => {
   };
 
   const handleCleanOrphanedChats = async () => {
-    if (confirm('Are you sure you want to clean orphaned chat rooms? This will delete chat rooms for clients that no longer exist.')) {
-      setIsCleaningChats(true);
-      try {
-        const deletedCount = await cleanOrphanedChats();
-        alert(`Successfully cleaned ${deletedCount} orphaned chat rooms.`);
-      } catch (error) {
-        console.error('Error cleaning orphaned chats:', error);
-        alert('Failed to clean orphaned chats. Please try again.');
-      } finally {
-        setIsCleaningChats(false);
+    showConfirmation(
+      async () => {
+        setIsCleaningChats(true);
+        try {
+          const deletedCount = await cleanOrphanedChats();
+          alert(`Successfully cleaned ${deletedCount} orphaned chat rooms.`);
+        } catch (error) {
+          console.error('Error cleaning orphaned chats:', error);
+          alert('Failed to clean orphaned chats. Please try again.');
+        } finally {
+          setIsCleaningChats(false);
+        }
+      },
+      {
+        title: 'Clean Orphaned Chats',
+        message: 'Are you sure you want to clean orphaned chat rooms? This will delete chat rooms for clients that no longer exist.',
+        confirmText: 'Clean',
+        type: 'warning'
       }
-    }
+    );
   };
 
   const handleMergeDuplicateChats = async () => {
-    if (confirm('Are you sure you want to merge duplicate chat rooms? This will combine multiple chat rooms for the same client into one.')) {
-      setIsMergingChats(true);
-      try {
-        const mergedCount = await mergeDuplicateChats();
-        alert(`Successfully merged ${mergedCount} duplicate chat rooms.`);
-      } catch (error) {
-        console.error('Error merging duplicate chats:', error);
-        alert('Failed to merge duplicate chats. Please try again.');
-      } finally {
-        setIsMergingChats(false);
+    showConfirmation(
+      async () => {
+        setIsMergingChats(true);
+        try {
+          const mergedCount = await mergeDuplicateChats();
+          alert(`Successfully merged ${mergedCount} duplicate chat rooms.`);
+        } catch (error) {
+          console.error('Error merging duplicate chats:', error);
+          alert('Failed to merge duplicate chats. Please try again.');
+        } finally {
+          setIsMergingChats(false);
+        }
+      },
+      {
+        title: 'Merge Duplicate Chats',
+        message: 'Are you sure you want to merge duplicate chat rooms? This will combine multiple chat rooms for the same client into one.',
+        confirmText: 'Merge',
+        type: 'warning'
       }
-    }
+    );
   };
 
   const roleStats = {
@@ -463,6 +505,30 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ onToggleSidebar }) => {
           user={selectedUser}
           onClose={() => setShowUserModal(false)}
           onSave={handleSaveUser}
+        />
+      )}
+
+      {/* Toast Notification */}
+      {toast && (
+        <Toast
+          type={toast.type}
+          message={toast.message}
+          onClose={() => setToast(null)}
+        />
+      )}
+
+      {/* Custom Confirmation Modal */}
+      {confirmation && (
+        <ConfirmationModal
+          isOpen={confirmation.isOpen}
+          onClose={hideConfirmation}
+          onConfirm={handleConfirm}
+          title={confirmation.title || 'Confirm Action'}
+          message={confirmation.message}
+          confirmText={confirmation.confirmText}
+          cancelText={confirmation.cancelText}
+          type={confirmation.type}
+          icon={confirmation.icon}
         />
       )}
     </div>

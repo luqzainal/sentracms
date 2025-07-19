@@ -3,6 +3,7 @@ import { ArrowLeft, Calendar, MessageSquare, DollarSign, HelpCircle, Package, Pl
 import ClientProgressTracker from '../Clients/ClientProgressTracker';
 import AddOnServiceModal from '../common/AddOnServiceModal';
 import { useAppStore } from '../../store/AppStore';
+import { useToast } from '../../hooks/useToast';
 
 interface ClientPortalDashboardProps {
   user: any;
@@ -15,60 +16,30 @@ const ClientPortalDashboard: React.FC<ClientPortalDashboardProps> = ({ user, onB
   const [showBilling, setShowBilling] = useState(false);
   const [showViewAppointments, setShowViewAppointments] = useState(false);
   const [showAddOnModal, setShowAddOnModal] = useState(false);
+  const [showMyRequests, setShowMyRequests] = useState(false);
   const [message, setMessage] = useState('');
   const [isLoading, setIsLoading] = useState(true);
 
-  // Sample add-on services data
-  const availableAddOnServices = [
-    {
-      id: '1',
-      name: 'Premium Support',
-      description: '24/7 priority support with dedicated account manager',
-      price: 'RM 299',
-      category: 'Support Services',
-      available: true
-    },
-    {
-      id: '2',
-      name: 'Advanced Analytics',
-      description: 'Detailed reporting and analytics dashboard',
-      price: 'RM 199',
-      category: 'Analytics',
-      available: true
-    },
-    {
-      id: '3',
-      name: 'Custom Domain',
-      description: 'Use your own domain name with SSL certificate',
-      price: 'RM 99',
-      category: 'Domain Services',
-      available: true
-    },
-    {
-      id: '4',
-      name: 'API Integration',
-      description: 'Connect with third-party services via API',
-      price: 'RM 399',
-      category: 'Integration',
-      available: true
-    },
-    {
-      id: '5',
-      name: 'Mobile App',
-      description: 'Native mobile application for iOS and Android',
-      price: 'RM 999',
-      category: 'Mobile',
-      available: false
-    },
-    {
-      id: '6',
-      name: 'Advanced Security',
-      description: 'Enhanced security features and monitoring',
-      price: 'RM 149',
-      category: 'Security',
-      available: true
-    }
-  ];
+  const { addOnServices, fetchAddOnServices, addClientServiceRequest, getClientServiceRequestsByClientId, fetchClientServiceRequests } = useAppStore();
+  const { success, error } = useToast();
+
+  // Convert database services to modal format
+  const availableAddOnServices = addOnServices
+    .filter(service => service.status === 'Available')
+    .map(service => ({
+      id: service.id.toString(),
+      name: service.name,
+      description: service.description,
+      price: `RM ${service.price.toLocaleString('en-MY', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`,
+      category: service.category,
+      available: service.status === 'Available'
+    }));
+
+  // Fetch add-on services and client service requests on component mount
+  useEffect(() => {
+    fetchAddOnServices();
+    fetchClientServiceRequests();
+  }, [fetchAddOnServices, fetchClientServiceRequests]);
 
   const { 
     clients, 
@@ -208,21 +179,42 @@ const ClientPortalDashboard: React.FC<ClientPortalDashboardProps> = ({ user, onB
   const handleAddOnServiceSubmit = async (selectedServices: string[]) => {
     console.log('Selected add-on services:', selectedServices);
     
-    // Find the selected services
-    const selectedServiceDetails = availableAddOnServices.filter(service => 
-      selectedServices.includes(service.id)
-    );
-    
-    const totalCost = selectedServiceDetails.reduce((total, service) => 
-      total + parseFloat(service.price.replace('RM ', '')), 0
-    );
-    
-    // Here you would typically send this data to your backend
-    // For now, we'll just show a success message
-    alert(`Add-on services requested successfully!\n\nServices: ${selectedServiceDetails.map(s => s.name).join(', ')}\nTotal Cost: RM ${totalCost.toFixed(2)}\n\nOur team will contact you shortly to process your request.`);
-    
-    // You could also create a new invoice or request record here
-    // await createAddOnRequest(selectedServiceDetails);
+    if (!client) {
+      error('Client Error', 'Client information not available. Please contact support.');
+      return;
+    }
+
+    try {
+      // Create service requests for each selected service
+      for (const serviceId of selectedServices) {
+        await addClientServiceRequest({
+          client_id: client.id,
+          service_id: parseInt(serviceId),
+          status: 'Pending'
+        });
+      }
+
+      // Find the selected services for display
+      const selectedServiceDetails = availableAddOnServices.filter(service => 
+        selectedServices.includes(service.id)
+      );
+      
+      const totalCost = selectedServiceDetails.reduce((total, service) => 
+        total + parseFloat(service.price.replace('RM ', '')), 0
+      );
+      
+      success(
+        'Add-on Services Requested!',
+        `Services: ${selectedServiceDetails.map(s => s.name).join(', ')}\nTotal Cost: RM ${totalCost.toFixed(2)}\n\nOur team will review your request and contact you shortly.`
+      );
+      
+      // Refresh client service requests to show the new request
+      await fetchClientServiceRequests();
+      
+    } catch (err) {
+      console.error('Error submitting add-on services:', err);
+      error('Request Failed', 'Failed to submit add-on services. Please try again or contact support.');
+    }
   };
 
   // Show Progress Tracker
@@ -328,11 +320,15 @@ const ClientPortalDashboard: React.FC<ClientPortalDashboardProps> = ({ user, onB
               </div>
               <div>
                 <span className="font-medium text-slate-700">Email: </span>
-                <span className="text-slate-900">evodagang.malaysia@gmail.com</span>
+                <span className="text-slate-900">{client.email}</span>
               </div>
               <div>
                 <span className="font-medium text-slate-700">Phone: </span>
-                <span className="text-slate-900">0393880531</span>
+                <span className="text-slate-900">{client.phone || 'Not provided'}</span>
+              </div>
+              <div>
+                <span className="font-medium text-slate-700">Business: </span>
+                <span className="text-slate-900">{client.businessName}</span>
               </div>
               <div>
                 <span className="font-medium text-slate-700">Registered Package: </span>
@@ -378,26 +374,22 @@ const ClientPortalDashboard: React.FC<ClientPortalDashboardProps> = ({ user, onB
                 <tbody className="divide-y divide-slate-200">
                   {invoices.map((invoice) => (
                     <tr key={invoice.id}>
-                      <td className="py-3 px-4 text-slate-900">Kuasa 360</td>
+                      <td className="py-3 px-4 text-slate-900">{invoice.packageName || 'Package Invoice'}</td>
                       <td className="py-3 px-4 text-slate-900">RM {invoice.amount.toLocaleString()}</td>
                       <td className="py-3 px-4 text-slate-600">{new Date(invoice.createdAt).toLocaleDateString()}</td>
                       <td className="py-3 px-4 text-slate-900">RM {invoice.paid.toLocaleString()}</td>
                       <td className="py-3 px-4 text-slate-600">-</td>
                       <td className="py-3 px-4">
-                        <span className="px-2 py-1 bg-green-100 text-green-700 text-xs font-medium rounded-full">
-                          Paid
+                        <span className={`px-2 py-1 text-xs font-medium rounded-full ${
+                          invoice.paid >= invoice.amount ? 'bg-green-100 text-green-700' : 'bg-yellow-100 text-yellow-700'
+                        }`}>
+                          {invoice.paid >= invoice.amount ? 'Paid' : 'Partial'}
                         </span>
                       </td>
                     </tr>
                   ))}
                 </tbody>
               </table>
-            </div>
-            
-            <div className="mt-6 text-center">
-              <button className="bg-green-600 text-white px-6 py-2 rounded-lg hover:bg-green-700 transition-colors">
-                Need help? Contact us
-              </button>
             </div>
           </div>
         </div>
@@ -476,6 +468,106 @@ const ClientPortalDashboard: React.FC<ClientPortalDashboardProps> = ({ user, onB
     );
   }
 
+  // Show My Requests
+  if (showMyRequests) {
+    const clientRequests = getClientServiceRequestsByClientId(client.id);
+    
+    return (
+      <div className="min-h-screen bg-slate-50">
+        <div className="bg-white border-b border-slate-200 px-4 lg:px-8 py-4 lg:py-6">
+          <div className="max-w-7xl mx-auto flex items-center justify-between">
+            <div className="flex items-center space-x-4">
+              <button
+                onClick={() => setShowMyRequests(false)}
+                className="flex items-center space-x-2 px-3 py-2 text-slate-600 hover:text-slate-900 hover:bg-slate-100 rounded-lg transition-colors"
+              >
+                <ArrowLeft className="w-5 h-5" />
+                <span className="font-medium">Back</span>
+              </button>
+              <div>
+                <h1 className="text-xl lg:text-2xl font-bold text-slate-900 flex items-center space-x-2">
+                  <Clock className="w-6 h-6 text-indigo-600" />
+                  <span>My Add-On Service Requests</span>
+                </h1>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div className="max-w-4xl mx-auto p-4 lg:p-8">
+          <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-6">
+            <h3 className="text-lg font-semibold text-slate-900 mb-4">Your Service Requests</h3>
+            {clientRequests.length > 0 ? (
+              <div className="overflow-x-auto">
+                <table className="w-full">
+                  <thead className="bg-slate-50 border-b border-slate-200">
+                    <tr>
+                      <th className="text-left py-3 px-4 font-medium text-slate-900">Service</th>
+                      <th className="text-left py-3 px-4 font-medium text-slate-900">Category</th>
+                      <th className="text-left py-3 px-4 font-medium text-slate-900">Price</th>
+                      <th className="text-left py-3 px-4 font-medium text-slate-900">Request Date</th>
+                      <th className="text-left py-3 px-4 font-medium text-slate-900">Status</th>
+                      <th className="text-left py-3 px-4 font-medium text-slate-900">Notes</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-200">
+                    {clientRequests.map((request) => {
+                      const service = addOnServices.find(s => s.id === request.service_id);
+                      return (
+                        <tr key={request.id}>
+                          <td className="py-3 px-4 text-slate-900">
+                            <div>
+                              <div className="font-medium">{service?.name || 'Unknown Service'}</div>
+                              <div className="text-sm text-slate-600">{service?.description || ''}</div>
+                            </div>
+                          </td>
+                          <td className="py-3 px-4 text-slate-600">{service?.category || '-'}</td>
+                          <td className="py-3 px-4 text-slate-900">RM {service?.price?.toLocaleString() || '0'}</td>
+                          <td className="py-3 px-4 text-slate-600">
+                            {new Date(request.request_date).toLocaleDateString()}
+                          </td>
+                          <td className="py-3 px-4">
+                            <span className={`px-2 py-1 text-xs font-medium rounded-full ${
+                              request.status === 'Pending' ? 'bg-yellow-100 text-yellow-700' :
+                              request.status === 'Approved' ? 'bg-green-100 text-green-700' :
+                              request.status === 'Rejected' ? 'bg-red-100 text-red-700' :
+                              request.status === 'Completed' ? 'bg-blue-100 text-blue-700' :
+                              'bg-slate-100 text-slate-700'
+                            }`}>
+                              {request.status}
+                            </span>
+                          </td>
+                          <td className="py-3 px-4 text-slate-600">
+                            {request.admin_notes || request.rejection_reason || '-'}
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            ) : (
+              <div className="text-center py-8 text-slate-500">
+                <Clock className="w-12 h-12 text-slate-300 mx-auto mb-3" />
+                <p>No service requests found</p>
+                <p className="text-sm">You haven't requested any add-on services yet</p>
+                <button
+                  onClick={() => {
+                    setShowMyRequests(false);
+                    setShowAddOnModal(true);
+                  }}
+                  className="mt-4 bg-indigo-600 text-white px-4 py-2 rounded-lg hover:bg-indigo-700 transition-colors"
+                >
+                  Request Add-On Services
+                </button>
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen bg-slate-50">
       {/* Header */}
@@ -500,7 +592,7 @@ const ClientPortalDashboard: React.FC<ClientPortalDashboardProps> = ({ user, onB
       {/* Main Content */}
       <div className="max-w-7xl mx-auto p-4 lg:p-8">
         {/* Top Cards Grid */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4 lg:gap-6 mb-6 lg:mb-8">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-6 gap-4 lg:gap-6 mb-6 lg:mb-8">
           {/* Progress Tracking */}
           <div 
             className="bg-white rounded-xl p-6 shadow-sm border border-slate-200 hover:shadow-md transition-shadow cursor-pointer"
@@ -589,6 +681,26 @@ const ClientPortalDashboard: React.FC<ClientPortalDashboardProps> = ({ user, onB
               </div>
             </div>
           </div>
+
+          {/* My Requests */}
+          <div 
+            className="bg-white rounded-xl p-6 shadow-sm border border-slate-200 hover:shadow-md transition-shadow cursor-pointer"
+            onClick={() => setShowMyRequests(true)}
+          >
+            <div className="text-center">
+              <div className="w-12 h-12 bg-indigo-100 rounded-full flex items-center justify-center mx-auto mb-3">
+                <Clock className="w-6 h-6 text-indigo-600" />
+              </div>
+              <h3 className="font-semibold text-slate-900 mb-2">My Requests</h3>
+              <p className="text-sm text-slate-600 mb-3">Track your add-on service requests</p>
+              <div className="text-lg font-bold text-indigo-600">
+                {getClientServiceRequestsByClientId(client.id).length}
+              </div>
+              <p className="text-xs text-slate-500">Total Requests</p>
+            </div>
+          </div>
+
+
         </div>
 
         {/* Bottom Section */}
@@ -726,6 +838,9 @@ const ClientPortalDashboard: React.FC<ClientPortalDashboardProps> = ({ user, onB
           </div>
         </div>
       </div>
+
+      {/* Admin Links Modal */}
+
 
       {/* Add-On Service Modal */}
       <AddOnServiceModal

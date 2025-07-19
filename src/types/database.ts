@@ -18,6 +18,7 @@ export interface DatabaseClient {
   notes?: string;
   username?: string;
   password?: string;
+  tags?: string[];
   created_at: string;
   updated_at: string;
 }
@@ -94,6 +95,16 @@ export interface DatabaseProgressStep {
   completed: boolean;
   completed_date?: string;
   important: boolean;
+  // New deadline fields for parent items
+  onboarding_deadline?: string;
+  first_draft_deadline?: string;
+  second_draft_deadline?: string;
+  onboarding_completed?: boolean;
+  first_draft_completed?: boolean;
+  second_draft_completed?: boolean;
+  onboarding_completed_date?: string;
+  first_draft_completed_date?: string;
+  second_draft_completed_date?: string;
   created_at: string;
   updated_at: string;
 }
@@ -135,6 +146,10 @@ export interface DatabaseClientLink {
   client_id: number;
   title: string;
   url: string;
+  created_by: string;
+  link_type: 'admin' | 'client';
+  user_id?: string;
+  user_role?: string;
   created_at: string;
 }
 
@@ -176,4 +191,45 @@ export interface ChatMessage extends DatabaseChatMessage {
 
 export interface ClientLink extends DatabaseClientLink {
   client?: Client;
+}
+
+// Add-On Services types
+export interface DatabaseAddOnService {
+  id: number;
+  name: string;
+  description: string;
+  category: 'Support' | 'Analytics' | 'Domain' | 'Integration' | 'Mobile' | 'Security';
+  price: number;
+  status: 'Available' | 'Unavailable';
+  features?: string[];
+  created_at: string;
+  updated_at: string;
+}
+
+export interface DatabaseClientServiceRequest {
+  id: number;
+  client_id: number;
+  service_id: number;
+  status: 'Pending' | 'Approved' | 'Rejected' | 'Completed';
+  request_date: string;
+  approved_date?: string;
+  rejected_date?: string;
+  completed_date?: string;
+  admin_notes?: string;
+  rejection_reason?: string;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface AddOnService extends DatabaseAddOnService {
+  // Additional computed fields can be added here
+}
+
+export interface ClientServiceRequest extends DatabaseClientServiceRequest {
+  service?: AddOnService;
+  client?: {
+    id: number;
+    name: string;
+    email: string;
+  };
 } 

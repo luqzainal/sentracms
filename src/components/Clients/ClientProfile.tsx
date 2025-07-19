@@ -11,6 +11,8 @@ import EditInvoiceModal from './EditInvoiceModal';
 import EditComponentModal from './EditComponentModal';
 import EditEventModal from './EditEventModal';
 import EditPaymentModal from './EditPaymentModal';
+import ConfirmationModal from '../common/ConfirmationModal';
+import { useConfirmation } from '../../hooks/useConfirmation';
 
 interface ClientProfileProps {
   clientId: string;
@@ -46,9 +48,13 @@ const ClientProfile: React.FC<ClientProfileProps> = ({ clientId, onBack, onEdit 
     fetchComponents,
     fetchCalendarEvents,
     fetchProgressSteps,
+    fetchTags,
 
 
   } = useAppStore();
+
+  // Custom confirmation modal
+  const { confirmation, showConfirmation, hideConfirmation, handleConfirm } = useConfirmation();
 
   // All React hooks must be at the top level
   const [showInvoiceModal, setShowInvoiceModal] = useState(false);
@@ -211,17 +217,19 @@ const ClientProfile: React.FC<ClientProfileProps> = ({ clientId, onBack, onEdit 
     try {
       await updateClient(client.id, clientData);
       
-      // Update local client state immediately to reflect changes
-      setClient(prevClient => {
-        if (!prevClient) return prevClient;
-        return {
-          ...prevClient,
-          ...clientData,
-          updatedAt: new Date().toISOString()
-        };
-      });
+      // Refresh client data and tags from database
+      await Promise.all([
+        fetchClients(),
+        fetchTags()
+      ]);
       
-    setShowEditModal(false);
+      // Update local client state with fresh data from database
+      const updatedClient = useAppStore.getState().clients.find(c => c.id === parseInt(clientId));
+      if (updatedClient) {
+        setClient(updatedClient);
+      }
+      
+      setShowEditModal(false);
     } catch (error) {
       console.error('Error updating client:', error);
     }
@@ -249,9 +257,15 @@ const ClientProfile: React.FC<ClientProfileProps> = ({ clientId, onBack, onEdit 
   };
 
   const handleDeleteInvoice = (invoiceId: string) => {
-    if (confirm('Are you sure you want to delete this invoice? This will also delete all related components.')) {
-      deleteInvoice(invoiceId);
-    }
+    showConfirmation(
+      () => deleteInvoice(invoiceId),
+      {
+        title: 'Delete Invoice',
+        message: 'Are you sure you want to delete this invoice? This will also delete all related components.',
+        confirmText: 'Delete',
+        type: 'danger'
+      }
+    );
   };
 
   const handleEditComponent = (component: Component) => {
@@ -268,9 +282,15 @@ const ClientProfile: React.FC<ClientProfileProps> = ({ clientId, onBack, onEdit 
   };
 
   const handleDeleteComponent = (componentId: string) => {
-    if (confirm('Are you sure you want to delete this component?')) {
-      deleteComponent(componentId);
-    }
+    showConfirmation(
+      () => deleteComponent(componentId),
+      {
+        title: 'Delete Component',
+        message: 'Are you sure you want to delete this component?',
+        confirmText: 'Delete',
+        type: 'danger'
+      }
+    );
   };
 
   const handleEditEvent = (event: CalendarEvent) => {
@@ -287,9 +307,15 @@ const ClientProfile: React.FC<ClientProfileProps> = ({ clientId, onBack, onEdit 
   };
 
   const handleDeleteEvent = (eventId: string) => {
-    if (confirm('Are you sure you want to delete this event?')) {
-      deleteCalendarEvent(eventId);
-    }
+    showConfirmation(
+      () => deleteCalendarEvent(eventId),
+      {
+        title: 'Delete Event',
+        message: 'Are you sure you want to delete this event?',
+        confirmText: 'Delete',
+        type: 'danger'
+      }
+    );
   };
 
  const handleEditPayment = (payment: Payment) => {
@@ -306,9 +332,15 @@ const ClientProfile: React.FC<ClientProfileProps> = ({ clientId, onBack, onEdit 
  };
 
    const handleDeletePayment = (paymentId: string) => {
-    if (confirm('Are you sure you want to delete this payment?')) {
-      deletePayment(paymentId);
-    }
+    showConfirmation(
+      () => deletePayment(paymentId),
+      {
+        title: 'Delete Payment',
+        message: 'Are you sure you want to delete this payment?',
+        confirmText: 'Delete',
+        type: 'danger'
+      }
+    );
   };
 
 
@@ -738,6 +770,19 @@ const ClientProfile: React.FC<ClientProfileProps> = ({ clientId, onBack, onEdit 
         />
       )}
 
+      {confirmation && (
+        <ConfirmationModal
+          isOpen={confirmation.isOpen}
+          onClose={hideConfirmation}
+          onConfirm={handleConfirm}
+          title={confirmation.title || 'Confirm Action'}
+          message={confirmation.message}
+          confirmText={confirmation.confirmText}
+          cancelText={confirmation.cancelText}
+          type={confirmation.type}
+          icon={confirmation.icon}
+        />
+      )}
 
     </>
   );

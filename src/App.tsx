@@ -2,7 +2,8 @@ import React, { Suspense, useState, useEffect } from 'react';
 import { Routes, Route, useNavigate, useLocation, useParams, Navigate } from 'react-router-dom';
 import { useAppStore } from './store/AppStore';
 import Sidebar from './components/Layout/Sidebar';
-import { Toaster } from 'react-hot-toast';
+import { ToastProvider } from './context/ToastContext';
+import ToastContainer from './components/common/ToastContainer';
 
 // Lazy load components
 const Login = React.lazy(() => import('./components/Auth/Login'));
@@ -15,6 +16,9 @@ const ChatPage = React.lazy(() => import('./components/Chat/ChatPage'));
 const ReportsPage = React.lazy(() => import('./components/Reports/ReportsPage'));
 const SettingsPage = React.lazy(() => import('./components/Settings/SettingsPage'));
 const ClientPortalDashboard = React.lazy(() => import('./components/ClientPortal/ClientPortalDashboard'));
+const AddOnServicesPage = React.lazy(() => import('./components/AddOnServices/AddOnServicesPage'));
+const ClientRequestsPage = React.lazy(() => import('./components/AddOnServices/ClientRequestsPage'));
+const ToastTest = React.lazy(() => import('./components/common/ToastTest'));
 
 // Loading component
 const LoadingSpinner = () => (
@@ -110,9 +114,14 @@ function App() {
 
   if (user.role === 'Client Admin' || user.role === 'Client Team') {
     return (
-        <Suspense fallback={<LoadingSpinner />}>
-          <ClientPortalDashboard user={user} onBack={handleLogout} />
-        </Suspense>
+      <ToastProvider>
+        <div className="min-h-screen bg-slate-50">
+          <ToastContainer />
+          <Suspense fallback={<LoadingSpinner />}>
+            <ClientPortalDashboard user={user} onBack={handleLogout} />
+          </Suspense>
+        </div>
+      </ToastProvider>
     );
   }
 
@@ -121,12 +130,10 @@ function App() {
   };
 
   return (
-      <div className="flex h-screen bg-gray-100">
-        <Toaster 
-          position="top-center"
-          reverseOrder={false}
-        />
-        {sidebarOpen && (
+      <ToastProvider>
+        <div className="flex h-screen bg-gray-100">
+          <ToastContainer />
+          {sidebarOpen && (
           <div 
             className="fixed inset-0 bg-black bg-opacity-50 z-40 lg:hidden"
             onClick={handleToggleSidebar}
@@ -149,6 +156,9 @@ function App() {
               <Route path="/payments" element={<PaymentsPage />} />
               <Route path="/calendar" element={<CalendarPage onToggleSidebar={handleToggleSidebar} />} />
               <Route path="/chat" element={<ChatPage onToggleSidebar={handleToggleSidebar} />} />
+              <Route path="/addon-services" element={<AddOnServicesPage onToggleSidebar={handleToggleSidebar} />} />
+              <Route path="/client-requests" element={<ClientRequestsPage onToggleSidebar={handleToggleSidebar} />} />
+              <Route path="/toast-test" element={<ToastTest />} />
               <Route path="/reports" element={<ReportsPage onToggleSidebar={handleToggleSidebar} />} />
               <Route path="/settings" element={<SettingsPage onToggleSidebar={handleToggleSidebar} />} />
               <Route path="*" element={<Dashboard setActiveTab={handleSetTab} onToggleSidebar={handleToggleSidebar} />} />
@@ -156,6 +166,7 @@ function App() {
           </Suspense>
         </div>
       </div>
+    </ToastProvider>
   );
 }
 

@@ -8,7 +8,8 @@ import {
   Settings,
   LogOut,
   Menu,
-  X
+  X,
+  Package
 } from 'lucide-react';
 import { useAppStore } from '../../store/AppStore';
 import Logo from '../common/Logo';
@@ -30,6 +31,7 @@ const Sidebar: React.FC<SidebarProps> = ({ activeTab, setActiveTab, onLogout, is
     { id: 'clients', icon: Users, label: 'Clients' },
     { id: 'calendar', icon: Calendar, label: 'Calendar' },
     { id: 'chat', icon: MessageSquare, label: 'Messages', badge: unreadCount > 0 ? unreadCount : null },
+    { id: 'addon-services', icon: Package, label: 'Add-On Services' },
     { id: 'reports', icon: BarChart3, label: 'Reports' },
     { id: 'settings', icon: Settings, label: 'Settings' },
   ];

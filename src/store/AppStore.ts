@@ -8,10 +8,14 @@ import {
   clientLinksService, 
   progressService,
   componentsService, // Add this import
-  calendarService
+  calendarService,
+  clientFilesService,
+  tagsService,
+  addOnServicesService,
+  clientServiceRequestsService
 } from '../services/database';
 import { generateAvatarUrl } from '../utils/avatarUtils';
-import type { Client as DatabaseClient, ClientLink as TClientLink, DatabaseProgressStepComment } from '../types/database';
+import type { Client as DatabaseClient, ClientLink as TClientLink, DatabaseProgressStepComment, AddOnService, ClientServiceRequest } from '../types/database';
 
 export interface Client {
   id: number;
@@ -81,6 +85,16 @@ export interface ProgressStep {
   completed: boolean;
   completedDate?: string;
   important: boolean;
+  // New deadline fields for parent items
+  onboardingDeadline?: string;
+  firstDraftDeadline?: string;
+  secondDraftDeadline?: string;
+  onboardingCompleted?: boolean;
+  firstDraftCompleted?: boolean;
+  secondDraftCompleted?: boolean;
+  onboardingCompletedDate?: string;
+  firstDraftCompletedDate?: string;
+  secondDraftCompletedDate?: string;
   comments: DatabaseProgressStepComment[];
   createdAt: string;
   updatedAt: string;
@@ -151,6 +165,18 @@ export interface User {
   updatedAt: string;
 }
 
+export interface ClientFile {
+  id: number;
+  clientId: number;
+  fileName: string;
+  fileSize: string;
+  fileUrl: string;
+  fileType?: string;
+  uploadDate: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
 export type ClientLink = TClientLink;
 
 interface AppState {
@@ -165,6 +191,9 @@ interface AppState {
   tags: Tag[];
   users: User[];
   clientLinks: ClientLink[];
+  clientFiles: ClientFile[];
+  addOnServices: AddOnService[];
+  clientServiceRequests: ClientServiceRequest[];
 
   // Navigation & User state
   user: User | null;
@@ -201,6 +230,8 @@ interface AppState {
   fetchTags: () => Promise<void>;
   fetchUsers: () => Promise<void>;
   fetchClientLinks: (clientId: number) => Promise<void>;
+  fetchAddOnServices: () => Promise<void>;
+  fetchClientServiceRequests: () => Promise<void>;
 
   // User & Navigation actions
   setUser: (user: User | null) => void;
@@ -262,12 +293,12 @@ interface AppState {
   updateCalendarEvent: (id: string, updates: Partial<CalendarEvent>) => Promise<void>;
   deleteCalendarEvent: (id: string) => Promise<void>;
 
-  addTag: (tag: Omit<Tag, 'id' | 'createdAt' | 'updatedAt'>) => Promise<void>;
+  addTag: (tag: Omit<Tag, 'id' | 'createdAt' | 'updatedAt'>) => Promise<Tag>;
   updateTag: (id: string, updates: Partial<Tag>) => Promise<void>;
   deleteTag: (id: string) => Promise<void>;
 
   addUser: (user: Omit<User, 'id' | 'createdAt' | 'updatedAt'>) => Promise<void>;
-  updateUser: (id: string, updates: Partial<User>) => Promise<void>;
+  updateUser: (id: string, updates: Partial<User>) => Promise<{ success: boolean; passwordUpdated: boolean }>;
   deleteUser: (id: string) => Promise<void>;
   getAdminTeam: () => Promise<User[]>;
   assignUserToClient: (userId: string, clientId: number) => Promise<void>;
@@ -276,7 +307,25 @@ interface AppState {
 
   addClientLink: (link: Omit<ClientLink, 'id' | 'createdAt' | 'created_at'> & { client_id: number }) => Promise<void>;
   deleteClientLink: (id: string) => Promise<void>;
-  getClientLinksByClientId: (clientId: number) => ClientLink[],
+  getClientLinksByClientId: (clientId: number) => ClientLink[];
+
+  // Client Files actions
+  fetchClientFiles: (clientId: number) => Promise<void>;
+  addClientFile: (file: Omit<ClientFile, 'id' | 'createdAt' | 'updatedAt'>) => Promise<void>;
+  deleteClientFile: (id: number) => Promise<void>;
+  getClientFilesByClientId: (clientId: number) => ClientFile[];
+
+  // Add-On Services actions
+  addAddOnService: (service: Partial<AddOnService>) => Promise<void>;
+  updateAddOnService: (id: number, updates: Partial<AddOnService>) => Promise<void>;
+  deleteAddOnService: (id: number) => Promise<void>;
+  getAddOnServiceById: (id: number) => AddOnService | undefined;
+
+  // Client Service Requests actions
+  addClientServiceRequest: (request: Partial<ClientServiceRequest>) => Promise<void>;
+  updateClientServiceRequest: (id: number, updates: Partial<ClientServiceRequest>) => Promise<void>;
+  deleteClientServiceRequest: (id: number) => Promise<void>;
+  getClientServiceRequestsByClientId: (clientId: number) => ClientServiceRequest[];
 
   // Computed values
   getTotalSales: () => number;
@@ -292,6 +341,9 @@ interface AppState {
   mergeDuplicateChats: () => Promise<number>;
 
   getClientRole: (clientId: number) => string;
+  
+  // Helper function to clean up PIC references
+  cleanupPicReferences: (userName: string, reason: string) => Promise<void>;
 }
 
 export const useAppStore = create<AppState>((set, get) => ({
@@ -319,6 +371,9 @@ export const useAppStore = create<AppState>((set, get) => ({
   tags: [],
   users: [],
   clientLinks: [],
+  clientFiles: [],
+  addOnServices: [],
+  clientServiceRequests: [],
 
   loading: {
     clients: false,
@@ -331,6 +386,9 @@ export const useAppStore = create<AppState>((set, get) => ({
     tags: false,
     users: false,
     clientLinks: false,
+    clientFiles: false,
+    addOnServices: false,
+    clientServiceRequests: false,
   },
 
   // Navigation & User state - Initialize user from localStorage
@@ -420,11 +478,6 @@ export const useAppStore = create<AppState>((set, get) => ({
         console.log('Raw clients from database (admin):', dbClients);
       }
       
-      // Load client tags from localStorage
-      const clientTags = typeof window !== 'undefined' 
-        ? JSON.parse(localStorage.getItem('clientTags') || '{}') 
-        : {};
-      
       // Convert database Client type to store Client type
       const clients: Client[] = dbClients.map((dbClient) => {
         const convertedClient = {
@@ -436,7 +489,7 @@ export const useAppStore = create<AppState>((set, get) => ({
           status: dbClient.status,
           packageName: undefined,
           pic: dbClient.pic,
-          tags: clientTags[dbClient.id] || [], // Load tags from localStorage
+          tags: dbClient.tags || [], // Load tags from database
           totalSales: Number(dbClient.total_sales) || 0,
           totalCollection: Number(dbClient.total_collection) || 0,
           balance: Number(dbClient.balance) || 0,
@@ -727,6 +780,16 @@ export const useAppStore = create<AppState>((set, get) => ({
         ...dbStep,
         clientId: dbStep.client_id,
         completedDate: dbStep.completed_date,
+        // Map new deadline fields
+        onboardingDeadline: dbStep.onboarding_deadline,
+        firstDraftDeadline: dbStep.first_draft_deadline,
+        secondDraftDeadline: dbStep.second_draft_deadline,
+        onboardingCompleted: dbStep.onboarding_completed,
+        firstDraftCompleted: dbStep.first_draft_completed,
+        secondDraftCompleted: dbStep.second_draft_completed,
+        onboardingCompletedDate: dbStep.onboarding_completed_date,
+        firstDraftCompletedDate: dbStep.first_draft_completed_date,
+        secondDraftCompletedDate: dbStep.second_draft_completed_date,
         comments: dbStep.comments || [],
         createdAt: dbStep.created_at,
         updatedAt: dbStep.updated_at,
@@ -861,8 +924,15 @@ export const useAppStore = create<AppState>((set, get) => ({
   fetchTags: async () => {
     set((state) => ({ loading: { ...state.loading, tags: true } }));
     try {
-      // For now, keep empty until proper tag service is implemented
-      set({ tags: [] });
+      const dbTags = await tagsService.getAll();
+      const tags: Tag[] = dbTags.map((dbTag) => ({
+        id: dbTag.id,
+        name: dbTag.name,
+        color: dbTag.color,
+        createdAt: dbTag.created_at,
+        updatedAt: dbTag.updated_at
+      }));
+      set({ tags });
     } catch (error) {
       console.error('Error fetching tags:', error);
       set({ tags: [] });
@@ -1300,6 +1370,7 @@ export const useAppStore = create<AppState>((set, get) => ({
         phone: clientData.phone,
         status: clientData.status as 'Complete' | 'Pending' | 'Inactive',
         pic: clientData.pic,
+        tags: clientData.tags || [],
         total_sales: clientData.totalSales || 0,
         total_collection: clientData.totalCollection || 0,
         balance: clientData.balance || 0,
@@ -1318,7 +1389,7 @@ export const useAppStore = create<AppState>((set, get) => ({
         status: dbClient.status,
         packageName: clientData.packageName,
         pic: clientData.pic,
-        tags: clientData.tags || [],
+        tags: dbClient.tags || [], // Use tags from database response
         totalSales: Number(dbClient.total_sales) || 0,
         totalCollection: Number(dbClient.total_collection) || 0,
         balance: Number(dbClient.balance) || 0,
@@ -1362,29 +1433,39 @@ export const useAppStore = create<AppState>((set, get) => ({
       if (updates.phone) dbUpdates.phone = updates.phone;
       if (updates.status) dbUpdates.status = updates.status as 'Complete' | 'Pending' | 'Inactive';
       if (updates.pic) dbUpdates.pic = updates.pic;
+      if (updates.tags) dbUpdates.tags = updates.tags;
       
       // Only update database if there are database fields to update
       if (Object.keys(dbUpdates).length > 0) {
-        await clientsService.update(id, dbUpdates);
+        const updatedDbClient = await clientsService.update(id, dbUpdates);
+        
+        // Then update local state with database response
+        set((state) => {
+          const updatedClients = state.clients.map((client) =>
+            client.id === id
+              ? { 
+                  ...client, 
+                  ...updates, 
+                  tags: updatedDbClient.tags || client.tags, // Use tags from database response
+                  updatedAt: new Date().toISOString() 
+                }
+              : client
+          );
+          
+          return { clients: updatedClients };
+        });
+      } else {
+        // If no database fields to update, just update local state
+        set((state) => {
+          const updatedClients = state.clients.map((client) =>
+            client.id === id
+              ? { ...client, ...updates, updatedAt: new Date().toISOString() }
+              : client
+          );
+          
+          return { clients: updatedClients };
+        });
       }
-      
-      // Then update local state
-      set((state) => {
-        const updatedClients = state.clients.map((client) =>
-          client.id === id
-            ? { ...client, ...updates, updatedAt: new Date().toISOString() }
-            : client
-        );
-        
-        // Persist client tags to localStorage
-        if (typeof window !== 'undefined' && updates.tags) {
-          const clientTags = JSON.parse(localStorage.getItem('clientTags') || '{}');
-          clientTags[id] = updates.tags;
-          localStorage.setItem('clientTags', JSON.stringify(clientTags));
-        }
-        
-        return { clients: updatedClients };
-      });
     } catch (error) {
       console.error('Error updating client:', error);
       // Still update local state even if database fails
@@ -1394,13 +1475,6 @@ export const useAppStore = create<AppState>((set, get) => ({
             ? { ...client, ...updates, updatedAt: new Date().toISOString() }
             : client
         );
-        
-        // Persist client tags to localStorage even if database fails
-        if (typeof window !== 'undefined' && updates.tags) {
-          const clientTags = JSON.parse(localStorage.getItem('clientTags') || '{}');
-          clientTags[id] = updates.tags;
-          localStorage.setItem('clientTags', JSON.stringify(clientTags));
-        }
         
         return { clients: updatedClients };
       });
@@ -2257,31 +2331,56 @@ export const useAppStore = create<AppState>((set, get) => ({
   },
 
   addTag: async (tagData) => {
-    set((state) => {
-      const newTag = {
-        ...tagData,
-        id: `tag-${Date.now()}`,
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString(),
+    try {
+      const dbTag = await tagsService.create(tagData);
+      const newTag: Tag = {
+        id: dbTag.id,
+        name: dbTag.name,
+        color: dbTag.color,
+        createdAt: dbTag.created_at,
+        updatedAt: dbTag.updated_at
       };
-      return { tags: [...state.tags, newTag] };
-    });
+      set((state) => ({
+        tags: [...state.tags, newTag]
+      }));
+      return newTag;
+    } catch (error) {
+      console.error('Error adding tag:', error);
+      throw error;
+    }
   },
 
   updateTag: async (id, updates) => {
-    set((state) => ({
-      tags: state.tags.map((tag) =>
-        tag.id === id
-          ? { ...tag, ...updates, updatedAt: new Date().toISOString() }
-          : tag
-      ),
-    }));
+    try {
+      const dbTag = await tagsService.update(id, updates);
+      const updatedTag: Tag = {
+        id: dbTag.id,
+        name: dbTag.name,
+        color: dbTag.color,
+        createdAt: dbTag.created_at,
+        updatedAt: dbTag.updated_at
+      };
+      set((state) => ({
+        tags: state.tags.map((tag) =>
+          tag.id === id ? updatedTag : tag
+        ),
+      }));
+    } catch (error) {
+      console.error('Error updating tag:', error);
+      throw error;
+    }
   },
 
   deleteTag: async (id) => {
-    set((state) => ({
-      tags: state.tags.filter((tag) => tag.id !== id),
-    }));
+    try {
+      await tagsService.delete(id);
+      set((state) => ({
+        tags: state.tags.filter((tag) => tag.id !== id),
+      }));
+    } catch (error) {
+      console.error('Error deleting tag:', error);
+      throw error;
+    }
   },
 
   addUser: async (userData) => {
@@ -2340,6 +2439,20 @@ export const useAppStore = create<AppState>((set, get) => ({
 
   updateUser: async (id, updates) => {
     try {
+      console.log('🔍 Debug updateUser - updates received:', JSON.stringify(updates, null, 2));
+      
+      // Extract password from appropriate access type
+      let password = undefined;
+      if ((updates as any).dashboardAccess?.password) {
+        password = (updates as any).dashboardAccess.password;
+        console.log('🔑 Using dashboard password for update');
+      } else if ((updates as any).portalAccess?.password) {
+        password = (updates as any).portalAccess.password;
+        console.log('🔑 Using portal password for update');
+      } else {
+        console.log('⚠️ No password provided for update');
+      }
+      
       // Map store updates to database format
       const dbUpdates = {
         name: updates.name,
@@ -2347,8 +2460,11 @@ export const useAppStore = create<AppState>((set, get) => ({
         role: updates.role as 'Super Admin' | 'Team' | 'Client Admin' | 'Client Team' | undefined,
         status: updates.status as 'Active' | 'Inactive' | undefined,
         client_id: updates.clientId,
-        permissions: updates.permissions
+        permissions: updates.permissions,
+        password: password
       };
+      
+      console.log('🔍 Debug updateUser - dbUpdates to send:', JSON.stringify(dbUpdates, null, 2));
       
       const updatedDbUser = await usersService.update(id, dbUpdates);
       
@@ -2371,18 +2487,50 @@ export const useAppStore = create<AppState>((set, get) => ({
           user.id === id ? updatedUser : user
         ),
       }));
+
+      // Clean up PIC references if user role changed from Team to something else
+      if (updates.role && updates.role !== 'Team') {
+        const currentUser = get().users.find(u => u.id === id);
+        if (currentUser && currentUser.role === 'Team') {
+          await get().cleanupPicReferences(currentUser.name, `role changed from Team to ${updates.role}`);
+        }
+      }
+
+      // Clean up PIC references if user status changed to Inactive
+      if (updates.status === 'Inactive') {
+        const currentUser = get().users.find(u => u.id === id);
+        if (currentUser && currentUser.role === 'Team') {
+          await get().cleanupPicReferences(currentUser.name, 'status changed to Inactive');
+        }
+      }
+      
+      // Return success status for toast notification
+      return { success: true, passwordUpdated: !!password };
     } catch (error) {
-      console.error('Error updating user:', error);
+      console.error('❌ Error updating user:', error);
       throw error;
     }
   },
 
   deleteUser: async (id) => {
     try {
+      // Get user info before deletion for PIC cleanup
+      const userToDelete = get().users.find(u => u.id === id);
+      
       await usersService.delete(id);
       set((state) => ({
         users: state.users.filter((user) => user.id !== id),
       }));
+
+      // Clean up PIC references if deleted user was a Team member
+      if (userToDelete && userToDelete.role === 'Team') {
+        await get().cleanupPicReferences(userToDelete.name, 'user deleted');
+      }
+
+      // Clean up PIC references if deleted user was inactive Team member
+      if (userToDelete && userToDelete.role === 'Team' && userToDelete.status === 'Inactive') {
+        await get().cleanupPicReferences(userToDelete.name, 'inactive user deleted');
+      }
     } catch (error) {
       console.error('Error deleting user:', error);
       throw error;
@@ -2444,7 +2592,19 @@ export const useAppStore = create<AppState>((set, get) => ({
 
   addClientLink: async (linkData) => {
     try {
-      const newLink = await clientLinksService.create(linkData);
+      // Determine link type based on current user
+      const currentUser = get().user;
+      const linkType = currentUser?.role === 'Client Admin' || currentUser?.role === 'Client Team' ? 'client' : 'admin';
+      const createdBy = currentUser?.role === 'Client Admin' || currentUser?.role === 'Client Team' ? 'client' : 'admin';
+      
+      const newLink = await clientLinksService.create({
+        ...linkData,
+        created_by: createdBy,
+        link_type: linkType,
+        user_id: currentUser?.id,
+        user_role: currentUser?.role
+      });
+      
       set(state => ({
         clientLinks: [...state.clientLinks, newLink]
       }));
@@ -2710,5 +2870,427 @@ export const useAppStore = create<AppState>((set, get) => ({
       console.error('Error assigning user to client:', error);
       throw error;
     }
+  },
+
+  // Client Files actions
+  fetchClientFiles: async (clientId: number) => {
+    set((state) => ({ loading: { ...state.loading, clientFiles: true } }));
+    try {
+      console.log(`🔄 Fetching files for client ${clientId}...`);
+      const dbFiles = await clientFilesService.getByClientId(clientId);
+      console.log('📋 Raw database files count:', dbFiles.length);
+      
+      if (dbFiles.length > 0) {
+        console.log('📋 Sample raw database file:', {
+          id: dbFiles[0].id,
+          clientId: dbFiles[0].clientId,
+          fileName: dbFiles[0].fileName,
+          fileSize: dbFiles[0].fileSize
+        });
+      }
+      
+      const files: ClientFile[] = dbFiles.map((dbFile) => ({
+        id: dbFile.id,
+        clientId: dbFile.clientId || dbFile.client_id,
+        fileName: dbFile.fileName || dbFile.file_name,
+        fileSize: dbFile.fileSize || dbFile.file_size,
+        fileUrl: dbFile.fileUrl || dbFile.file_url,
+        fileType: dbFile.fileType || dbFile.file_type,
+        uploadDate: (dbFile.uploadDate || dbFile.upload_date) instanceof Date ? (dbFile.uploadDate || dbFile.upload_date).toISOString() : (dbFile.uploadDate || dbFile.upload_date),
+        createdAt: (dbFile.createdAt || dbFile.created_at) instanceof Date ? (dbFile.createdAt || dbFile.created_at).toISOString() : (dbFile.createdAt || dbFile.created_at),
+        updatedAt: (dbFile.updatedAt || dbFile.updated_at) instanceof Date ? (dbFile.updatedAt || dbFile.updated_at).toISOString() : (dbFile.updatedAt || dbFile.updated_at)
+      }));
+      
+      console.log('📄 Processed files count:', files.length);
+      
+      if (files.length > 0) {
+        console.log('📄 Sample processed file:', {
+          id: files[0].id,
+          clientId: files[0].clientId,
+          fileName: files[0].fileName,
+          fileSize: files[0].fileSize
+        });
+      }
+      
+      set((state) => {
+        // Clear existing files for this client and add new ones
+        const otherClientFiles = state.clientFiles.filter(f => f.clientId !== clientId);
+        const newState = {
+          clientFiles: [...otherClientFiles, ...files]
+        };
+        console.log('🔄 State update - Other client files:', otherClientFiles.length);
+        console.log('🔄 State update - New files for client', clientId, ':', files.length);
+        console.log('🔄 State update - Total files in state:', newState.clientFiles.length);
+        return newState;
+      });
+      
+      console.log(`✅ Fetched ${files.length} files for client ${clientId}:`, files.map(f => f.fileName));
+    } catch (error) {
+      console.error('❌ Error fetching client files:', error);
+    } finally {
+      set((state) => ({ loading: { ...state.loading, clientFiles: false } }));
+    }
+  },
+
+  addClientFile: async (file: Omit<ClientFile, 'id' | 'createdAt' | 'updatedAt'>) => {
+    try {
+      const dbFile = await clientFilesService.add(file);
+      const newFile: ClientFile = {
+        id: dbFile.id,
+        clientId: dbFile.clientId || dbFile.client_id,
+        fileName: dbFile.fileName || dbFile.file_name,
+        fileSize: dbFile.fileSize || dbFile.file_size,
+        fileUrl: dbFile.fileUrl || dbFile.file_url,
+        fileType: dbFile.fileType || dbFile.file_type,
+        uploadDate: (dbFile.uploadDate || dbFile.upload_date) instanceof Date ? (dbFile.uploadDate || dbFile.upload_date).toISOString() : (dbFile.uploadDate || dbFile.upload_date),
+        createdAt: (dbFile.createdAt || dbFile.created_at) instanceof Date ? (dbFile.createdAt || dbFile.created_at).toISOString() : (dbFile.createdAt || dbFile.created_at),
+        updatedAt: (dbFile.updatedAt || dbFile.updated_at) instanceof Date ? (dbFile.updatedAt || dbFile.updated_at).toISOString() : (dbFile.updatedAt || dbFile.updated_at)
+      };
+      
+      set((state) => ({
+        clientFiles: [...state.clientFiles, newFile]
+      }));
+      
+      console.log('Client file added to database:', newFile);
+    } catch (error) {
+      console.error('Error adding client file:', error);
+      throw error;
+    }
+  },
+
+  deleteClientFile: async (id: number) => {
+    try {
+      await clientFilesService.delete(id);
+      
+      set((state) => ({
+        clientFiles: state.clientFiles.filter(file => file.id !== id)
+      }));
+      
+      console.log(`Client file ${id} deleted from database`);
+    } catch (error) {
+      console.error('Error deleting client file:', error);
+      throw error;
+    }
+  },
+
+  getClientFilesByClientId: (clientId: number) => {
+    const allFiles = get().clientFiles;
+    console.log(`🔍 getClientFilesByClientId(${clientId}) - All files in state:`, allFiles.length);
+    
+    // Debug first few files
+    if (allFiles.length > 0) {
+      console.log('🔍 Sample files in state:');
+      allFiles.slice(0, 3).forEach((file, index) => {
+        console.log(`  File ${index}:`, {
+          id: file.id,
+          clientId: file.clientId,
+          fileName: file.fileName,
+          fileSize: file.fileSize
+        });
+      });
+    }
+    
+    const files = allFiles.filter(file => file.clientId === clientId);
+    console.log(`🔍 getClientFilesByClientId(${clientId}) - Filtered files:`, files.length);
+    
+    // Debug filtered files
+    if (files.length > 0) {
+      console.log('🔍 Filtered files details:');
+      files.forEach((file, index) => {
+        console.log(`  Filtered File ${index}:`, {
+          id: file.id,
+          clientId: file.clientId,
+          fileName: file.fileName,
+          fileSize: file.fileSize
+        });
+      });
+    }
+    
+    return files;
+  },
+
+  // Add-On Services actions
+  fetchAddOnServices: async () => {
+    set((state) => ({ loading: { ...state.loading, addOnServices: true } }));
+    try {
+      const dbServices = await addOnServicesService.getAll();
+      const services: AddOnService[] = dbServices.map((dbService) => ({
+        id: dbService.id,
+        name: dbService.name,
+        description: dbService.description,
+        category: dbService.category,
+        price: Number(dbService.price),
+        status: dbService.status,
+        features: dbService.features || [],
+        createdAt: dbService.created_at,
+        updatedAt: dbService.updated_at
+      }));
+      
+      set({ addOnServices: services });
+      console.log(`Fetched ${services.length} add-on services`);
+    } catch (error) {
+      console.error('Error fetching add-on services:', error);
+      set({ addOnServices: [] });
+    } finally {
+      set((state) => ({ loading: { ...state.loading, addOnServices: false } }));
+    }
+  },
+
+  fetchClientServiceRequests: async () => {
+    set((state) => ({ loading: { ...state.loading, clientServiceRequests: true } }));
+    try {
+      const dbRequests = await clientServiceRequestsService.getAll();
+      const requests: ClientServiceRequest[] = dbRequests.map((dbRequest) => ({
+        id: dbRequest.id,
+        client_id: dbRequest.client_id,
+        service_id: dbRequest.service_id,
+        status: dbRequest.status,
+        request_date: dbRequest.request_date,
+        approved_date: dbRequest.approved_date,
+        rejected_date: dbRequest.rejected_date,
+        completed_date: dbRequest.completed_date,
+        admin_notes: dbRequest.admin_notes,
+        rejection_reason: dbRequest.rejection_reason,
+        created_at: dbRequest.created_at,
+        updated_at: dbRequest.updated_at,
+        service: dbRequest.service_name ? {
+          id: dbRequest.service_id,
+          name: dbRequest.service_name,
+          description: dbRequest.service_description || '',
+          category: dbRequest.service_category as any,
+          price: Number(dbRequest.service_price) || 0,
+          status: 'Available' as const,
+          features: [],
+          createdAt: dbRequest.created_at,
+          updatedAt: dbRequest.updated_at
+        } : undefined,
+        client: dbRequest.client_name ? {
+          id: dbRequest.client_id,
+          name: dbRequest.client_name,
+          email: dbRequest.client_email || ''
+        } : undefined
+      }));
+      
+      set({ clientServiceRequests: requests });
+      console.log(`Fetched ${requests.length} client service requests`);
+    } catch (error) {
+      console.error('Error fetching client service requests:', error);
+      set({ clientServiceRequests: [] });
+    } finally {
+      set((state) => ({ loading: { ...state.loading, clientServiceRequests: false } }));
+    }
+  },
+
+  addAddOnService: async (service: Partial<AddOnService>) => {
+    try {
+      const dbService = await addOnServicesService.create(service);
+      const newService: AddOnService = {
+        id: dbService.id,
+        name: dbService.name,
+        description: dbService.description,
+        category: dbService.category,
+        price: Number(dbService.price),
+        status: dbService.status,
+        features: dbService.features || [],
+        createdAt: dbService.created_at,
+        updatedAt: dbService.updated_at
+      };
+      
+      set((state) => ({
+        addOnServices: [...state.addOnServices, newService]
+      }));
+      
+      console.log('Add-on service added:', newService);
+    } catch (error) {
+      console.error('Error adding add-on service:', error);
+      throw error;
+    }
+  },
+
+  updateAddOnService: async (id: number, updates: Partial<AddOnService>) => {
+    try {
+      // Convert features array to proper format for database
+      const dbUpdates = {
+        ...updates,
+        features: updates.features ? updates.features : undefined
+      };
+      
+      const dbService = await addOnServicesService.update(id, dbUpdates);
+      const updatedService: AddOnService = {
+        id: dbService.id,
+        name: dbService.name,
+        description: dbService.description,
+        category: dbService.category,
+        price: Number(dbService.price),
+        status: dbService.status,
+        features: dbService.features || [],
+        createdAt: dbService.created_at,
+        updatedAt: dbService.updated_at
+      };
+      
+      set((state) => ({
+        addOnServices: state.addOnServices.map(service =>
+          service.id === id ? updatedService : service
+        )
+      }));
+      
+      console.log('Add-on service updated:', updatedService);
+    } catch (error) {
+      console.error('Error updating add-on service:', error);
+      throw error;
+    }
+  },
+
+  deleteAddOnService: async (id: number) => {
+    try {
+      await addOnServicesService.delete(id);
+      
+      set((state) => ({
+        addOnServices: state.addOnServices.filter(service => service.id !== id)
+      }));
+      
+      console.log(`Add-on service ${id} deleted`);
+    } catch (error) {
+      console.error('Error deleting add-on service:', error);
+      throw error;
+    }
+  },
+
+  getAddOnServiceById: (id: number) => {
+    return get().addOnServices.find(service => service.id === id);
+  },
+
+  addClientServiceRequest: async (request: Partial<ClientServiceRequest>) => {
+    try {
+      const dbRequest = await clientServiceRequestsService.create(request);
+      const newRequest: ClientServiceRequest = {
+        id: dbRequest.id,
+        client_id: dbRequest.client_id,
+        service_id: dbRequest.service_id,
+        status: dbRequest.status,
+        request_date: dbRequest.request_date,
+        approved_date: dbRequest.approved_date,
+        rejected_date: dbRequest.rejected_date,
+        completed_date: dbRequest.completed_date,
+        admin_notes: dbRequest.admin_notes,
+        rejection_reason: dbRequest.rejection_reason,
+        created_at: dbRequest.created_at,
+        updated_at: dbRequest.updated_at
+      };
+      
+      set((state) => ({
+        clientServiceRequests: [...state.clientServiceRequests, newRequest]
+      }));
+      
+      console.log('Client service request added:', newRequest);
+    } catch (error) {
+      console.error('Error adding client service request:', error);
+      throw error;
+    }
+  },
+
+  updateClientServiceRequest: async (id: number, updates: Partial<ClientServiceRequest>) => {
+    try {
+      const dbRequest = await clientServiceRequestsService.update(id, updates);
+      const updatedRequest: ClientServiceRequest = {
+        id: dbRequest.id,
+        client_id: dbRequest.client_id,
+        service_id: dbRequest.service_id,
+        status: dbRequest.status,
+        request_date: dbRequest.request_date,
+        approved_date: dbRequest.approved_date,
+        rejected_date: dbRequest.rejected_date,
+        completed_date: dbRequest.completed_date,
+        admin_notes: dbRequest.admin_notes,
+        rejection_reason: dbRequest.rejection_reason,
+        created_at: dbRequest.created_at,
+        updated_at: dbRequest.updated_at
+      };
+      
+      set((state) => ({
+        clientServiceRequests: state.clientServiceRequests.map(request =>
+          request.id === id ? updatedRequest : request
+        )
+      }));
+      
+      console.log('Client service request updated:', updatedRequest);
+    } catch (error) {
+      console.error('Error updating client service request:', error);
+      throw error;
+    }
+  },
+
+  deleteClientServiceRequest: async (id: number) => {
+    try {
+      await clientServiceRequestsService.delete(id);
+      
+      set((state) => ({
+        clientServiceRequests: state.clientServiceRequests.filter(request => request.id !== id)
+      }));
+      
+      console.log(`Client service request ${id} deleted`);
+    } catch (error) {
+      console.error('Error deleting client service request:', error);
+      throw error;
+    }
+  },
+
+  getClientServiceRequestsByClientId: (clientId: number) => {
+    return get().clientServiceRequests.filter(request => request.client_id === clientId);
+  },
+
+  // Helper function to clean up PIC references
+  cleanupPicReferences: async (userName: string, reason: string) => {
+    console.log(`🧹 Cleaning up PIC references for user: ${userName} (${reason})`);
+    
+    // Get all clients that have this user as PIC
+    const clientsToUpdate = get().clients.filter(client => {
+      if (!client.pic) return false;
+      
+      // Check if this user is in PIC1 or PIC2
+      let pic1 = '';
+      let pic2 = '';
+      if (client.pic.includes(' - ')) {
+        [pic1, pic2] = client.pic.split(' - ');
+      } else {
+        pic1 = client.pic;
+      }
+      
+      return pic1 === userName || pic2 === userName;
+    });
+
+    // Update each client to remove this user from PIC
+    for (const client of clientsToUpdate) {
+      let pic1 = '';
+      let pic2 = '';
+      if (client.pic && client.pic.includes(' - ')) {
+        [pic1, pic2] = client.pic.split(' - ');
+      } else {
+        pic1 = client.pic || '';
+        pic2 = '';
+      }
+
+      // Remove the user from PIC
+      if (pic1 === userName) {
+        pic1 = '';
+      }
+      if (pic2 === userName) {
+        pic2 = '';
+      }
+
+      // Combine PIC values
+      const newPicValue = pic1 && pic2 ? `${pic1} - ${pic2}` : pic1 || pic2;
+
+      // Update client in database
+      try {
+        await get().updateClient(client.id, { pic: newPicValue });
+        console.log(`✅ Updated client ${client.name} PIC: "${client.pic}" -> "${newPicValue}"`);
+      } catch (error) {
+        console.error(`❌ Error updating client ${client.name} PIC:`, error);
+      }
+    }
+
+    // Refresh clients to update UI
+    await get().fetchClients();
   }
 }));

@@ -17,57 +17,24 @@ const ClientDashboard: React.FC<ClientDashboardProps> = ({ user, onBack }) => {
   const [showAddOnModal, setShowAddOnModal] = useState(false);
   const [message, setMessage] = useState('');
 
-  // Sample add-on services data
-  const availableAddOnServices = [
-    {
-      id: '1',
-      name: 'Premium Support',
-      description: '24/7 priority support with dedicated account manager',
-      price: 'RM 299',
-      category: 'Support Services',
-      available: true
-    },
-    {
-      id: '2',
-      name: 'Advanced Analytics',
-      description: 'Detailed reporting and analytics dashboard',
-      price: 'RM 199',
-      category: 'Analytics',
-      available: true
-    },
-    {
-      id: '3',
-      name: 'Custom Domain',
-      description: 'Use your own domain name with SSL certificate',
-      price: 'RM 99',
-      category: 'Domain Services',
-      available: true
-    },
-    {
-      id: '4',
-      name: 'API Integration',
-      description: 'Connect with third-party services via API',
-      price: 'RM 399',
-      category: 'Integration',
-      available: true
-    },
-    {
-      id: '5',
-      name: 'Mobile App',
-      description: 'Native mobile application for iOS and Android',
-      price: 'RM 999',
-      category: 'Mobile',
-      available: false
-    },
-    {
-      id: '6',
-      name: 'Advanced Security',
-      description: 'Enhanced security features and monitoring',
-      price: 'RM 149',
-      category: 'Security',
-      available: true
-    }
-  ];
+  const { addOnServices, fetchAddOnServices, addClientServiceRequest } = useAppStore();
+
+  // Convert database services to modal format
+  const availableAddOnServices = addOnServices
+    .filter(service => service.status === 'Available')
+    .map(service => ({
+      id: service.id.toString(),
+      name: service.name,
+      description: service.description,
+      price: `RM ${service.price.toLocaleString('en-MY', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`,
+      category: service.category,
+      available: service.status === 'Available'
+    }));
+
+  // Fetch add-on services on component mount
+  useEffect(() => {
+    fetchAddOnServices();
+  }, [fetchAddOnServices]);
 
   const { 
     clients, 
@@ -217,21 +184,36 @@ const ClientDashboard: React.FC<ClientDashboardProps> = ({ user, onBack }) => {
   const handleAddOnServiceSubmit = async (selectedServices: string[]) => {
     console.log('Selected add-on services:', selectedServices);
     
-    // Find the selected services
-    const selectedServiceDetails = availableAddOnServices.filter(service => 
-      selectedServices.includes(service.id)
-    );
-    
-    const totalCost = selectedServiceDetails.reduce((total, service) => 
-      total + parseFloat(service.price.replace('RM ', '')), 0
-    );
-    
-    // Here you would typically send this data to your backend
-    // For now, we'll just show a success message
-    alert(`Add-on services requested successfully!\n\nServices: ${selectedServiceDetails.map(s => s.name).join(', ')}\nTotal Cost: RM ${totalCost.toFixed(2)}\n\nOur team will contact you shortly to process your request.`);
-    
-    // You could also create a new invoice or request record here
-    // await createAddOnRequest(selectedServiceDetails);
+    if (!client) {
+      alert('Client information not available. Please contact support.');
+      return;
+    }
+
+    try {
+      // Create service requests for each selected service
+      for (const serviceId of selectedServices) {
+        await addClientServiceRequest({
+          client_id: client.id,
+          service_id: parseInt(serviceId),
+          status: 'Pending'
+        });
+      }
+
+      // Find the selected services for display
+      const selectedServiceDetails = availableAddOnServices.filter(service => 
+        selectedServices.includes(service.id)
+      );
+      
+      const totalCost = selectedServiceDetails.reduce((total, service) => 
+        total + parseFloat(service.price.replace('RM ', '')), 0
+      );
+      
+      alert(`Add-on services requested successfully!\n\nServices: ${selectedServiceDetails.map(s => s.name).join(', ')}\nTotal Cost: RM ${totalCost.toFixed(2)}\n\nOur team will review your request and contact you shortly.`);
+      
+    } catch (error) {
+      console.error('Error submitting add-on services:', error);
+      alert('Failed to submit add-on services. Please try again or contact support.');
+    }
   };
 
   // Auto scroll to bottom when new messages arrive

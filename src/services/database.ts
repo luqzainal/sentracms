@@ -9,7 +9,9 @@ import type {
   ProgressStep, 
   Chat, 
   ChatMessage,
-  ClientLink
+  ClientLink,
+  AddOnService as DatabaseAddOnService,
+  ClientServiceRequest as DatabaseClientServiceRequest
 } from '../types/database';
 
 // Helper function to check if database is available
@@ -76,7 +78,8 @@ export const clientsService = {
           pic,
           total_sales,
           total_collection,
-          balance
+          balance,
+          tags
         ) VALUES (
           ${client.name}, 
           ${client.business_name}, 
@@ -86,7 +89,8 @@ export const clientsService = {
           ${client.pic || null},
           ${client.total_sales || 0},
           ${client.total_collection || 0},
-          ${client.balance || 0}
+          ${client.balance || 0},
+          ${client.tags || []}
         )
         RETURNING *
       `;
@@ -118,6 +122,7 @@ export const clientsService = {
           total_sales = COALESCE(${updates.total_sales}, total_sales),
           total_collection = COALESCE(${updates.total_collection}, total_collection),
           balance = COALESCE(${updates.balance}, balance),
+          tags = COALESCE(${updates.tags}, tags),
           updated_at = NOW()
         WHERE id = ${id}
         RETURNING *
@@ -302,28 +307,52 @@ export const usersService = {
     }
   },
 
-  async update(id: string, updates: Partial<DatabaseUser>): Promise<DatabaseUser> {
+  async update(id: string, updates: Partial<DatabaseUser> & { password?: string }): Promise<DatabaseUser> {
     if (!isDatabaseAvailable()) {
       console.error('Database not available for updating user. Cannot proceed.');
       throw new Error('Database connection not available. Please check your configuration.');
     }
     try {
-      const data = await sql!`
-        UPDATE users
-        SET 
-          name = COALESCE(${updates.name}, name),
-          email = COALESCE(${updates.email}, email),
-          role = COALESCE(${updates.role}, role),
-          status = COALESCE(${updates.status}, status),
-          client_id = COALESCE(${updates.client_id}, client_id),
-          permissions = COALESCE(${updates.permissions}, permissions),
-          updated_at = NOW()
-        WHERE id = ${id}
-        RETURNING *
-      `;
-      return data[0] as DatabaseUser;
+      console.log('🔍 Debug usersService.update - updates:', JSON.stringify(updates, null, 2));
+      
+      if (updates.password) {
+        console.log('🔑 Updating user with new password');
+        const data = await sql!`
+          UPDATE users
+          SET 
+            name = COALESCE(${updates.name}, name),
+            email = COALESCE(${updates.email}, email),
+            role = COALESCE(${updates.role}, role),
+            status = COALESCE(${updates.status}, status),
+            client_id = COALESCE(${updates.client_id}, client_id),
+            permissions = COALESCE(${updates.permissions}, permissions),
+            password = crypt(${updates.password}, gen_salt('bf')),
+            updated_at = NOW()
+          WHERE id = ${id}
+          RETURNING *
+        `;
+        console.log('✅ User updated successfully with new password:', data[0]);
+        return data[0] as DatabaseUser;
+      } else {
+        console.log('⚠️ Updating user without password change');
+        const data = await sql!`
+          UPDATE users
+          SET 
+            name = COALESCE(${updates.name}, name),
+            email = COALESCE(${updates.email}, email),
+            role = COALESCE(${updates.role}, role),
+            status = COALESCE(${updates.status}, status),
+            client_id = COALESCE(${updates.client_id}, client_id),
+            permissions = COALESCE(${updates.permissions}, permissions),
+            updated_at = NOW()
+          WHERE id = ${id}
+          RETURNING *
+        `;
+        console.log('✅ User updated successfully:', data[0]);
+        return data[0] as DatabaseUser;
+      }
     } catch (error) {
-      console.error('Error updating user:', error);
+      console.error('❌ Error updating user:', error);
       throw error;
     }
   },
@@ -954,10 +983,58 @@ export const progressService = {
     }
     try {
       const data = await sql!`
-        SELECT * FROM progress_steps
-        ORDER BY created_at ASC
+        SELECT 
+          ps.*,
+          c.name as client_name,
+          c.business_name as client_business_name,
+          c.email as client_email
+        FROM progress_steps ps
+        LEFT JOIN clients c ON ps.client_id = c.id
+        ORDER BY ps.created_at ASC
       `;
-      return data as ProgressStep[];
+      
+      // Get comments for each step
+      const stepsWithComments = await Promise.all(
+        data.map(async (row) => {
+          const comments = await sql!`
+            SELECT * FROM progress_step_comments
+            WHERE step_id = ${row.id}
+            ORDER BY created_at DESC
+          `;
+          
+          return {
+            id: row.id,
+            client_id: row.client_id,
+            title: row.title,
+            description: row.description,
+            deadline: row.deadline,
+            completed: row.completed,
+            completed_date: row.completed_date,
+            important: row.important,
+            // New deadline fields
+            onboarding_deadline: row.onboarding_deadline,
+            first_draft_deadline: row.first_draft_deadline,
+            second_draft_deadline: row.second_draft_deadline,
+            onboarding_completed: row.onboarding_completed,
+            first_draft_completed: row.first_draft_completed,
+            second_draft_completed: row.second_draft_completed,
+            onboarding_completed_date: row.onboarding_completed_date,
+            first_draft_completed_date: row.first_draft_completed_date,
+            second_draft_completed_date: row.second_draft_completed_date,
+            created_at: row.created_at,
+            updated_at: row.updated_at,
+            client: row.client_name ? {
+              id: row.client_id,
+              name: row.client_name,
+              business_name: row.client_business_name,
+              email: row.client_email
+            } : undefined,
+            comments: comments || []
+          };
+        })
+      );
+      
+      return stepsWithComments as ProgressStep[];
     } catch (error) {
       console.error('Error fetching all progress steps:', error);
       throw error;
@@ -996,6 +1073,16 @@ export const progressService = {
             completed: row.completed,
             completed_date: row.completed_date,
             important: row.important,
+            // New deadline fields
+            onboarding_deadline: row.onboarding_deadline,
+            first_draft_deadline: row.first_draft_deadline,
+            second_draft_deadline: row.second_draft_deadline,
+            onboarding_completed: row.onboarding_completed,
+            first_draft_completed: row.first_draft_completed,
+            second_draft_completed: row.second_draft_completed,
+            onboarding_completed_date: row.onboarding_completed_date,
+            first_draft_completed_date: row.first_draft_completed_date,
+            second_draft_completed_date: row.second_draft_completed_date,
             created_at: row.created_at,
             updated_at: row.updated_at,
             client: row.client_name ? {
@@ -1045,6 +1132,15 @@ export const progressService = {
           completed = COALESCE(${updates.completed}, completed),
           completed_date = COALESCE(${updates.completed_date}, completed_date),
           important = COALESCE(${updates.important}, important),
+          onboarding_deadline = COALESCE(${updates.onboarding_deadline}, onboarding_deadline),
+          first_draft_deadline = COALESCE(${updates.first_draft_deadline}, first_draft_deadline),
+          second_draft_deadline = COALESCE(${updates.second_draft_deadline}, second_draft_deadline),
+          onboarding_completed = COALESCE(${updates.onboarding_completed}, onboarding_completed),
+          first_draft_completed = COALESCE(${updates.first_draft_completed}, first_draft_completed),
+          second_draft_completed = COALESCE(${updates.second_draft_completed}, second_draft_completed),
+          onboarding_completed_date = COALESCE(${updates.onboarding_completed_date}, onboarding_completed_date),
+          first_draft_completed_date = COALESCE(${updates.first_draft_completed_date}, first_draft_completed_date),
+          second_draft_completed_date = COALESCE(${updates.second_draft_completed_date}, second_draft_completed_date),
           updated_at = NOW()
         WHERE id = ${id}
         RETURNING *
@@ -1662,9 +1758,11 @@ export const clientLinksService = {
     try {
       const data = await sql!`
         INSERT INTO client_links (
-          client_id, title, url
+          client_id, title, url, created_by, link_type, user_id, user_role
         ) VALUES (
-          ${link.client_id}, ${link.title}, ${link.url}
+          ${link.client_id}, ${link.title}, ${link.url}, 
+          ${link.created_by || 'admin'}, ${link.link_type || 'admin'}, 
+          ${link.user_id || null}, ${link.user_role || 'admin'}
         )
         RETURNING *
       `;
@@ -1697,6 +1795,422 @@ export const clientLinksService = {
       if (error instanceof Error && error.message.includes('relation "client_links" does not exist')) {
         throw new Error('Table client_links tidak wujud. Sila jalankan: npm run db:create-links');
       }
+      throw error;
+    }
+  }
+}; 
+
+// Client Files Service
+export const clientFilesService = {
+  async getByClientId(clientId: number) {
+    if (!isDatabaseAvailable()) {
+      return handleDatabaseUnavailable('getByClientId client files') as any[];
+    }
+    try {
+      const result = await sql!`
+        SELECT 
+          id,
+          client_id,
+          file_name,
+          file_size,
+          file_url,
+          file_type,
+          upload_date,
+          created_at,
+          updated_at
+        FROM client_files 
+        WHERE client_id = ${clientId}
+        ORDER BY created_at DESC
+      `;
+      
+      // Map the raw database fields to the expected format
+      const mappedResult = result.map(file => ({
+        id: file.id,
+        clientId: file.client_id,
+        fileName: file.file_name,
+        fileSize: file.file_size,
+        fileUrl: file.file_url,
+        fileType: file.file_type,
+        uploadDate: file.upload_date,
+        createdAt: file.created_at,
+        updatedAt: file.updated_at
+      }));
+      
+      return mappedResult;
+    } catch (error) {
+      console.error('Error fetching client files:', error);
+      throw error;
+    }
+  },
+
+  async add(file: {
+    clientId: number;
+    fileName: string;
+    fileSize: string;
+    fileUrl: string;
+    fileType?: string;
+    uploadDate: string;
+  }) {
+    if (!isDatabaseAvailable()) {
+      console.error('Database not available for adding client file. Cannot proceed.');
+      throw new Error('Database connection not available. Please check your configuration.');
+    }
+    try {
+      const result = await sql!`
+        INSERT INTO client_files (
+          client_id, 
+          file_name, 
+          file_size, 
+          file_url, 
+          file_type, 
+          upload_date
+        ) VALUES (
+          ${file.clientId},
+          ${file.fileName},
+          ${file.fileSize},
+          ${file.fileUrl},
+          ${file.fileType},
+          ${file.uploadDate}
+        ) RETURNING *
+      `;
+      return result[0];
+    } catch (error) {
+      console.error('Error adding client file:', error);
+      throw error;
+    }
+  },
+
+  async delete(id: number) {
+    if (!isDatabaseAvailable()) {
+      console.error('Database not available for deleting client file. Cannot proceed.');
+      throw new Error('Database connection not available. Please check your configuration.');
+    }
+    try {
+      await sql!`DELETE FROM client_files WHERE id = ${id}`;
+    } catch (error) {
+      console.error('Error deleting client file:', error);
+      throw error;
+    }
+  }
+}; 
+
+// Tags Services
+export const tagsService = {
+  async getAll(): Promise<any[]> {
+    if (!isDatabaseAvailable()) {
+      return handleDatabaseUnavailable('getAll tags') as any[];
+    }
+    try {
+      const data = await sql!`
+        SELECT * FROM tags
+        ORDER BY created_at DESC
+      `;
+      return data as any[];
+    } catch (error) {
+      console.error('Error fetching tags:', error);
+      throw error;
+    }
+  },
+
+  async create(tag: { name: string; color: string }): Promise<any> {
+    if (!isDatabaseAvailable()) {
+      console.error('Database not available for creating tag. Cannot proceed.');
+      throw new Error('Database connection not available. Please check your configuration.');
+    }
+    try {
+      const data = await sql!`
+        INSERT INTO tags (name, color)
+        VALUES (${tag.name}, ${tag.color})
+        RETURNING *
+      `;
+      return data[0] as any;
+    } catch (error) {
+      console.error('Error creating tag:', error);
+      throw error;
+    }
+  },
+
+  async update(id: string, updates: { name?: string; color?: string }): Promise<any> {
+    if (!isDatabaseAvailable()) {
+      console.error('Database not available for updating tag. Cannot proceed.');
+      throw new Error('Database connection not available. Please check your configuration.');
+    }
+    try {
+      const data = await sql!`
+        UPDATE tags
+        SET 
+          name = COALESCE(${updates.name}, name),
+          color = COALESCE(${updates.color}, color),
+          updated_at = NOW()
+        WHERE id = ${id}
+        RETURNING *
+      `;
+      return data[0] as any;
+    } catch (error) {
+      console.error('Error updating tag:', error);
+      throw error;
+    }
+  },
+
+  async delete(id: string): Promise<void> {
+    if (!isDatabaseAvailable()) {
+      console.error('Database not available for deleting tag. Cannot proceed.');
+      throw new Error('Database connection not available. Please check your configuration.');
+    }
+    try {
+      const data = await sql!`
+        DELETE FROM tags
+        WHERE id = ${id}
+        RETURNING *
+      `;
+      if (data.length === 0) {
+        throw new Error(`Tag with id ${id} not found`);
+      }
+    } catch (error) {
+      console.error('Error deleting tag:', error);
+      throw error;
+    }
+  }
+};
+
+// Add-On Services Services
+export const addOnServicesService = {
+  async getAll(): Promise<DatabaseAddOnService[]> {
+    if (!isDatabaseAvailable()) {
+      return handleDatabaseUnavailable('getAll add-on services') as DatabaseAddOnService[];
+    }
+    try {
+      const data = await sql!`
+        SELECT * FROM add_on_services
+        ORDER BY category, name ASC
+      `;
+      return data as DatabaseAddOnService[];
+    } catch (error) {
+      console.error('Error fetching add-on services:', error);
+      throw error;
+    }
+  },
+
+  async getAvailable(): Promise<DatabaseAddOnService[]> {
+    if (!isDatabaseAvailable()) {
+      return handleDatabaseUnavailable('getAvailable add-on services') as DatabaseAddOnService[];
+    }
+    try {
+      const data = await sql!`
+        SELECT * FROM add_on_services
+        WHERE status = 'Available'
+        ORDER BY category, name ASC
+      `;
+      return data as DatabaseAddOnService[];
+    } catch (error) {
+      console.error('Error fetching available add-on services:', error);
+      throw error;
+    }
+  },
+
+  async getById(id: number): Promise<DatabaseAddOnService | null> {
+    if (!isDatabaseAvailable()) {
+      return handleDatabaseUnavailable('getById add-on service') as DatabaseAddOnService | null;
+    }
+    try {
+      const data = await sql!`
+        SELECT * FROM add_on_services
+        WHERE id = ${id}
+        LIMIT 1
+      `;
+      return data.length > 0 ? data[0] as DatabaseAddOnService : null;
+    } catch (error) {
+      console.error('Error fetching add-on service:', error);
+      throw error;
+    }
+  },
+
+  async create(service: Partial<DatabaseAddOnService>): Promise<DatabaseAddOnService> {
+    if (!isDatabaseAvailable()) {
+      throw new Error('Database connection not available. Please check your configuration.');
+    }
+    try {
+      // Convert features array to JSON string if provided
+      const featuresJson = service.features ? JSON.stringify(service.features) : null;
+      
+      const data = await sql!`
+        INSERT INTO add_on_services (
+          name, description, category, price, status, features
+        ) VALUES (
+          ${service.name}, ${service.description}, ${service.category}, 
+          ${service.price}, ${service.status || 'Available'}, ${featuresJson}::jsonb
+        )
+        RETURNING *
+      `;
+      return data[0] as DatabaseAddOnService;
+    } catch (error) {
+      console.error('Error creating add-on service:', error);
+      throw error;
+    }
+  },
+
+  async update(id: number, updates: Partial<DatabaseAddOnService>): Promise<DatabaseAddOnService> {
+    if (!isDatabaseAvailable()) {
+      throw new Error('Database connection not available. Please check your configuration.');
+    }
+    try {
+      // Convert features array to JSON string if provided
+      const featuresJson = updates.features ? JSON.stringify(updates.features) : undefined;
+      
+      const data = await sql!`
+        UPDATE add_on_services
+        SET 
+          name = COALESCE(${updates.name}, name),
+          description = COALESCE(${updates.description}, description),
+          category = COALESCE(${updates.category}, category),
+          price = COALESCE(${updates.price}, price),
+          status = COALESCE(${updates.status}, status),
+          features = COALESCE(${featuresJson}::jsonb, features),
+          updated_at = NOW()
+        WHERE id = ${id}
+        RETURNING *
+      `;
+      return data[0] as DatabaseAddOnService;
+    } catch (error) {
+      console.error('Error updating add-on service:', error);
+      throw error;
+    }
+  },
+
+  async delete(id: number): Promise<void> {
+    if (!isDatabaseAvailable()) {
+      throw new Error('Database connection not available. Please check your configuration.');
+    }
+    try {
+      await sql!`
+        DELETE FROM add_on_services
+        WHERE id = ${id}
+      `;
+    } catch (error) {
+      console.error('Error deleting add-on service:', error);
+      throw error;
+    }
+  }
+};
+
+// Client Service Requests Services
+export const clientServiceRequestsService = {
+  async getAll(): Promise<DatabaseClientServiceRequest[]> {
+    if (!isDatabaseAvailable()) {
+      return handleDatabaseUnavailable('getAll client service requests') as DatabaseClientServiceRequest[];
+    }
+    try {
+      const data = await sql!`
+        SELECT 
+          csr.*,
+          aos.name as service_name,
+          aos.description as service_description,
+          aos.price as service_price,
+          aos.category as service_category,
+          c.name as client_name,
+          c.email as client_email
+        FROM client_service_requests csr
+        LEFT JOIN add_on_services aos ON csr.service_id = aos.id
+        LEFT JOIN clients c ON csr.client_id = c.id
+        ORDER BY csr.request_date DESC
+      `;
+      return data as DatabaseClientServiceRequest[];
+    } catch (error) {
+      console.error('Error fetching client service requests:', error);
+      throw error;
+    }
+  },
+
+  async getByClientId(clientId: number): Promise<DatabaseClientServiceRequest[]> {
+    if (!isDatabaseAvailable()) {
+      return handleDatabaseUnavailable('getByClientId client service requests') as DatabaseClientServiceRequest[];
+    }
+    try {
+      const data = await sql!`
+        SELECT 
+          csr.*,
+          aos.name as service_name,
+          aos.description as service_description,
+          aos.price as service_price,
+          aos.category as service_category
+        FROM client_service_requests csr
+        LEFT JOIN add_on_services aos ON csr.service_id = aos.id
+        WHERE csr.client_id = ${clientId}
+        ORDER BY csr.request_date DESC
+      `;
+      return data as DatabaseClientServiceRequest[];
+    } catch (error) {
+      console.error('Error fetching client service requests:', error);
+      throw error;
+    }
+  },
+
+  async create(request: Partial<DatabaseClientServiceRequest>): Promise<DatabaseClientServiceRequest> {
+    if (!isDatabaseAvailable()) {
+      throw new Error('Database connection not available. Please check your configuration.');
+    }
+    try {
+      const data = await sql!`
+        INSERT INTO client_service_requests (
+          client_id, service_id, status, request_date
+        ) VALUES (
+          ${request.client_id}, ${request.service_id}, 
+          ${request.status || 'Pending'}, NOW()
+        )
+        RETURNING *
+      `;
+      return data[0] as DatabaseClientServiceRequest;
+    } catch (error) {
+      console.error('Error creating client service request:', error);
+      throw error;
+    }
+  },
+
+  async update(id: number, updates: Partial<DatabaseClientServiceRequest>): Promise<DatabaseClientServiceRequest> {
+    if (!isDatabaseAvailable()) {
+      throw new Error('Database connection not available. Please check your configuration.');
+    }
+    try {
+      const data = await sql!`
+        UPDATE client_service_requests
+        SET 
+          status = COALESCE(${updates.status}, status),
+          admin_notes = COALESCE(${updates.admin_notes}, admin_notes),
+          rejection_reason = COALESCE(${updates.rejection_reason}, rejection_reason),
+          approved_date = CASE 
+            WHEN ${updates.status} = 'Approved' THEN NOW()
+            ELSE approved_date
+          END,
+          rejected_date = CASE 
+            WHEN ${updates.status} = 'Rejected' THEN NOW()
+            ELSE rejected_date
+          END,
+          completed_date = CASE 
+            WHEN ${updates.status} = 'Completed' THEN NOW()
+            ELSE completed_date
+          END,
+          updated_at = NOW()
+        WHERE id = ${id}
+        RETURNING *
+      `;
+      return data[0] as DatabaseClientServiceRequest;
+    } catch (error) {
+      console.error('Error updating client service request:', error);
+      throw error;
+    }
+  },
+
+  async delete(id: number): Promise<void> {
+    if (!isDatabaseAvailable()) {
+      throw new Error('Database connection not available. Please check your configuration.');
+    }
+    try {
+      await sql!`
+        DELETE FROM client_service_requests
+        WHERE id = ${id}
+      `;
+    } catch (error) {
+      console.error('Error deleting client service request:', error);
       throw error;
     }
   }

@@ -1,6 +1,34 @@
-import React, { useState, useEffect } from 'react';
-import { ArrowLeft, Plus, Check, Edit, Trash2, Calendar, Clock, User, MessageCircle, Star, X, Upload, Link, FileText, Trash } from 'lucide-react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { useAppStore } from '../../store/AppStore';
+import { Client, Invoice, Component, ProgressStep as StoreProgressStep } from '../../store/AppStore';
+import { 
+  ArrowLeft, 
+  Plus, 
+  Edit, 
+  Trash2, 
+  Check, 
+  X, 
+  Calendar, 
+  MessageSquare, 
+  Upload, 
+  Download, 
+  Link as LinkIcon,
+  RefreshCw,
+  AlertTriangle,
+  FileText,
+  Eye,
+  EyeOff,
+  Clock,
+  AlertCircle,
+  Star,
+  MessageCircle,
+  User,
+  Trash,
+  UploadCloud
+} from 'lucide-react';
+import { useToast } from '../../hooks/useToast';
+import ConfirmationModal from '../common/ConfirmationModal';
+import { useConfirmation } from '../../hooks/useConfirmation';
 import { useSupabase } from '../../hooks/useSupabase';
 
 interface ClientProgressTrackerProps {
@@ -26,15 +54,28 @@ interface ProgressStepWithHierarchy extends ProgressStep {
   clientId?: number;
   createdAt?: string;
   updatedAt?: string;
+  // New deadline fields for parent items
+  onboardingDeadline?: string;
+  firstDraftDeadline?: string;
+  secondDraftDeadline?: string;
+  onboardingCompleted?: boolean;
+  firstDraftCompleted?: boolean;
+  secondDraftCompleted?: boolean;
+  onboardingCompletedDate?: string;
+  firstDraftCompletedDate?: string;
+  secondDraftCompletedDate?: string;
 }
 
 interface AttachedFile {
-  id: string;
-  name: string;
-  size: string;
+  id: number;
+  clientId: number;
+  fileName: string;
+  fileSize: string;
+  fileUrl: string;
+  fileType?: string;
   uploadDate: string;
-  url?: string;
-  type?: string;
+  createdAt: string;
+  updatedAt: string;
 }
 
 const ClientProgressTracker: React.FC<ClientProgressTrackerProps> = ({ clientId, onBack }) => {
@@ -57,6 +98,15 @@ const ClientProgressTracker: React.FC<ClientProgressTrackerProps> = ({ clientId,
   const [isAddingLink, setIsAddingLink] = useState(false);
   const [isDeletingLink, setIsDeletingLink] = useState(false);
   const [isUploadingFile, setIsUploadingFile] = useState(false);
+  const [commentAttachment, setCommentAttachment] = useState<File | null>(null);
+  const [isUploadingCommentAttachment, setIsUploadingCommentAttachment] = useState(false);
+  
+  // Deadline editing state
+  const [showDeadlineModal, setShowDeadlineModal] = useState(false);
+  const [editingDeadlineStepId, setEditingDeadlineStepId] = useState<string | null>(null);
+  const [editingDeadlineType, setEditingDeadlineType] = useState<'onboarding' | 'firstDraft' | 'secondDraft' | null>(null);
+  const [newDeadlineDate, setNewDeadlineDate] = useState('');
+  const [isUpdatingDeadline, setIsUpdatingDeadline] = useState(false);
   
   const [newStep, setNewStep] = useState({
     title: '',
@@ -80,23 +130,66 @@ const ClientProgressTracker: React.FC<ClientProgressTrackerProps> = ({ clientId,
     addProgressStep,
     updateProgressStep,
     deleteProgressStep,
+    deleteInvoice,
+    deleteComponent,
+    fetchInvoices,
+    fetchComponents,
+    fetchProgressSteps,
     fetchClientLinks,
     addClientLink,
     deleteClientLink,
     getClientLinksByClientId,
     addCommentToStep,
     deleteCommentFromStep,
-    calculateClientProgressStatus
+    calculateClientProgressStatus,
+    addClientFile,
+    deleteClientFile,
+    getClientFilesByClientId,
+    fetchClientFiles
   } = useAppStore();
+  const { success, error } = useToast();
+
+  // Custom confirmation modal
+  const { confirmation, showConfirmation, hideConfirmation, handleConfirm } = useConfirmation();
 
   const client = getClientById(parseInt(clientId));
-  const [attachedFiles, setAttachedFiles] = useState<AttachedFile[]>([]);
-
   const websiteLinks = getClientLinksByClientId(parseInt(clientId));
+  const attachedFiles = getClientFilesByClientId(parseInt(clientId));
+  
+  // Debug logging
+  console.log('🔍 Debug ClientProgressTracker:');
+  console.log('  Client ID:', clientId);
+  console.log('  Attached Files:', attachedFiles);
+  console.log('  Attached Files Length:', attachedFiles.length);
+  console.log('  Website Links:', websiteLinks);
+  
+  // Debug individual files
+  if (attachedFiles.length > 0) {
+    console.log('  Sample attached file:', {
+      id: attachedFiles[0].id,
+      clientId: attachedFiles[0].clientId,
+      fileName: attachedFiles[0].fileName,
+      fileSize: attachedFiles[0].fileSize
+    });
+  }
 
   const progressSteps = getProgressStepsByClientId(parseInt(clientId));
   const clientInvoices = getInvoicesByClientId(parseInt(clientId));
   const clientComponents = getComponentsByClientId(parseInt(clientId));
+
+  // Debug logging for comments
+  console.log('🔍 Debug Comments:');
+  progressSteps.forEach(step => {
+    if (step.comments && step.comments.length > 0) {
+      console.log(`  Step "${step.title}" has ${step.comments.length} comments:`, step.comments);
+    }
+  });
+
+  // Debug: Check store data
+  console.log('🔍 Debug Store Data:');
+  console.log('  Total progress steps:', progressSteps.length);
+  console.log('  Steps with comments:', progressSteps.filter(s => s.comments && s.comments.length > 0).length);
+  console.log('  All steps:', progressSteps.map(s => ({ title: s.title, comments: s.comments?.length || 0 })));
 
   // Create hierarchical structure for progress steps
   const createHierarchicalSteps = (): ProgressStepWithHierarchy[] => {
@@ -147,12 +240,30 @@ const ClientProgressTracker: React.FC<ClientProgressTrackerProps> = ({ clientId,
           ...packageStep,
           isPackage: true,
           packageName: invoice.packageName,
+          // Map new deadline fields
+          onboardingDeadline: packageStep.onboardingDeadline,
+          firstDraftDeadline: packageStep.firstDraftDeadline,
+          secondDraftDeadline: packageStep.secondDraftDeadline,
+          onboardingCompleted: packageStep.onboardingCompleted,
+          firstDraftCompleted: packageStep.firstDraftCompleted,
+          secondDraftCompleted: packageStep.secondDraftCompleted,
+          onboardingCompletedDate: packageStep.onboardingCompletedDate,
+          firstDraftCompletedDate: packageStep.firstDraftCompletedDate,
+          secondDraftCompletedDate: packageStep.secondDraftCompletedDate,
           children: sortedComponentSteps.map(step => ({
             ...step,
             isPackage: false,
             packageName: invoice.packageName
           }))
         };
+        
+        // Debug: Check if comments are preserved
+        console.log(`  📦 Package "${invoice.packageName}" comments:`, packageWithChildren.comments?.length || 0);
+        packageWithChildren.children?.forEach(child => {
+          if (child.comments && child.comments.length > 0) {
+            console.log(`    📋 Child "${child.title}" comments:`, child.comments.length);
+          }
+        });
         
         hierarchicalSteps.push(packageWithChildren);
       } else {
@@ -197,6 +308,13 @@ const ClientProgressTracker: React.FC<ClientProgressTrackerProps> = ({ clientId,
             updatedAt: new Date().toISOString(),
             isPackage: true,
             packageName: invoice.packageName,
+            // Set default deadline fields
+            onboardingDeadline: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(),
+            firstDraftDeadline: new Date(Date.now() + 14 * 24 * 60 * 60 * 1000).toISOString(),
+            secondDraftDeadline: new Date(Date.now() + 21 * 24 * 60 * 60 * 1000).toISOString(),
+            onboardingCompleted: false,
+            firstDraftCompleted: false,
+            secondDraftCompleted: false,
             children: sortedComponentSteps.map(step => ({
               ...step,
               isPackage: false,
@@ -248,12 +366,32 @@ const ClientProgressTracker: React.FC<ClientProgressTrackerProps> = ({ clientId,
 
   const hierarchicalSteps = createHierarchicalSteps();
 
-  // Fetch links when component loads
+  // Fetch all required data when component loads
   useEffect(() => {
-    if (client) {
-      fetchClientLinks(client.id);
-    }
-  }, [client, fetchClientLinks]);
+    const loadData = async () => {
+      if (clientId) {
+        console.log('🔄 Loading all data for client:', clientId);
+        try {
+          // Fetch all data needed for hierarchical structure
+          await fetchInvoices();
+          await fetchComponents();
+          await fetchProgressSteps();
+          
+          // Fetch client-specific data
+          if (client) {
+            await fetchClientLinks(client.id);
+          }
+          await fetchClientFiles(parseInt(clientId));
+          
+          console.log('✅ All data loaded successfully');
+        } catch (error) {
+          console.error('❌ Error loading data:', error);
+        }
+      }
+    };
+    
+    loadData();
+  }, [clientId, client, fetchInvoices, fetchComponents, fetchProgressSteps, fetchClientLinks, fetchClientFiles]);
 
   if (!client) {
     return (
@@ -328,11 +466,15 @@ const ClientProgressTracker: React.FC<ClientProgressTrackerProps> = ({ clientId,
   const handleAddStep = () => {
     if (!newStep.title.trim() || !newStep.deadline) return;
     
+    // Convert datetime-local to ISO string
+    const deadlineDate = new Date(newStep.deadline);
+    const isoDeadline = deadlineDate.toISOString();
+    
     addProgressStep({
       clientId: parseInt(clientId),
       title: newStep.title,
       description: newStep.description,
-      deadline: newStep.deadline,
+      deadline: isoDeadline,
       completed: false,
       important: newStep.important,
       comments: []
@@ -344,10 +486,15 @@ const ClientProgressTracker: React.FC<ClientProgressTrackerProps> = ({ clientId,
 
   const handleEditStepOpen = (step: any) => {
     setEditingStepId(step.id);
+    
+    // Convert deadline to datetime-local format (YYYY-MM-DDTHH:MM)
+    const deadlineDate = new Date(step.deadline);
+    const formattedDeadline = deadlineDate.toISOString().slice(0, 16);
+    
     setEditStep({
       title: step.title,
       description: step.description,
-      deadline: step.deadline,
+      deadline: formattedDeadline,
       important: step.important
     });
     setShowEditStep(true);
@@ -356,10 +503,14 @@ const ClientProgressTracker: React.FC<ClientProgressTrackerProps> = ({ clientId,
   const handleEditStepSave = async () => {
     if (!editStep.title.trim() || !editStep.deadline || !editingStepId) return;
     
+    // Convert datetime-local to ISO string
+    const deadlineDate = new Date(editStep.deadline);
+    const isoDeadline = deadlineDate.toISOString();
+    
     await updateProgressStep(editingStepId, {
       title: editStep.title,
       description: editStep.description,
-      deadline: editStep.deadline,
+      deadline: isoDeadline,
       important: editStep.important
     });
     
@@ -369,48 +520,117 @@ const ClientProgressTracker: React.FC<ClientProgressTrackerProps> = ({ clientId,
   };
 
   const handleDeleteStep = (stepId: string) => {
-    if (confirm('Are you sure you want to delete this step?')) {
-      deleteProgressStep(stepId);
-    }
+    showConfirmation(
+      () => deleteProgressStep(stepId),
+      {
+        title: 'Delete Step',
+        message: 'Are you sure you want to delete this step?',
+        confirmText: 'Delete',
+        type: 'danger'
+      }
+    );
   };
 
   const handleAddComment = async () => {
-    if (!newComment.trim()) {
-      alert("Please add a comment.");
+    if (!newComment.trim() && !commentAttachment) {
+      alert("Please add a comment or attachment.");
       return;
     }
     if (!commentingStepId) return;
 
     setIsAddingComment(true);
+    setIsUploadingCommentAttachment(true);
     
     try {
-      // Add text comment
+      let attachmentUrl = '';
+      let attachmentType = '';
+
+      // Upload attachment if present
+      if (commentAttachment) {
+        console.log('🔄 Uploading comment attachment:', commentAttachment.name);
+        
+        // 1. Get pre-signed URL from our API
+        const res = await fetch('/api/generate-upload-url', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ 
+            fileName: commentAttachment.name, 
+            fileType: commentAttachment.type 
+          }),
+        });
+
+        if (!res.ok) {
+          const errorText = await res.text();
+          console.error('❌ API Error:', errorText);
+          throw new Error(`Failed to get upload URL: ${res.status} ${errorText}`);
+        }
+
+        const responseData = await res.json();
+        const { uploadUrl, fileUrl } = responseData;
+        
+        if (!uploadUrl || !fileUrl) {
+          throw new Error('Invalid response: missing uploadUrl or fileUrl');
+        }
+
+        // 2. Upload file to DigitalOcean Spaces
+        await new Promise<void>((resolve, reject) => {
+          const xhr = new XMLHttpRequest();
+          xhr.open('PUT', uploadUrl, true);
+          
+          xhr.onload = () => {
+            if (xhr.status === 200) {
+              console.log('✅ Comment attachment uploaded successfully!');
+              attachmentUrl = fileUrl;
+              attachmentType = commentAttachment.type;
+              resolve();
+            } else {
+              console.error('❌ Upload failed with status:', xhr.status);
+              reject(new Error(`Upload failed with status ${xhr.status}`));
+            }
+          };
+
+          xhr.onerror = () => {
+            reject(new Error('Network error during upload.'));
+          };
+          
+          xhr.send(commentAttachment);
+        });
+      }
+
+      // Add comment with attachment
       await addCommentToStep(commentingStepId, {
         text: newComment,
         username: user?.name || 'Admin',
+        attachment_url: attachmentUrl,
+        attachment_type: attachmentType,
       });
 
       // Reset state
       setNewComment('');
+      setCommentAttachment(null);
       setShowCommentModal(false);
       setCommentingStepId(null);
-    } catch (error) {
+      
+      success('Comment Added', 'Comment has been added successfully');
+    } catch (error: any) {
       console.error('Error adding comment:', error);
-      alert('Failed to add comment. Please try again.');
+      error('Add Comment Failed', 'Failed to add comment. Please try again.');
     } finally {
       setIsAddingComment(false);
+      setIsUploadingCommentAttachment(false);
     }
   };
 
   const handleDeleteComment = async (stepId: string, commentId: string) => {
-    if (confirm('Are you sure you want to delete this comment?')) {
-      try {
-        await deleteCommentFromStep(stepId, commentId);
-      } catch (error) {
-        console.error("Failed to delete comment:", error);
-        // Optionally show a toast for the error
+    showConfirmation(
+      () => deleteCommentFromStep(stepId, commentId),
+      {
+        title: 'Delete Comment',
+        message: 'Are you sure you want to delete this comment?',
+        confirmText: 'Delete',
+        type: 'danger'
       }
-    }
+    );
   };
 
   const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -434,6 +654,13 @@ const ClientProgressTracker: React.FC<ClientProgressTrackerProps> = ({ clientId,
         if (!res.ok) {
           const errorText = await res.text();
           console.error('❌ API Error:', errorText);
+          
+          // Check if it's a configuration error
+          if (errorText.includes('File upload not configured')) {
+            error('Upload Not Configured', 'File upload is not configured. Please contact administrator.');
+            return;
+          }
+          
           throw new Error(`Failed to get upload URL: ${res.status} ${errorText}`);
         }
 
@@ -448,24 +675,27 @@ const ClientProgressTracker: React.FC<ClientProgressTrackerProps> = ({ clientId,
 
         // 2. Upload file to DigitalOcean Spaces
         console.log('📤 Starting file upload to DigitalOcean Spaces...');
-        await new Promise((resolve, reject) => {
+        await new Promise<void>((resolve, reject) => {
           const xhr = new XMLHttpRequest();
           xhr.open('PUT', uploadUrl, true);
           
-          xhr.onload = () => {
+          xhr.onload = async () => {
             console.log('📡 Upload response status:', xhr.status);
             if (xhr.status === 200) {
               console.log('✅ File uploaded successfully!');
-              const newFile: AttachedFile = {
-                id: Date.now().toString() + Math.random().toString(36).substr(2, 9),
-                name: file.name,
-                size: `${(file.size / 1024 / 1024).toFixed(1)} MB`,
-                uploadDate: new Date().toISOString(),
-                url: fileUrl,
-                type: file.type
+              const newFile = {
+                clientId: parseInt(clientId),
+                fileName: file.name,
+                fileSize: `${(file.size / 1024 / 1024).toFixed(1)} MB`,
+                fileUrl: fileUrl,
+                fileType: file.type,
+                uploadDate: new Date().toISOString()
               };
-              setAttachedFiles(prev => [...prev, newFile]);
-              resolve(true);
+              await addClientFile(newFile);
+              success('File Uploaded', `${file.name} has been uploaded successfully`);
+              // Refresh client files to show the new file
+              await fetchClientFiles(parseInt(clientId));
+              resolve();
             } else {
               console.error('❌ Upload failed with status:', xhr.status);
               console.error('❌ Upload response:', xhr.responseText);
@@ -483,19 +713,25 @@ const ClientProgressTracker: React.FC<ClientProgressTrackerProps> = ({ clientId,
         });
 
       }
-    } catch (error) {
-      console.error('Error uploading file:', error);
-      alert(`Failed to upload file. Please try again.`);
+    } catch (err) {
+      console.error('Error uploading file:', err);
+      error('Upload Failed', 'Failed to upload file. Please try again.');
     } finally {
       setIsUploadingFile(false);
       setShowFileUpload(false);
     }
   };
 
-  const handleDeleteFile = (fileId: string) => {
-    if (confirm('Are you sure you want to delete this file?')) {
-      setAttachedFiles(files => files.filter(f => f.id !== fileId));
-    }
+  const handleDeleteFile = async (fileId: number) => {
+    showConfirmation(
+      () => deleteClientFile(fileId),
+      {
+        title: 'Delete File',
+        message: 'Are you sure you want to delete this file?',
+        confirmText: 'Delete',
+        type: 'danger'
+      }
+    );
   };
 
   const handleAddLink = async () => {
@@ -513,18 +749,24 @@ const ClientProgressTracker: React.FC<ClientProgressTrackerProps> = ({ clientId,
         client_id: client.id,
         title: newLinkTitle,
         url: correctedUrl,
+        created_by: user?.role === 'Client Admin' || user?.role === 'Client Team' ? 'client' : 'admin',
+        link_type: user?.role === 'Client Admin' || user?.role === 'Client Team' ? 'client' : 'admin',
+        user_id: user?.id,
+        user_role: user?.role
       });
 
+      success('Link Added', `${newLinkTitle} has been added successfully`);
+      
       // Reset form and close modal
       setNewLinkTitle('');
       setNewLinkUrl('');
       setShowAddLink(false);
-    } catch (error) {
-      console.error("Failed to add link:", error);
-      if (error instanceof Error && error.message.includes('client_links tidak wujud')) {
-        alert('Table client_links tidak wujud. Sila jalankan: npm run db:create-links');
+    } catch (err) {
+      console.error("Failed to add link:", err);
+      if (err instanceof Error && err.message.includes('client_links tidak wujud')) {
+        error('Database Error', 'Table client_links tidak wujud. Sila jalankan: npm run db:create-links');
       } else {
-        alert('Gagal menambah link. Sila cuba semula.');
+        error('Add Link Failed', 'Gagal menambah link. Sila cuba semula.');
       }
     } finally {
       setIsAddingLink(false);
@@ -532,36 +774,110 @@ const ClientProgressTracker: React.FC<ClientProgressTrackerProps> = ({ clientId,
   };
 
   const handleDeleteLink = async (linkId: string) => {
-    if (confirm('Are you sure you want to delete this link?')) {
-      setIsDeletingLink(true);
-      try {
-        await deleteClientLink(linkId);
-        // No need to refresh - store state is already updated
-      } catch (error) {
-        console.error("Failed to delete link:", error);
-        if (error instanceof Error && error.message.includes('client_links tidak wujud')) {
-          alert('Table client_links tidak wujud. Sila jalankan: npm run db:create-links');
-        } else {
-          alert('Gagal memadamkan link. Sila cuba semula.');
-        }
-      } finally {
-        setIsDeletingLink(false);
+    showConfirmation(
+      () => {
+        setIsDeletingLink(true);
+        deleteClientLink(linkId)
+          .then(() => {
+            success('Link Deleted', 'Link has been deleted successfully');
+          })
+          .catch((err) => {
+            console.error("Failed to delete link:", err);
+            if (err instanceof Error && err.message.includes('client_links tidak wujud')) {
+              error('Database Error', 'Table client_links tidak wujud. Sila jalankan: npm run db:create-links');
+            } else {
+              error('Delete Link Failed', 'Gagal memadamkan link. Sila cuba semula.');
+            }
+          })
+          .finally(() => {
+            setIsDeletingLink(false);
+          });
+      },
+      {
+        title: 'Delete Link',
+        message: 'Are you sure you want to delete this link?',
+        confirmText: 'Delete',
+        type: 'danger'
       }
-    }
+    );
   };
 
   const handleClearAllSteps = async () => {
-    if (confirm('Are you sure you want to delete ALL progress steps? This action cannot be undone.')) {
-      try {
-        // Delete all progress steps for this client
-        const deletionPromises = progressSteps.map(step => deleteProgressStep(step.id));
-        await Promise.all(deletionPromises);
-        alert('All progress steps have been deleted successfully.');
-      } catch (error) {
-        console.error('Failed to delete progress steps:', error);
-        alert('Failed to delete progress steps. Please try again.');
+    showConfirmation(
+      async () => {
+        try {
+          console.log('🗑️ Starting complete cleanup...');
+          
+          // Refresh data from database first to ensure sync
+          console.log('🔄 Refreshing data from database...');
+          await Promise.all([
+            fetchInvoices(),
+            fetchComponents(),
+            fetchProgressSteps()
+          ]);
+          console.log('✅ Data refreshed from database');
+          
+          // Get all invoices for this client
+          const clientInvoices = getInvoicesByClientId(parseInt(clientId));
+          console.log(`Found ${clientInvoices.length} invoices to delete`);
+          
+          // Delete all invoices and their components
+          for (const invoice of clientInvoices) {
+            console.log(`Deleting invoice: ${invoice.packageName} (${invoice.id})`);
+            
+            // Get components for this invoice
+            const invoiceComponents = clientComponents.filter(comp => comp.invoiceId === invoice.id);
+            console.log(`Found ${invoiceComponents.length} components to delete`);
+            
+            // Delete all components for this invoice with error handling
+            for (const component of invoiceComponents) {
+              try {
+                console.log(`Deleting component: ${component.name} (${component.id})`);
+                await deleteComponent(component.id);
+              } catch (componentError) {
+                console.warn(`Failed to delete component ${component.name}:`, componentError);
+                // Continue with other components even if one fails
+              }
+            }
+            
+            // Delete the invoice
+            try {
+              await deleteInvoice(invoice.id);
+            } catch (invoiceError) {
+              console.warn(`Failed to delete invoice ${invoice.packageName}:`, invoiceError);
+              // Continue with other invoices even if one fails
+            }
+          }
+          
+          // Delete all progress steps for this client
+          console.log(`Deleting ${progressSteps.length} progress steps`);
+          for (const step of progressSteps) {
+            try {
+              await deleteProgressStep(step.id);
+            } catch (stepError) {
+              console.warn(`Failed to delete progress step ${step.title}:`, stepError);
+              // Continue with other steps even if one fails
+            }
+          }
+          
+          console.log('✅ Complete cleanup finished');
+          alert('All progress steps, invoices, and components have been deleted successfully.');
+          
+          // Refresh the page to show empty state
+          window.location.reload();
+          
+        } catch (error) {
+          console.error('Failed to delete data:', error);
+          alert('Failed to delete data. Please try again.');
+        }
+      },
+      {
+        title: 'Clear All Data',
+        message: 'Are you sure you want to delete ALL progress steps, invoices, and components? This action cannot be undone.',
+        confirmText: 'Clear All',
+        type: 'danger'
       }
-    }
+    );
   };
 
   // Use consistent progress calculation from store
@@ -576,6 +892,89 @@ const ClientProgressTracker: React.FC<ClientProgressTrackerProps> = ({ clientId,
     return now > deadline;
   };
 
+  // Helper function to check if deadline is overdue
+  const isDeadlineOverdue = (deadline: string | null | undefined, completed: boolean) => {
+    if (!deadline || completed) return false;
+    const now = new Date();
+    const deadlineDate = new Date(deadline);
+    return now > deadlineDate;
+  };
+
+  // Helper function to handle deadline editing
+  const handleEditDeadline = (stepId: string, deadlineType: 'onboarding' | 'firstDraft' | 'secondDraft') => {
+    const step = progressSteps.find(s => s.id === stepId);
+    if (!step) return;
+    
+    setEditingDeadlineStepId(stepId);
+    setEditingDeadlineType(deadlineType);
+    
+    // Get current deadline value
+    let currentDeadline = '';
+    switch (deadlineType) {
+      case 'onboarding':
+        currentDeadline = step.onboardingDeadline || '';
+        break;
+      case 'firstDraft':
+        currentDeadline = step.firstDraftDeadline || '';
+        break;
+      case 'secondDraft':
+        currentDeadline = step.secondDraftDeadline || '';
+        break;
+    }
+    
+    // Convert to date input format (YYYY-MM-DD)
+    if (currentDeadline) {
+      const date = new Date(currentDeadline);
+      setNewDeadlineDate(date.toISOString().split('T')[0]);
+    } else {
+      setNewDeadlineDate('');
+    }
+    
+    setShowDeadlineModal(true);
+  };
+
+  // Helper function to save deadline changes
+  const handleSaveDeadline = async () => {
+    if (!editingDeadlineStepId || !editingDeadlineType || !newDeadlineDate) return;
+    
+    setIsUpdatingDeadline(true);
+    try {
+      const step = progressSteps.find(s => s.id === editingDeadlineStepId);
+      if (!step) return;
+      
+      // Convert date to ISO string
+      const deadlineDate = new Date(newDeadlineDate + 'T00:00:00');
+      const isoDeadline = deadlineDate.toISOString();
+      
+      // Prepare update object
+      const updates: any = {};
+      switch (editingDeadlineType) {
+        case 'onboarding':
+          updates.onboardingDeadline = isoDeadline;
+          break;
+        case 'firstDraft':
+          updates.firstDraftDeadline = isoDeadline;
+          break;
+        case 'secondDraft':
+          updates.secondDraftDeadline = isoDeadline;
+          break;
+      }
+      
+      await updateProgressStep(editingDeadlineStepId, updates);
+      success(`Deadline updated successfully!`);
+      
+      setShowDeadlineModal(false);
+      setEditingDeadlineStepId(null);
+      setEditingDeadlineType(null);
+      setNewDeadlineDate('');
+    } catch (error: any) {
+      console.error('Error updating deadline:', error);
+      error('Failed to update deadline');
+    } finally {
+      setIsUpdatingDeadline(false);
+    }
+  };
+
   const renderProgressStep = (step: ProgressStepWithHierarchy, isChild = false) => (
     <div key={step.id} className={`group ${isChild ? 'ml-8 mt-4' : ''}`}>
       <div className={`border-2 rounded-lg sm:rounded-xl p-4 sm:p-6 transition-all duration-200 ${
@@ -583,8 +982,10 @@ const ClientProgressTracker: React.FC<ClientProgressTrackerProps> = ({ clientId,
           ? 'border-green-200 bg-green-50' 
           : isStepOverdue(step)
           ? 'border-red-200 bg-red-50 hover:border-red-300 hover:shadow-sm'
+          : step.isPackage
+          ? 'border-blue-300 bg-blue-50 hover:border-blue-400 hover:shadow-md'
           : 'border-slate-200 bg-white hover:border-blue-200 hover:shadow-sm'
-      } ${isChild ? 'border-l-4 border-l-blue-400' : ''}`}>
+      } ${isChild ? 'border-l-4 border-l-blue-400' : step.isPackage ? 'border-l-4 border-l-blue-500' : ''}`}>
         <div className="flex items-start justify-between min-w-0 gap-2 sm:gap-4">
           <div className="flex items-start space-x-2 sm:space-x-3 lg:space-x-4 flex-1 min-w-0 overflow-hidden">
             <button
@@ -615,7 +1016,7 @@ const ClientProgressTracker: React.FC<ClientProgressTrackerProps> = ({ clientId,
                     ? 'text-red-700'
                     : 'text-slate-900'
                 } break-words hyphens-auto overflow-wrap-anywhere word-break-break-word ${
-                  step.isPackage ? 'text-lg font-bold' : ''
+                  step.isPackage ? 'text-xl font-bold' : ''
                 }`}
                 style={{ 
                   wordWrap: 'break-word',
@@ -623,7 +1024,14 @@ const ClientProgressTracker: React.FC<ClientProgressTrackerProps> = ({ clientId,
                   wordBreak: 'break-word',
                   hyphens: 'auto'
                 }}>
-                  {step.isPackage ? step.packageName : step.title}
+                  {step.isPackage ? (
+                    <span className="flex items-center space-x-2">
+                      <span className="text-2xl">📦</span>
+                      <span>{step.packageName}</span>
+                    </span>
+                  ) : (
+                    step.title
+                  )}
                 </h4>
                 </div>
                 <div className="flex flex-wrap items-center gap-2">
@@ -673,26 +1081,144 @@ const ClientProgressTracker: React.FC<ClientProgressTrackerProps> = ({ clientId,
               </p>
               
               <div className="flex flex-col space-y-1 sm:space-y-2 text-xs sm:text-sm mb-3 sm:mb-4">
-                <div className={`flex items-center space-x-1 sm:space-x-2 ${
-                  step.completed 
-                    ? 'text-green-600' 
-                    : isStepOverdue(step)
-                    ? 'text-red-600'
-                    : 'text-slate-500'
-                }`}>
-                  <Calendar className="w-3 h-3 sm:w-4 sm:h-4" />
-                  <span className="font-medium">Deadline:</span>
-                  <span className="whitespace-nowrap">
-                    {new Date(step.deadline).toLocaleDateString('en-US', {
-                      month: 'short',
-                      day: 'numeric',
-                      year: 'numeric'
-                    })} at {new Date(step.deadline).toLocaleTimeString([], { 
-                      hour: '2-digit', 
-                      minute: '2-digit' 
-                    })}
-                  </span>
-                </div>
+                {/* For package steps, show all deadline fields */}
+                {step.isPackage ? (
+                  <div className="space-y-2">
+                    {/* Onboarding Deadline */}
+                    <div className={`flex items-center justify-between p-2 rounded-lg border ${
+                      step.onboardingCompleted 
+                        ? 'bg-green-50 border-green-200 text-green-700' 
+                        : isDeadlineOverdue(step.onboardingDeadline, step.onboardingCompleted || false)
+                        ? 'bg-red-50 border-red-200 text-red-700'
+                        : 'bg-blue-50 border-blue-200 text-blue-700'
+                    }`}>
+                      <div className="flex items-center space-x-2">
+                        <Calendar className="w-3 h-3 sm:w-4 sm:h-4" />
+                        <span className="font-medium">Onboarding:</span>
+                        <span className="whitespace-nowrap">
+                          {step.onboardingDeadline ? 
+                            new Date(step.onboardingDeadline).toLocaleDateString('en-MY', {
+                              day: '2-digit',
+                              month: 'short',
+                              year: '2-digit'
+                            }) : 'Not set'
+                          }
+                        </span>
+                        {step.onboardingCompleted && (
+                          <Check className="w-3 h-3 sm:w-4 sm:h-4 text-green-600" />
+                        )}
+                      </div>
+                      {user && user.role !== 'Client Admin' && user.role !== 'Client Team' && (
+                        <button
+                          onClick={() => handleEditDeadline(step.id, 'onboarding')}
+                          className="text-xs hover:underline font-medium"
+                        >
+                          Edit
+                        </button>
+                      )}
+                    </div>
+
+                    {/* First Draft Deadline */}
+                    <div className={`flex items-center justify-between p-2 rounded-lg border ${
+                      step.firstDraftCompleted 
+                        ? 'bg-green-50 border-green-200 text-green-700' 
+                        : isDeadlineOverdue(step.firstDraftDeadline, step.firstDraftCompleted || false)
+                        ? 'bg-red-50 border-red-200 text-red-700'
+                        : 'bg-blue-50 border-blue-200 text-blue-700'
+                    }`}>
+                      <div className="flex items-center space-x-2">
+                        <Calendar className="w-3 h-3 sm:w-4 sm:h-4" />
+                        <span className="font-medium">First Draft:</span>
+                        <span className="whitespace-nowrap">
+                          {step.firstDraftDeadline ? 
+                            new Date(step.firstDraftDeadline).toLocaleDateString('en-MY', {
+                              day: '2-digit',
+                              month: 'short',
+                              year: '2-digit'
+                            }) : 'Not set'
+                          }
+                        </span>
+                        {step.firstDraftCompleted && (
+                          <Check className="w-3 h-3 sm:w-4 sm:h-4 text-green-600" />
+                        )}
+                      </div>
+                      {user && user.role !== 'Client Admin' && user.role !== 'Client Team' && (
+                        <button
+                          onClick={() => handleEditDeadline(step.id, 'firstDraft')}
+                          className="text-xs hover:underline font-medium"
+                        >
+                          Edit
+                        </button>
+                      )}
+                    </div>
+
+                    {/* Second Draft Deadline */}
+                    <div className={`flex items-center justify-between p-2 rounded-lg border ${
+                      step.secondDraftCompleted 
+                        ? 'bg-green-50 border-green-200 text-green-700' 
+                        : isDeadlineOverdue(step.secondDraftDeadline, step.secondDraftCompleted || false)
+                        ? 'bg-red-50 border-red-200 text-red-700'
+                        : 'bg-blue-50 border-blue-200 text-blue-700'
+                    }`}>
+                      <div className="flex items-center space-x-2">
+                        <Calendar className="w-3 h-3 sm:w-4 sm:h-4" />
+                        <span className="font-medium">Second Draft:</span>
+                        <span className="whitespace-nowrap">
+                          {step.secondDraftDeadline ? 
+                            new Date(step.secondDraftDeadline).toLocaleDateString('en-MY', {
+                              day: '2-digit',
+                              month: 'short',
+                              year: '2-digit'
+                            }) : 'Not set'
+                          }
+                        </span>
+                        {step.secondDraftCompleted && (
+                          <Check className="w-3 h-3 sm:w-4 sm:h-4 text-green-600" />
+                        )}
+                      </div>
+                      {user && user.role !== 'Client Admin' && user.role !== 'Client Team' && (
+                        <button
+                          onClick={() => handleEditDeadline(step.id, 'secondDraft')}
+                          className="text-xs hover:underline font-medium"
+                        >
+                          Edit
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                ) : (
+                  /* For regular steps, show original deadline */
+                  <div className={`flex items-center justify-between ${
+                    step.completed 
+                      ? 'text-green-600' 
+                      : isStepOverdue(step)
+                      ? 'text-red-600'
+                      : 'text-slate-500'
+                  }`}>
+                    <div className="flex items-center space-x-1 sm:space-x-2">
+                      <Calendar className="w-3 h-3 sm:w-4 sm:h-4" />
+                      <span className="font-medium">Deadline:</span>
+                      <span className="whitespace-nowrap">
+                        {new Date(step.deadline).toLocaleDateString('en-US', {
+                          month: 'short',
+                          day: 'numeric',
+                          year: 'numeric'
+                        })} at {new Date(step.deadline).toLocaleTimeString([], { 
+                          hour: '2-digit', 
+                          minute: '2-digit' 
+                        })}
+                      </span>
+                    </div>
+                    {user && user.role !== 'Client Admin' && user.role !== 'Client Team' && (
+                      <button
+                        onClick={() => handleEditStepOpen(step)}
+                        className="text-xs text-blue-600 hover:text-blue-700 font-medium hover:underline"
+                      >
+                        Edit Deadline
+                      </button>
+                    )}
+                  </div>
+                )}
                 
                 {step.completed && step.completedDate && (
                   <div className="flex items-center space-x-1 sm:space-x-2 text-green-600">
@@ -762,6 +1288,26 @@ const ClientProgressTracker: React.FC<ClientProgressTrackerProps> = ({ clientId,
                           wordBreak: 'break-word',
                           hyphens: 'auto'
                         }}>{comment.text}</p>
+                        
+                        {/* Show attachment if present */}
+                        {comment.attachment_url && (
+                          <div className="mt-2 flex items-center space-x-2">
+                            <FileText className="w-3 h-3 text-blue-500" />
+                            <a
+                              href={comment.attachment_url}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="text-xs text-blue-600 hover:text-blue-800 underline"
+                              onClick={() => {
+                                console.log('🔗 Clicking attachment link:', comment.attachment_url);
+                              }}
+                            >
+                              View Attachment
+                            </a>
+                          </div>
+                        )}
+                        
+
                       </div>
                     ))}
                   </div>
@@ -850,6 +1396,41 @@ const ClientProgressTracker: React.FC<ClientProgressTrackerProps> = ({ clientId,
             </div>
           </div>
 
+          {/* Debug Section - Only show in development */}
+          {process.env.NODE_ENV === 'development' && (
+            <div className="px-4 sm:px-8 py-2 sm:py-3 border-b border-slate-200 bg-yellow-50">
+              <div className="flex items-center justify-between">
+                <span className="text-xs text-yellow-800 font-medium">Debug Mode</span>
+                <div className="flex space-x-2">
+                  <button
+                    onClick={async () => {
+                      console.log('🔄 Manual refresh progress steps');
+                      await fetchProgressSteps();
+                      console.log('✅ Progress steps refreshed');
+                    }}
+                    className="text-xs text-blue-600 hover:text-blue-700 font-medium"
+                  >
+                    Refresh Steps
+                  </button>
+                  <button
+                    onClick={() => {
+                      console.log('🔍 Current store state:');
+                      const storeState = useAppStore.getState();
+                      storeState.progressSteps.forEach(step => {
+                        if (step.comments && step.comments.length > 0) {
+                          console.log(`  Step "${step.title}": ${step.comments.length} comments`);
+                        }
+                      });
+                    }}
+                    className="text-xs text-green-600 hover:text-green-700 font-medium"
+                  >
+                    Check Store
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
+
           {/* File Upload, Notes, and Links Section */}
           <div className="px-4 sm:px-8 py-4 sm:py-6 border-b border-slate-200 bg-slate-50">
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6">
@@ -860,12 +1441,37 @@ const ClientProgressTracker: React.FC<ClientProgressTrackerProps> = ({ clientId,
                     <Upload className="w-4 h-4" />
                     <span>Attachments ({attachedFiles.length})</span>
                   </h3>
-                  <button
-                    onClick={() => setShowFileUpload(true)}
-                    className="text-xs text-blue-600 hover:text-blue-700 font-medium"
-                  >
-                    Upload
-                  </button>
+                  <div className="flex space-x-2">
+                    <button
+                      onClick={() => {
+                        console.log('🔄 Manual refresh files');
+                        fetchClientFiles(parseInt(clientId));
+                      }}
+                      className="text-xs text-green-600 hover:text-green-700 font-medium"
+                    >
+                      Refresh
+                    </button>
+                    <button
+                      onClick={() => {
+                        console.log('🗑️ Check state and reload');
+                        const { clientFiles } = useAppStore.getState();
+                        console.log('🗑️ Current state has', clientFiles.length, 'files');
+                        console.log('🗑️ All files in state:', clientFiles);
+                        
+                        // Force reload by calling fetch
+                        fetchClientFiles(parseInt(clientId));
+                      }}
+                      className="text-xs text-orange-600 hover:text-orange-700 font-medium"
+                    >
+                      Check State
+                    </button>
+                    <button
+                      onClick={() => setShowFileUpload(true)}
+                      className="text-xs text-blue-600 hover:text-blue-700 font-medium"
+                    >
+                      Upload
+                    </button>
+                  </div>
                 </div>
                 <div className="space-y-2 max-h-24 sm:max-h-32 overflow-y-auto">
                   {attachedFiles.map(file => (
@@ -873,19 +1479,19 @@ const ClientProgressTracker: React.FC<ClientProgressTrackerProps> = ({ clientId,
                       <div className="flex items-center space-x-2 flex-1 min-w-0">
                         <FileText className="w-4 h-4 text-blue-500 flex-shrink-0" />
                         <div className="min-w-0 flex-1">
-                          {file.url ? (
-                            <a
-                              href={file.url}
+                                          {file.fileUrl ? (
+                  <a
+                    href={file.fileUrl}
                               target="_blank"
                               rel="noopener noreferrer"
                               className="text-left w-full block"
                             >
-                              <p className="text-xs font-medium text-blue-600 hover:text-blue-800 truncate underline cursor-pointer" title={file.name}>{file.name}</p>
+                              <p className="text-xs font-medium text-blue-600 hover:text-blue-800 truncate underline cursor-pointer" title={file.fileName}>{file.fileName}</p>
                             </a>
                           ) : (
-                            <p className="text-xs font-medium text-slate-600 truncate" title={file.name}>{file.name}</p>
+                            <p className="text-xs font-medium text-slate-600 truncate" title={file.fileName}>{file.fileName}</p>
                           )}
-                          <p className="text-xs text-slate-500">{file.size}</p>
+                          <p className="text-xs text-slate-500">{file.fileSize}</p>
                         </div>
                       </div>
                       <button
@@ -907,7 +1513,7 @@ const ClientProgressTracker: React.FC<ClientProgressTrackerProps> = ({ clientId,
               <div>
                 <div className="flex items-center justify-between mb-4">
                   <h3 className="text-xs sm:text-sm font-semibold text-slate-700 flex items-center space-x-2">
-                    <Link className="w-4 h-4" />
+                    <LinkIcon className="w-4 h-4" />
                     <span>Links ({websiteLinks.length})</span>
                   </h3>
                   <button
@@ -917,40 +1523,97 @@ const ClientProgressTracker: React.FC<ClientProgressTrackerProps> = ({ clientId,
                     Add Link
                   </button>
                 </div>
-                <div className="space-y-2 max-h-24 sm:max-h-32 overflow-y-auto">
-                  {websiteLinks.map(link => (
-                    <div key={link.id} className="p-2 bg-white rounded-lg border border-slate-200 min-w-0">
-                      <div className="flex items-start justify-between">
-                        <div className="flex-1 min-w-0">
-                          <a
-                            href={link.url}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="text-xs font-medium text-blue-600 hover:text-blue-700 truncate block"
-                            title={link.title}
-                          >
-                            {link.title}
-                          </a>
-                          <p className="text-xs text-slate-500 truncate" title={link.url}>{link.url}</p>
-                        </div>
-                        <button
-                          onClick={() => handleDeleteLink(link.id)}
-                          disabled={isDeletingLink}
-                          className="p-1 text-red-500 hover:text-red-700 flex-shrink-0 ml-2 disabled:opacity-50 transition-opacity"
-                        >
-                          {isDeletingLink ? (
-                            <div className="w-3 h-3 border border-red-500 border-t-transparent rounded-full animate-spin" />
-                          ) : (
-                            <Trash className="w-3 h-3" />
-                          )}
-                        </button>
-                      </div>
+                
+                {/* Admin Links Section */}
+                {websiteLinks.filter(link => link.link_type === 'admin').length > 0 && (
+                  <div className="mb-4">
+                    <div className="flex items-center space-x-2 mb-2">
+                      <div className="w-2 h-2 bg-blue-500 rounded-full"></div>
+                      <span className="text-xs font-medium text-blue-700">Admin Links ({websiteLinks.filter(link => link.link_type === 'admin').length})</span>
                     </div>
-                  ))}
-                  {websiteLinks.length === 0 && (
-                    <p className="text-xs text-slate-500 italic">No links added</p>
-                  )}
-                </div>
+                    <div className="space-y-2 max-h-20 sm:max-h-24 overflow-y-auto">
+                      {websiteLinks.filter(link => link.link_type === 'admin').map(link => (
+                        <div key={link.id} className="p-2 bg-blue-50 rounded-lg border border-blue-200 min-w-0">
+                          <div className="flex items-start justify-between">
+                            <div className="flex-1 min-w-0">
+                              <a
+                                href={link.url}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="text-xs font-medium text-blue-700 hover:text-blue-800 truncate block"
+                                title={link.title}
+                              >
+                                {link.title}
+                              </a>
+                              <p className="text-xs text-blue-500 truncate" title={link.url}>{link.url}</p>
+                            </div>
+                            {user && (user.role === 'Super Admin' || user.role === 'Team') && (
+                              <button
+                                onClick={() => handleDeleteLink(link.id)}
+                                disabled={isDeletingLink}
+                                className="p-1 text-red-500 hover:text-red-700 flex-shrink-0 ml-2 disabled:opacity-50 transition-opacity"
+                              >
+                                {isDeletingLink ? (
+                                  <div className="w-3 h-3 border border-red-500 border-t-transparent rounded-full animate-spin" />
+                                ) : (
+                                  <Trash className="w-3 h-3" />
+                                )}
+                              </button>
+                            )}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+                
+                {/* Client Links Section */}
+                {websiteLinks.filter(link => link.link_type === 'client').length > 0 && (
+                  <div className="mb-4">
+                    <div className="flex items-center space-x-2 mb-2">
+                      <div className="w-2 h-2 bg-green-500 rounded-full"></div>
+                      <span className="text-xs font-medium text-green-700">Client Links ({websiteLinks.filter(link => link.link_type === 'client').length})</span>
+                    </div>
+                    <div className="space-y-2 max-h-20 sm:max-h-24 overflow-y-auto">
+                      {websiteLinks.filter(link => link.link_type === 'client').map(link => (
+                        <div key={link.id} className="p-2 bg-green-50 rounded-lg border border-green-200 min-w-0">
+                          <div className="flex items-start justify-between">
+                            <div className="flex-1 min-w-0">
+                              <a
+                                href={link.url}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="text-xs font-medium text-green-700 hover:text-green-800 truncate block"
+                                title={link.title}
+                              >
+                                {link.title}
+                              </a>
+                              <p className="text-xs text-green-500 truncate" title={link.url}>{link.url}</p>
+                            </div>
+                            {user && (user.role === 'Client Admin' || user.role === 'Client Team') && (
+                              <button
+                                onClick={() => handleDeleteLink(link.id)}
+                                disabled={isDeletingLink}
+                                className="p-1 text-red-500 hover:text-red-700 flex-shrink-0 ml-2 disabled:opacity-50 transition-opacity"
+                              >
+                                {isDeletingLink ? (
+                                  <div className="w-3 h-3 border border-red-500 border-t-transparent rounded-full animate-spin" />
+                                ) : (
+                                  <Trash className="w-3 h-3" />
+                                )}
+                              </button>
+                            )}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+                
+                {/* No Links Message */}
+                {websiteLinks.length === 0 && (
+                  <p className="text-xs text-slate-500 italic">No links added</p>
+                )}
               </div>
             </div>
           </div>
@@ -987,12 +1650,23 @@ const ClientProgressTracker: React.FC<ClientProgressTrackerProps> = ({ clientId,
           
           <div className="p-4 sm:p-8">
             {hierarchicalSteps.length > 0 ? (
-              <div className="space-y-4 sm:space-y-6">
+              <div className="space-y-6 sm:space-y-8">
                 {hierarchicalSteps.map((step) => (
-                  <div key={step.id}>
+                  <div key={step.id} className="space-y-4">
+                    {/* Package/Invoice Container */}
                     {renderProgressStep(step)}
-                    {step.children && step.children.map((childStep) => 
-                      renderProgressStep(childStep, true)
+                    
+                    {/* Component Steps */}
+                    {step.children && step.children.length > 0 && (
+                      <div className="ml-4 sm:ml-8 space-y-3">
+                        <div className="flex items-center space-x-2 mb-2">
+                          <div className="w-2 h-2 bg-blue-400 rounded-full"></div>
+                          <span className="text-sm font-medium text-blue-700">Components ({step.children.length})</span>
+                        </div>
+                        {step.children.map((childStep) => 
+                          renderProgressStep(childStep, true)
+                        )}
+                      </div>
                     )}
                   </div>
                 ))}
@@ -1382,6 +2056,61 @@ const ClientProgressTracker: React.FC<ClientProgressTrackerProps> = ({ clientId,
                     placeholder="Enter your comment..."
                   />
                 </div>
+
+                {/* File Attachment Section */}
+                <div>
+                  <label className="block text-sm font-semibold text-slate-700 mb-3">
+                    Attachment (Optional)
+                  </label>
+                  
+                  {commentAttachment ? (
+                    <div className="flex items-center justify-between p-3 bg-green-50 border border-green-200 rounded-xl">
+                      <div className="flex items-center space-x-3">
+                        <FileText className="w-5 h-5 text-green-600" />
+                        <div>
+                          <p className="text-sm font-medium text-green-800">{commentAttachment.name}</p>
+                          <p className="text-xs text-green-600">
+                            {(commentAttachment.size / 1024 / 1024).toFixed(2)} MB
+                          </p>
+                        </div>
+                      </div>
+                      <button
+                        onClick={() => setCommentAttachment(null)}
+                        className="p-1 text-red-500 hover:text-red-700"
+                      >
+                        <X className="w-4 h-4" />
+                      </button>
+                    </div>
+                  ) : (
+                    <div className="border-2 border-dashed border-slate-300 rounded-xl p-4 text-center hover:border-slate-400 transition-colors">
+                      <input
+                        type="file"
+                        onChange={(e) => {
+                          const file = e.target.files?.[0];
+                          if (file) {
+                            if (file.size > 5 * 1024 * 1024) {
+                              alert('File size must be less than 5MB');
+                              return;
+                            }
+                            setCommentAttachment(file);
+                          }
+                        }}
+                        accept="image/*,.pdf,.doc,.docx,.xls,.xlsx"
+                        className="hidden"
+                        id="comment-attachment"
+                      />
+                      <label htmlFor="comment-attachment" className="cursor-pointer">
+                        <UploadCloud className="w-8 h-8 text-slate-400 mx-auto mb-2" />
+                        <p className="text-sm text-slate-600">
+                          Click to attach a file (max 5MB)
+                        </p>
+                        <p className="text-xs text-slate-500 mt-1">
+                          Supports: Images, PDF, DOC, DOCX, XLS, XLSX
+                        </p>
+                      </label>
+                    </div>
+                  )}
+                </div>
                 
                 <div className="flex justify-end space-x-4 pt-4">
                   <button
@@ -1394,13 +2123,13 @@ const ClientProgressTracker: React.FC<ClientProgressTrackerProps> = ({ clientId,
                   </button>
                   <button
                     onClick={handleAddComment}
-                    disabled={!newComment.trim() || isAddingComment}
+                    disabled={(!newComment.trim() && !commentAttachment) || isAddingComment}
                     className="px-6 py-3 bg-blue-600 text-white rounded-xl hover:bg-blue-700 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed font-medium flex items-center space-x-2"
                   >
                     {isAddingComment ? (
                       <>
                         <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
-                        <span>Adding...</span>
+                        <span>{commentAttachment ? 'Uploading...' : 'Adding...'}</span>
                       </>
                     ) : (
                       <span>Add Comment</span>
@@ -1410,6 +2139,93 @@ const ClientProgressTracker: React.FC<ClientProgressTrackerProps> = ({ clientId,
               </div>
             </div>
           </div>
+        )}
+
+        {/* Deadline Edit Modal */}
+        {showDeadlineModal && (
+          <div className="fixed inset-0 w-full h-screen bg-black bg-opacity-60 flex items-center justify-center p-4 z-50 backdrop-blur-sm">
+            <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md">
+              <div className="flex items-center justify-between p-6 border-b border-slate-200">
+                <h3 className="text-xl font-semibold text-slate-900">
+                  Edit {editingDeadlineType === 'onboarding' ? 'Onboarding' : 
+                         editingDeadlineType === 'firstDraft' ? 'First Draft' : 
+                         editingDeadlineType === 'secondDraft' ? 'Second Draft' : ''} Deadline
+                </h3>
+                <button
+                  onClick={() => {
+                    setShowDeadlineModal(false);
+                    setEditingDeadlineStepId(null);
+                    setEditingDeadlineType(null);
+                    setNewDeadlineDate('');
+                  }}
+                  className="p-2 hover:bg-slate-100 rounded-lg transition-colors"
+                >
+                  <X className="w-5 h-5 text-slate-500" />
+                </button>
+              </div>
+              
+              <div className="p-6 space-y-4">
+                <div>
+                  <label className="block text-sm font-semibold text-slate-700 mb-3">
+                    New Deadline Date
+                  </label>
+                  <input
+                    type="date"
+                    value={newDeadlineDate}
+                    onChange={(e) => setNewDeadlineDate(e.target.value)}
+                    className="w-full px-4 py-3 border border-slate-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition-all duration-200"
+                    min={new Date().toISOString().split('T')[0]}
+                  />
+                  <p className="text-xs text-slate-500 mt-1">
+                    Select a new deadline date for this milestone
+                  </p>
+                </div>
+                
+                <div className="flex justify-end space-x-4 pt-4">
+                  <button
+                    onClick={() => {
+                      setShowDeadlineModal(false);
+                      setEditingDeadlineStepId(null);
+                      setEditingDeadlineType(null);
+                      setNewDeadlineDate('');
+                    }}
+                    className="px-6 py-3 text-slate-700 bg-slate-100 rounded-xl hover:bg-slate-200 transition-all duration-200 font-medium"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    onClick={handleSaveDeadline}
+                    disabled={!newDeadlineDate || isUpdatingDeadline}
+                    className="px-6 py-3 bg-blue-600 text-white rounded-xl hover:bg-blue-700 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed font-medium flex items-center space-x-2"
+                  >
+                    {isUpdatingDeadline ? (
+                      <>
+                        <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                        <span>Updating...</span>
+                      </>
+                    ) : (
+                      <span>Update Deadline</span>
+                    )}
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Custom Confirmation Modal */}
+        {confirmation && (
+          <ConfirmationModal
+            isOpen={confirmation.isOpen}
+            onClose={hideConfirmation}
+            onConfirm={handleConfirm}
+            title={confirmation.title || 'Confirm Action'}
+            message={confirmation.message}
+            confirmText={confirmation.confirmText}
+            cancelText={confirmation.cancelText}
+            type={confirmation.type}
+            icon={confirmation.icon}
+          />
         )}
       </div>
     </div>

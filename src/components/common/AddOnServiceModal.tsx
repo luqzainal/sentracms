@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { X, Package, Check } from 'lucide-react';
+import { useToast } from '../../hooks/useToast';
 
 interface AddOnService {
   id: string;
@@ -25,6 +26,7 @@ const AddOnServiceModal: React.FC<AddOnServiceModalProps> = ({
 }) => {
   const [selectedServices, setSelectedServices] = useState<string[]>([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const { error } = useToast();
 
   if (!isOpen) return null;
 
@@ -38,7 +40,7 @@ const AddOnServiceModal: React.FC<AddOnServiceModalProps> = ({
 
   const handleSubmit = async () => {
     if (selectedServices.length === 0) {
-      alert('Please select at least one add-on service');
+      error('Selection Required', 'Please select at least one add-on service');
       return;
     }
 
@@ -47,9 +49,9 @@ const AddOnServiceModal: React.FC<AddOnServiceModalProps> = ({
       await onSubmit(selectedServices);
       setSelectedServices([]);
       onClose();
-    } catch (error) {
-      console.error('Error submitting add-on services:', error);
-      alert('Failed to submit add-on services. Please try again.');
+    } catch (err) {
+      console.error('Error submitting add-on services:', err);
+      error('Submission Failed', 'Failed to submit add-on services. Please try again.');
     } finally {
       setIsSubmitting(false);
     }
@@ -74,7 +76,7 @@ const AddOnServiceModal: React.FC<AddOnServiceModalProps> = ({
   }, {} as Record<string, AddOnService[]>);
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+    <div className="fixed top-0 left-0 right-0 bottom-0 w-full h-full bg-black bg-opacity-50 flex items-center justify-center z-50 p-4 backdrop-blur-sm">
       <div className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl max-h-[90vh] overflow-hidden">
         {/* Header */}
         <div className="flex items-center justify-between p-6 border-b border-slate-200">

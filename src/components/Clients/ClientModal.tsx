@@ -18,8 +18,8 @@ const ClientModal: React.FC<ClientModalProps> = ({ client, onClose, onSave }) =>
     phone: '',
     status: 'Complete',
     packageName: '',
-    pic: '',
-    adminTeam: '',
+    pic1: '',
+    pic2: '',
     tags: [] as string[],
     newTag: '',
   });
@@ -37,13 +37,13 @@ const ClientModal: React.FC<ClientModalProps> = ({ client, onClose, onSave }) =>
     fetchUsers();
     
     if (client) {
-      let pic = '';
-      let adminTeam = '';
+      let pic1 = '';
+      let pic2 = '';
       if (client.pic && client.pic.includes(' - ')) {
-        [pic, adminTeam] = client.pic.split(' - ');
+        [pic1, pic2] = client.pic.split(' - ');
       } else {
-        pic = client.pic || '';
-        adminTeam = '';
+        pic1 = client.pic || '';
+        pic2 = '';
       }
       setFormData({
         name: client.name || '',
@@ -52,8 +52,8 @@ const ClientModal: React.FC<ClientModalProps> = ({ client, onClose, onSave }) =>
         phone: client.phone || '',
         status: client.status || 'Complete',
         packageName: client.packageName || '',
-        pic,
-        adminTeam,
+        pic1,
+        pic2,
         tags: client.tags || [],
         newTag: '',
       });
@@ -63,7 +63,7 @@ const ClientModal: React.FC<ClientModalProps> = ({ client, onClose, onSave }) =>
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     // Gabungkan pic dan adminTeam sebelum simpan
-    const picValue = formData.pic && formData.adminTeam ? `${formData.pic} - ${formData.adminTeam}` : formData.pic;
+    const picValue = formData.pic1 && formData.pic2 ? `${formData.pic1} - ${formData.pic2}` : formData.pic1;
     onSave({
       ...formData,
       pic: picValue
@@ -106,6 +106,8 @@ const ClientModal: React.FC<ClientModalProps> = ({ client, onClose, onSave }) =>
         });
         setNewTagName('');
         setNewTagColor('#3B82F6');
+        // Refresh tags from database
+        await fetchTags();
       } catch (error) {
         alert('Error creating tag. It might already exist.');
       }
@@ -116,6 +118,8 @@ const ClientModal: React.FC<ClientModalProps> = ({ client, onClose, onSave }) =>
     if (confirm('Are you sure you want to delete this tag? It will be removed from all clients.')) {
       try {
         await deleteTag(tagId);
+        // Refresh tags from database
+        await fetchTags();
       } catch (error) {
         alert('Error deleting tag.');
       }
@@ -137,6 +141,11 @@ const ClientModal: React.FC<ClientModalProps> = ({ client, onClose, onSave }) =>
   };
 
   const availableTags = tags.filter(tag => !formData.tags.includes(tag.name));
+
+  // Refresh availableTags when tags change
+  useEffect(() => {
+    // This will re-run when tags are updated
+  }, [tags, formData.tags]);
 
   return (
     <div className="fixed inset-0 w-full h-full bg-black bg-opacity-60 flex items-center justify-center p-4 z-50 backdrop-blur-sm">
@@ -247,31 +256,38 @@ const ClientModal: React.FC<ClientModalProps> = ({ client, onClose, onSave }) =>
 
               <div>
                 <label className="block text-sm font-medium text-slate-700 mb-2">
-                  PIC
+                  PIC 1
                 </label>
                 <select
-                  name="pic"
-                  value={formData.pic}
+                  name="pic1"
+                  value={formData.pic1}
                   onChange={handleChange}
                   className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none"
                 >
-                  <option value="">Pilih PIC</option>
-                  <option value="Project Management">Project Management</option>
-                  <option value="Marketing Automation">Marketing Automation</option>
+                  <option value="">Pilih PIC 1</option>
+                  {adminTeamUsers.length > 0 ? (
+                    adminTeamUsers.map(user => (
+                      <option key={user.id} value={user.name}>
+                        {user.name} ({user.role})
+                      </option>
+                    ))
+                  ) : (
+                    <option value="" disabled>Tiada Admin Team tersedia</option>
+                  )}
                 </select>
               </div>
 
               <div>
                 <label className="block text-sm font-medium text-slate-700 mb-2">
-                  Admin Team
+                  PIC 2
                 </label>
                 <select
-                  name="adminTeam"
-                  value={formData.adminTeam}
+                  name="pic2"
+                  value={formData.pic2}
                   onChange={handleChange}
                   className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none"
                 >
-                  <option value="">Pilih Admin Team</option>
+                  <option value="">Pilih PIC 2</option>
                   {adminTeamUsers.length > 0 ? (
                     adminTeamUsers.map(user => (
                       <option key={user.id} value={user.name}>
