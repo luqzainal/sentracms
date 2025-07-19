@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback, useMemo, memo } from 'react';
-import { ArrowLeft, Send, RefreshCw, UploadCloud, FileText, X } from 'lucide-react';
+import { ArrowLeft, Send, RefreshCw } from 'lucide-react';
 import { useAppStore } from '../../store/AppStore';
 import { getInitials } from '../../utils/avatarUtils';
 
@@ -8,27 +8,35 @@ interface ClientPortalChatProps {
   onBack: () => void;
 }
 
-// Helper function to get color for avatar
-const getColorForName = (name: string) => {
-  const colors = [
-    { bg: 'bg-blue-500', text: 'text-white' },
-    { bg: 'bg-green-500', text: 'text-white' },
-    { bg: 'bg-purple-500', text: 'text-white' },
-    { bg: 'bg-pink-500', text: 'text-white' },
-    { bg: 'bg-indigo-500', text: 'text-white' },
-    { bg: 'bg-yellow-500', text: 'text-white' },
-    { bg: 'bg-red-500', text: 'text-white' },
-    { bg: 'bg-teal-500', text: 'text-white' },
-  ];
-  const index = name.charCodeAt(0) % colors.length;
-  return colors[index];
-};
+// Color palette for avatars
+const AVATAR_COLORS = [
+  { bg: 'bg-blue-500', text: 'text-white' }, // Blue
+  { bg: 'bg-green-500', text: 'text-white' }, // Green
+  { bg: 'bg-yellow-500', text: 'text-white' }, // Amber
+  { bg: 'bg-red-500', text: 'text-white' }, // Red
+  { bg: 'bg-purple-500', text: 'text-white' }, // Purple
+  { bg: 'bg-orange-500', text: 'text-white' }, // Orange
+  { bg: 'bg-cyan-500', text: 'text-white' }, // Cyan
+  { bg: 'bg-pink-500', text: 'text-white' }, // Pink
+  { bg: 'bg-lime-500', text: 'text-white' }, // Lime
+  { bg: 'bg-indigo-500', text: 'text-white' }, // Indigo
+  { bg: 'bg-rose-500', text: 'text-white' }, // Rose
+  { bg: 'bg-teal-500', text: 'text-white' }, // Teal
+];
+
+// Helper function to get consistent color for a name
+function getColorForName(name: string): { bg: string; text: string } {
+  let hash = 0;
+  for (let i = 0; i < name.length; i++) {
+    hash = name.charCodeAt(i) + ((hash << 5) - hash);
+  }
+  const index = Math.abs(hash) % AVATAR_COLORS.length;
+  return AVATAR_COLORS[index];
+}
 
 const ClientPortalChat: React.FC<ClientPortalChatProps> = ({ user, onBack }) => {
   const [message, setMessage] = useState('');
-  const [attachment, setAttachment] = useState<File | null>(null);
   const [isSending, setIsSending] = useState(false);
-  const [isUploading, setIsUploading] = useState(false);
   const messagesEndRef = React.useRef<HTMLDivElement>(null);
   const inputRef = React.useRef<HTMLInputElement>(null);
 
@@ -83,7 +91,7 @@ const ClientPortalChat: React.FC<ClientPortalChatProps> = ({ user, onBack }) => 
       loadChatMessages(clientChat.id);
       markChatAsRead(clientChat.id); // Mark as read when opened
     }
-  }, [clientChat?.id, loadChatMessages, markChatAsRead]);
+  }, [clientChat?.id, loadChatMessages, markChatAsRead]); // Include clientChat.id in dependency
 
   // Auto scroll to bottom when new messages arrive
   useEffect(() => {
@@ -94,98 +102,33 @@ const ClientPortalChat: React.FC<ClientPortalChatProps> = ({ user, onBack }) => 
     }
   }, [memoizedMessages]);
 
-  const handleSendMessage = async () => {
-    if ((message.trim() || attachment) && clientChat && !isSending) {
-      try {
-        setIsSending(true);
-        setIsUploading(true);
-        let attachmentUrl = '';
-        
-        // Upload attachment if present
-        if (attachment) {
-          console.log('🔄 Uploading chat attachment:', attachment.name);
-          
-          // 1. Get pre-signed URL from our API
-          const res = await fetch('/api/generate-upload-url', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ 
-              fileName: attachment.name, 
-              fileType: attachment.type 
-            }),
-          });
-
-          if (!res.ok) {
-            const errorText = await res.text();
-            console.error('❌ API Error:', errorText);
-            throw new Error(`Failed to get upload URL: ${res.status} ${errorText}`);
-          }
-
-          const responseData = await res.json();
-          const { uploadUrl, fileUrl } = responseData;
-          
-          if (!uploadUrl || !fileUrl) {
-            throw new Error('Invalid response: missing uploadUrl or fileUrl');
-          }
-
-          // 2. Upload file to DigitalOcean Spaces
-          console.log('📤 Starting file upload to DigitalOcean Spaces...');
-          await new Promise<void>((resolve, reject) => {
-            const xhr = new XMLHttpRequest();
-            xhr.open('PUT', uploadUrl, true);
-            
-            xhr.onload = async () => {
-              console.log('📡 Upload response status:', xhr.status);
-              if (xhr.status === 200) {
-                console.log('✅ File uploaded successfully!');
-                attachmentUrl = fileUrl;
-                resolve();
-              } else {
-                console.error('❌ Upload failed with status:', xhr.status);
-                console.error('❌ Upload response:', xhr.responseText);
-                reject(new Error(`Upload failed with status ${xhr.status}`));
-              }
-            };
-
-            xhr.onerror = (error) => {
-              console.error('❌ Network error during upload:', error);
-              reject(new Error('Network error during upload.'));
-            };
-            
-            console.log('📤 Sending file to DigitalOcean Spaces...');
-            xhr.send(attachment);
-          });
-        }
-        
-        const messageText = message.trim() || 'Sent an attachment';
-        
-        // Clear input IMMEDIATELY before doing anything else
-        setMessage('');
-        setAttachment(null);
-        
-        // Focus back to input
-        setTimeout(() => {
-          inputRef.current?.focus();
-        }, 50);
-        
-        // Scroll to bottom after sending message
-        setTimeout(() => {
-          messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-        }, 200);
-        
-        // Send message with attachment
-        await sendMessage(clientChat.id, messageText, 'client', attachmentUrl);
-        
-        // Reload messages to show the new message with attachment
-        await loadChatMessages(clientChat.id);
-        
-      } catch (error) {
-        console.error('Error sending message:', error);
-        alert('Failed to send message. Please try again.');
-      } finally {
-        setIsSending(false);
-        setIsUploading(false);
-      }
+  const handleSendMessage = () => {
+    if (message.trim() && clientChat && !isSending) {
+      const messageText = message.trim();
+      
+      // Clear input IMMEDIATELY before doing anything else
+      setMessage('');
+      setIsSending(true);
+      
+      // Focus back to input
+      setTimeout(() => {
+        inputRef.current?.focus();
+      }, 50);
+      
+      // Scroll to bottom after sending message
+      setTimeout(() => {
+        messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+      }, 200);
+      
+      // Send message (with optimistic update)
+      sendMessage(clientChat.id, messageText, 'client')
+        .then(() => {
+          setIsSending(false);
+        })
+        .catch(error => {
+          console.error('Error sending message:', error);
+          setIsSending(false);
+        });
     }
   };
 
@@ -201,21 +144,6 @@ const ClientPortalChat: React.FC<ClientPortalChatProps> = ({ user, onBack }) => 
       await loadChatMessages(clientChat.id);
       await fetchChats();
     }
-  };
-
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (file) {
-      if (file.size > 5 * 1024 * 1024) {
-        alert('File size must be less than 5MB');
-        return;
-      }
-      setAttachment(file);
-    }
-  };
-
-  const removeAttachment = () => {
-    setAttachment(null);
   };
 
   const formatTime = useCallback((timestamp: string) => {
@@ -275,9 +203,9 @@ const ClientPortalChat: React.FC<ClientPortalChatProps> = ({ user, onBack }) => 
   }
 
   return (
-    <div className="min-h-screen bg-slate-50">
+    <div className="min-h-screen bg-slate-50 flex flex-col">
       {/* Header */}
-      <div className="bg-white border-b border-slate-200 p-4 lg:p-6">
+      <div className="bg-white border-b border-slate-200 px-4 lg:px-8 py-4 flex-shrink-0">
         <div className="max-w-4xl mx-auto flex items-center justify-between">
           <div className="flex items-center space-x-4">
             <button
@@ -287,17 +215,29 @@ const ClientPortalChat: React.FC<ClientPortalChatProps> = ({ user, onBack }) => 
               <ArrowLeft className="w-5 h-5" />
             </button>
             <div>
-              <h1 className="text-xl lg:text-2xl font-bold text-slate-900">Chat with Support</h1>
-              <p className="text-sm text-slate-600">Get help from our team</p>
+              <h1 className="text-xl font-semibold text-slate-900">Chat with Team</h1>
+              <p className="text-sm text-slate-600">
+                {clientChat.online ? 'Team is online' : 'Team will respond soon'}
+              </p>
             </div>
           </div>
-          <div className="flex items-center space-x-2">
+          <div className="flex items-center space-x-4">
+            <div className="flex items-center space-x-2">
+              <div className={`w-3 h-3 rounded-full ${clientChat.online ? 'bg-green-500' : 'bg-slate-300'}`}></div>
+              <span className="text-sm text-slate-600">
+                {clientChat.online ? 'Online' : 'Offline'}
+              </span>
+              <div className="flex items-center space-x-1">
+                <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
+                <span className="text-xs text-green-600">Live</span>
+              </div>
+            </div>
             <button
               onClick={handleRefresh}
               className="p-2 text-slate-600 hover:text-slate-900 hover:bg-slate-100 rounded-lg transition-colors"
               title="Refresh messages"
             >
-              <RefreshCw className="w-5 h-5" />
+              <RefreshCw className="w-4 h-4" />
             </button>
           </div>
         </div>
@@ -346,26 +286,6 @@ const ClientPortalChat: React.FC<ClientPortalChatProps> = ({ user, onBack }) => 
                         </div>
                       )}
                       <p className="text-sm">{msg.content}</p>
-                      
-                      {/* Show attachment if exists */}
-                      {msg.attachmentUrl && (
-                        <div className="mt-2">
-                          <a
-                            href={msg.attachmentUrl}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className={`text-xs flex items-center space-x-1 ${
-                              msg.sender === 'client' 
-                                ? 'text-blue-100 hover:text-blue-200' 
-                                : 'text-blue-600 hover:text-blue-800'
-                            }`}
-                          >
-                            <FileText className="w-3 h-3" />
-                            <span>View attachment</span>
-                          </a>
-                        </div>
-                      )}
-                      
                       <p className={`text-xs mt-1 ${
                         msg.sender === 'client' ? 'text-blue-100' : 'text-slate-500'
                       }`}>
@@ -400,41 +320,8 @@ const ClientPortalChat: React.FC<ClientPortalChatProps> = ({ user, onBack }) => 
 
         {/* Message Input */}
         <div className="bg-white border-t border-slate-200 p-4 lg:p-8">
-          {/* Show attachment if selected */}
-          {attachment && (
-            <div className="mb-3 p-3 bg-blue-50 rounded-lg border border-blue-200">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center space-x-2">
-                  <FileText className="w-4 h-4 text-blue-600" />
-                  <span className="text-sm text-blue-700">{attachment.name}</span>
-                </div>
-                <button
-                  type="button"
-                  onClick={removeAttachment}
-                  className="text-red-500 hover:text-red-700"
-                >
-                  <X className="w-4 h-4" />
-                </button>
-              </div>
-            </div>
-          )}
-          
           <div className="flex items-center space-x-3">
-            {/* File upload button */}
-            <div className="relative">
-              <input
-                type="file"
-                onChange={handleFileChange}
-                accept="image/*,.pdf,.doc,.docx,.xls,.xlsx"
-                className="hidden"
-                id="client-chat-attachment"
-                disabled={isSending || isUploading}
-              />
-              <label htmlFor="client-chat-attachment" className="cursor-pointer p-2 text-slate-600 hover:text-slate-900 hover:bg-slate-100 rounded-lg transition-colors disabled:opacity-50">
-                <UploadCloud className="w-5 h-5" />
-              </label>
-            </div>
-            
+            {/* Removed non-functional attachment and emoji buttons */}
             <div className="flex-1">
               <input
                 ref={inputRef}
@@ -443,21 +330,21 @@ const ClientPortalChat: React.FC<ClientPortalChatProps> = ({ user, onBack }) => 
                 onChange={e => setMessage(e.target.value)}
                 onKeyPress={handleKeyPress}
                 placeholder="Type your message..."
-                disabled={isSending || isUploading}
+                disabled={isSending}
                 className="w-full px-4 py-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none text-sm bg-white disabled:opacity-50 disabled:cursor-not-allowed"
               />
             </div>
             <button
               onClick={handleSendMessage}
-              disabled={(!message.trim() && !attachment) || isSending || isUploading}
+              disabled={!message.trim() || isSending}
               className="px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center space-x-2"
             >
-              {isSending || isUploading ? (
+              {isSending ? (
                 <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
               ) : (
                 <Send className="w-4 h-4" />
               )}
-              <span className="hidden sm:inline">{isSending || isUploading ? 'Sending...' : 'Send'}</span>
+              <span className="hidden sm:inline">{isSending ? 'Sending...' : 'Send'}</span>
             </button>
           </div>
         </div>
@@ -466,4 +353,4 @@ const ClientPortalChat: React.FC<ClientPortalChatProps> = ({ user, onBack }) => 
   );
 };
 
-export default ClientPortalChat;
+export default memo(ClientPortalChat);

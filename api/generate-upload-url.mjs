@@ -38,87 +38,44 @@ if (!envLoaded) {
 // This is the main handler for the serverless function
 // Suitable for platforms like Vercel or Netlify
 export default async function handler(req, res) {
-  // Only allow POST method
-  if (req.method !== 'POST') {
-    res.status(405).json({ error: 'Method Not Allowed' });
-    return;
-  }
-
   try {
-    console.log('ENV DEBUG:', {
-      DO_SPACES_KEY: process.env.DO_SPACES_KEY,
-      DO_SPACES_SECRET: process.env.DO_SPACES_SECRET,
-      DO_SPACES_BUCKET: process.env.DO_SPACES_BUCKET,
-      DO_SPACES_REGION: process.env.DO_SPACES_REGION,
-      DO_SPACES_ENDPOINT: process.env.DO_SPACES_ENDPOINT,
-    });
-
-    // Get DigitalOcean Spaces credentials from environment variables
-    const SPACES_ENDPOINT = process.env.DO_SPACES_ENDPOINT;
-    const SPACES_REGION = process.env.DO_SPACES_REGION;
-    const SPACES_KEY = process.env.DO_SPACES_KEY;
-    const SPACES_SECRET = process.env.DO_SPACES_SECRET;
-    const BUCKET_NAME = process.env.DO_SPACES_BUCKET;
-
-    // Basic validation to ensure environment variables are set
-    if (!SPACES_ENDPOINT || !SPACES_REGION || !SPACES_KEY || !SPACES_SECRET || !BUCKET_NAME) {
-      console.error("Missing DigitalOcean Spaces environment variables.");
-      console.error("Please run: npm run setup-file-upload");
-      // Send a more helpful error message
-      res.status(500).json({ 
-        error: 'File upload not configured. Please set up DigitalOcean Spaces environment variables.',
-        details: 'Run "npm run setup-file-upload" for setup instructions.',
-        missingVars: {
-          DO_SPACES_ENDPOINT: !SPACES_ENDPOINT,
-          DO_SPACES_REGION: !SPACES_REGION,
-          DO_SPACES_KEY: !SPACES_KEY,
-          DO_SPACES_SECRET: !SPACES_SECRET,
-          DO_SPACES_BUCKET: !BUCKET_NAME
-        }
-      });
-      return;
-    }
-
-    // Make the endpoint construction more robust
-    let endpoint = SPACES_ENDPOINT;
-    if (!endpoint.startsWith('https://')) {
-      endpoint = `https://${endpoint}`;
-    }
-
-    console.log('🔧 S3 Client Configuration:', {
-      endpoint,
-      region: SPACES_REGION,
-      hasKey: !!SPACES_KEY,
-      hasSecret: !!SPACES_SECRET,
-      bucket: BUCKET_NAME
-    });
-
-    // Configure the S3 client for DigitalOcean Spaces INSIDE the handler
-    const s3Client = new S3Client({
-      endpoint: endpoint,
-      region: SPACES_REGION,
-      credentials: {
-        accessKeyId: SPACES_KEY,
-        secretAccessKey: SPACES_SECRET,
-      },
-    });
-
-    console.log('✅ S3 Client created successfully');
-
-    // Ambil nama file dan tipe file dari body request
+    console.log('🔍 Upload URL generation started...');
+    console.log('📋 Request body:', JSON.stringify(req.body, null, 2));
+    
     const { fileName, fileType } = req.body;
     
-    console.log('📁 File Upload Request:', { fileName, fileType });
-    
     if (!fileName || !fileType) {
-      res.status(400).json({ error: 'fileName and fileType are required' });
-      return;
+      console.error('❌ Missing fileName or fileType');
+      return res.status(400).json({ error: 'fileName and fileType are required' });
     }
-
-    // Buat nama file yang unik untuk menghindari penimpaan file
-    const uniqueFileName = `${crypto.randomUUID()}-${fileName}`;
+    
+    console.log('✅ File details validated');
+    console.log('   File name:', fileName);
+    console.log('   File type:', fileType);
+    
+    // Generate unique filename
+    const timestamp = Date.now();
+    const randomString = Math.random().toString(36).substring(2, 15);
+    const fileExtension = fileName.split('.').pop();
+    const uniqueFileName = `${timestamp}-${randomString}.${fileExtension}`;
+    
     console.log('🆔 Generated unique filename:', uniqueFileName);
-
+    
+    // Validate environment variables
+    if (!SPACES_ENDPOINT || !SPACES_REGION || !SPACES_KEY || !SPACES_SECRET || !BUCKET_NAME) {
+      console.error('❌ Missing DigitalOcean Spaces environment variables');
+      console.error('   SPACES_ENDPOINT:', !!SPACES_ENDPOINT);
+      console.error('   SPACES_REGION:', !!SPACES_REGION);
+      console.error('   SPACES_KEY:', !!SPACES_KEY);
+      console.error('   SPACES_SECRET:', !!SPACES_SECRET);
+      console.error('   BUCKET_NAME:', !!BUCKET_NAME);
+      return res.status(500).json({ error: 'DigitalOcean Spaces configuration missing' });
+    }
+    
+    console.log('✅ Environment variables validated');
+    console.log('   Bucket:', BUCKET_NAME);
+    console.log('   Region:', SPACES_REGION);
+    
     // Buat perintah untuk mengunggah file dengan ACL yang betul
     const command = new PutObjectCommand({
       Bucket: BUCKET_NAME,
@@ -132,41 +89,44 @@ export default async function handler(req, res) {
         'cache-control': 'public, max-age=31536000'
       }
     });
-
-    console.log('📋 PutObjectCommand created:', {
+    
+    console.log('📤 Creating pre-signed URL...');
+    console.log('   Command details:', {
       Bucket: BUCKET_NAME,
       Key: uniqueFileName,
       ContentType: fileType,
       ACL: 'public-read'
     });
-
-    // Buat URL unggahan yang sudah ditandatangani (pre-signed URL)
-    // URL ini berlaku selama 60 detik
-    console.log('🔗 Generating signed URL...');
-    const uploadUrl = await getSignedUrl(s3Client, command, { expiresIn: 60 });
-    console.log('✅ Signed URL generated successfully');
-
-    // URL of the file after upload, to be stored in the database
-    // Construct the correct file URL with bucket name
-    const fileUrl = `https://${BUCKET_NAME}.${SPACES_REGION}.digitaloceanspaces.com/${uniqueFileName}`;
     
-    console.log('🔗 Generated URLs:', {
-      uploadUrl: uploadUrl.substring(0, 100) + '...',
-      fileUrl: fileUrl
-    });
+    // Generate pre-signed URL
+    const presignedUrl = await getSignedUrl(s3Client, command, { expiresIn: 3600 });
     
-    res.status(200).json({
-      uploadUrl: uploadUrl,
-      fileUrl: fileUrl,
-      fileName: uniqueFileName, // Return filename for potential ACL fix
-    });
-
+    console.log('✅ Pre-signed URL generated successfully');
+    console.log('   URL length:', presignedUrl.length);
+    console.log('   URL starts with:', presignedUrl.substring(0, 50) + '...');
+    
+    // Generate public URL for the file
+    const publicUrl = `https://${BUCKET_NAME}.${SPACES_REGION}.digitaloceanspaces.com/${uniqueFileName}`;
+    
+    console.log('🔗 Public URL generated:', publicUrl);
+    
+    const response = {
+      uploadUrl: presignedUrl,
+      fileName: uniqueFileName,
+      publicUrl: publicUrl
+    };
+    
+    console.log('📤 Sending response to client...');
+    console.log('   Response keys:', Object.keys(response));
+    
+    res.status(200).json(response);
+    
+    console.log('✅ Upload URL generation completed successfully');
+    
   } catch (error) {
-    console.error('--- DETAILED UPLOAD ERROR ---');
-    console.error('Message:', error.message);
-    console.error('Stack:', error.stack);
-    console.error('Full Error Object:', error);
-    console.error('--- END OF ERROR ---');
-    res.status(500).json({ error: 'Failed to create upload URL', details: error.message });
+    console.error('❌ Error generating upload URL:', error);
+    console.error('   Error message:', error.message);
+    console.error('   Error stack:', error.stack);
+    res.status(500).json({ error: 'Failed to generate upload URL', details: error.message });
   }
 }

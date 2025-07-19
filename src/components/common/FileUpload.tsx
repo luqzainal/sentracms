@@ -98,17 +98,40 @@ const FileUpload: React.FC<FileUploadProps> = ({ onUploadComplete, multiple = tr
 
         // 2. Upload file to DigitalOcean Spaces
         const xhr = new XMLHttpRequest();
-        xhr.open('PUT', uploadUrl, true);
         
-        xhr.upload.onprogress = (event) => {
+        console.log('📤 Starting upload for file:', file.name);
+        console.log('📋 Upload details:', {
+          fileName: fileName,
+          fileType: file.type,
+          fileSize: file.size,
+          uploadUrl: uploadUrl.substring(0, 100) + '...'
+        });
+        
+        xhr.open('PUT', uploadUrl, true);
+        xhr.setRequestHeader('Content-Type', file.type);
+        xhr.setRequestHeader('x-amz-acl', 'public-read');
+        xhr.setRequestHeader('cache-control', 'public, max-age=31536000');
+        
+        console.log('🔧 Request headers set');
+        
+        xhr.upload.onprogress = (event: ProgressEvent) => {
           if (event.lengthComputable) {
             const progress = Math.round((event.loaded / event.total) * 100);
-            updateFileStatus(i, { progress });
+            console.log('📊 Upload progress:', progress + '%');
+            updateFileStatus(i, { status: 'uploading', progress });
           }
         };
 
         xhr.onload = async () => {
+          console.log('📤 Upload response received:', {
+            status: xhr.status,
+            statusText: xhr.statusText,
+            responseText: xhr.responseText?.substring(0, 200) + '...'
+          });
+          
           if (xhr.status === 200) {
+            console.log('✅ Upload successful, processing response...');
+            
             // Automatically fix ACL after successful upload with timeout
             // Skip auto-fix in production to prevent message channel issues
             const isProduction = import.meta.env.PROD;
@@ -150,12 +173,26 @@ const FileUpload: React.FC<FileUploadProps> = ({ onUploadComplete, multiple = tr
               onUploadComplete(uploadedFiles);
             }
           } else {
-            throw new Error('Upload failed.');
+            console.error('❌ Upload failed with status:', xhr.status);
+            console.error('Status text:', xhr.statusText);
+            console.error('Response:', xhr.responseText);
+            throw new Error(`Upload failed with status ${xhr.status}: ${xhr.statusText}`);
           }
         };
-
+        
         xhr.onerror = () => {
-          throw new Error('Network error during upload.');
+          console.error('❌ Upload network error occurred');
+          console.error('Error details:', {
+            status: xhr.status,
+            statusText: xhr.statusText,
+            readyState: xhr.readyState
+          });
+          updateFileStatus(i, { status: 'error', progress: 0 });
+        };
+        
+        xhr.ontimeout = () => {
+          console.error('❌ Upload timeout occurred');
+          updateFileStatus(i, { status: 'error', progress: 0 });
         };
         
         xhr.send(file);

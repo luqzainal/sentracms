@@ -24,6 +24,8 @@
     "setup-automatic-acl": "node scripts/setup-automatic-acl.mjs",
     "quick-fix-files": "node scripts/quick-fix-all-files.mjs",
     "test-production-upload": "node scripts/test-production-upload-no-acl.mjs",
+    "debug-upload": "node scripts/debug-upload-process.mjs",
+    "test-actual-upload": "node scripts/test-actual-upload.mjs",
     "test-file-access": "node scripts/test-file-access.js",
     "fix-existing-files-acl": "node scripts/fix-existing-files-acl.js",
     "verify-deployment": "node scripts/verify-deployment.js",
