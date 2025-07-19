@@ -175,12 +175,11 @@ const ClientProgressTracker: React.FC<ClientProgressTrackerProps> = ({ clientId,
   console.log('  Attached Files Length:', attachedFiles.length);
   console.log('  Website Links:', websiteLinks);
   
-  // Force refresh files and links on component mount
+  // Load data only once on component mount (no force refresh)
   useEffect(() => {
-    console.log('🔄 Force refreshing client files and links for client:', clientId);
-    fetchClientFiles(parseInt(clientId));
-    fetchClientLinks(parseInt(clientId));
-  }, [clientId, fetchClientFiles, fetchClientLinks]);
+    console.log('🔄 Loading client data for client:', clientId);
+    // Data will be loaded by polling, no need for force refresh
+  }, [clientId]);
   
   // Debug individual files
   if (attachedFiles.length > 0) {

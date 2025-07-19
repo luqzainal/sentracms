@@ -1014,7 +1014,7 @@ export const useAppStore = create<AppState>((set, get) => ({
     if (!currentState.isPolling) {
       const intervalId = setInterval(() => {
         get().pollForUpdates();
-      }, 1000); // Poll every 1 second for better performance
+      }, 5000); // Poll every 5 seconds for better performance
       set({ isPolling: true, pollingInterval: intervalId });
     }
   },
@@ -1126,27 +1126,31 @@ export const useAppStore = create<AppState>((set, get) => ({
         await Promise.all(messagePromises);
       }
       
-      // Also reload messages for any chats that are currently being viewed
-      // (even if they don't have messages yet)
-      const allChats = get().chats;
-      const emptyChatPromises = allChats
-        .filter(chat => chat.messages && chat.messages.length === 0)
-        .map(async (chat) => {
-          try {
-            await get().loadChatMessages(chat.id);
-          } catch (error) {
-            console.error(`Error loading initial messages for chat ${chat.id}:`, error);
-          }
-        });
+      // Only reload messages for chats that are currently being viewed (active tab)
+      const currentState = get();
+      const activeTab = currentState.activeTab;
       
-      if (emptyChatPromises.length > 0) {
-        await Promise.all(emptyChatPromises);
+      if (activeTab === 'chat') {
+        const allChats = get().chats;
+        const emptyChatPromises = allChats
+          .filter(chat => chat.messages && chat.messages.length === 0)
+          .map(async (chat) => {
+            try {
+              await get().loadChatMessages(chat.id);
+            } catch (error) {
+              console.error(`Error loading initial messages for chat ${chat.id}:`, error);
+            }
+          });
+        
+        if (emptyChatPromises.length > 0) {
+          await Promise.all(emptyChatPromises);
+        }
       }
       
       // Reduce polling frequency for non-chat operations to improve performance
       const now = Date.now();
       const lastNonChatPoll = get().lastNonChatPoll || 0;
-      const shouldPollNonChat = now - lastNonChatPoll > 5000; // Poll every 5 seconds for non-chat data
+      const shouldPollNonChat = now - lastNonChatPoll > 10000; // Poll every 10 seconds for non-chat data
       
       if (shouldPollNonChat) {
         // You can add other polling operations here
