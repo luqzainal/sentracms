@@ -550,8 +550,8 @@ const ClientProfile: React.FC<ClientProfileProps> = ({ clientId, onBack, onEdit 
               </div>
               
               {clientEvents.length > 0 ? (
-                <div className="space-y-3">
-                  {clientEvents.slice(0, 3).map((event) => (
+                <div className="space-y-3 max-h-96 overflow-y-auto">
+                  {clientEvents.map((event) => (
                     <div key={event.id} className="p-3 bg-blue-50 rounded-lg flex items-center justify-between">
                       <div>
                       <h4 className="font-medium text-gray-900">{event.title}</h4>
@@ -598,8 +598,8 @@ const ClientProfile: React.FC<ClientProfileProps> = ({ clientId, onBack, onEdit 
               </div>
               
               {clientInvoices.length > 0 ? (
-                <div className="space-y-3">
-                  {clientInvoices.slice(0, 3).map((invoice) => (
+                <div className="space-y-3 max-h-96 overflow-y-auto">
+                  {clientInvoices.map((invoice) => (
                     <div key={invoice.id} className="p-3 border border-gray-200 rounded-lg">
                           <div className="flex justify-between items-start mb-2">
                             <h4 className="font-medium text-gray-900">{invoice.packageName}</h4>

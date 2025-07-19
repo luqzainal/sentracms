@@ -1,5 +1,5 @@
-import React, { useState, useEffect, useMemo } from 'react';
-import { ChevronLeft, ChevronRight, Plus, Edit, Trash2, Calendar as CalendarIcon, Clock, Users, FileText, X } from 'lucide-react';
+import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
+import { ChevronLeft, ChevronRight, Edit, Trash2, Calendar as CalendarIcon, Clock, Users, FileText, X } from 'lucide-react';
 import { useAppStore } from '../../store/AppStore';
 import EventPopup from '../common/EventPopup';
 import { CalendarEvent } from '../../store/AppStore';
@@ -20,10 +20,18 @@ interface EventFormProps {
   clients: any[];
 }
 
-const EventForm: React.FC<EventFormProps> = ({ isEdit, eventFormData, handleFormChange, handleSubmitEvent, resetFormAndModals, clients }) => (
+const EventForm: React.FC<EventFormProps> = React.memo(({ isEdit, eventFormData, handleFormChange, handleSubmitEvent, resetFormAndModals, clients }) => (
   <form onSubmit={(e) => handleSubmitEvent(e, isEdit)} className="space-y-4">
     <h2 className="text-xl font-semibold">{isEdit ? 'Edit Event' : 'Create New Event'}</h2>
-    <input type="text" name="title" value={eventFormData.title} onChange={handleFormChange} placeholder="Event Title" required className="w-full p-2 border rounded" />
+    <input 
+      type="text" 
+      name="title" 
+      value={eventFormData.title} 
+      onChange={handleFormChange} 
+      placeholder="Event Title" 
+      required 
+      className="w-full p-2 border rounded" 
+    />
     <select name="client" value={eventFormData.client} onChange={handleFormChange} required className="w-full p-2 border rounded">
       <option value="">Select Client</option>
       {clients.map(c => <option key={c.id} value={c.businessName}>{c.businessName}</option>)}
@@ -40,18 +48,23 @@ const EventForm: React.FC<EventFormProps> = ({ isEdit, eventFormData, handleForm
       <option value="deadline">Deadline</option>
       <option value="payment">Payment</option>
     </select>
-    <textarea name="description" value={eventFormData.description} onChange={handleFormChange} placeholder="Description" className="w-full p-2 border rounded" />
+    <textarea 
+      name="description" 
+      value={eventFormData.description} 
+      onChange={handleFormChange} 
+      placeholder="Description" 
+      className="w-full p-2 border rounded" 
+    />
     <div className="flex justify-end space-x-3">
       <button type="button" onClick={resetFormAndModals} className="px-4 py-2 bg-slate-100 rounded-lg">Cancel</button>
       <button type="submit" className="px-4 py-2 bg-blue-600 text-white rounded-lg">{isEdit ? 'Update Event' : 'Create Event'}</button>
     </div>
   </form>
-);
+));
 
 const CalendarPage: React.FC<CalendarPageProps> = ({ onToggleSidebar }) => {
   const [currentDate, setCurrentDate] = useState(new Date());
   const [view, setView] = useState<'month' | 'week' | 'day'>('month');
-  const [showNewEventModal, setShowNewEventModal] = useState(false);
   const [showEventDetailsModal, setShowEventDetailsModal] = useState(false);
   const [showEditEventModal, setShowEditEventModal] = useState(false);
   const [selectedEvent, setSelectedEvent] = useState<CalendarEvent | null>(null);
@@ -73,6 +86,18 @@ const CalendarPage: React.FC<CalendarPageProps> = ({ onToggleSidebar }) => {
       type: 'meeting',
     };
   });
+
+  // Memoize eventFormData to prevent unnecessary re-renders
+  const memoizedEventFormData = useMemo(() => eventFormData, [
+    eventFormData.title,
+    eventFormData.startDate,
+    eventFormData.endDate,
+    eventFormData.startTime,
+    eventFormData.endTime,
+    eventFormData.description,
+    eventFormData.client,
+    eventFormData.type
+  ]);
 
   const {
     calendarEvents,
@@ -97,22 +122,34 @@ const CalendarPage: React.FC<CalendarPageProps> = ({ onToggleSidebar }) => {
     'July', 'August', 'September', 'October', 'November', 'December'
   ];
 
-  const events = calendarEvents.map(event => {
-    const client = clients.find(c => c.id === event.clientId);
-    let dateStr = '';
-    
-    if (event.startDate) {
-      try {
-        // Handle date string properly to avoid timezone issues
-        if (typeof event.startDate === 'string') {
-          // If startDate is already in YYYY-MM-DD format, use it directly
-          if (event.startDate.match(/^\d{4}-\d{2}-\d{2}$/)) {
-            dateStr = event.startDate;
-          } else if (event.startDate.includes('T')) {
-            // If it's a full datetime string, extract just the date part
-            dateStr = event.startDate.split('T')[0];
+  const events = useMemo(() => {
+    return calendarEvents.map(event => {
+      const client = clients.find(c => c.id === event.clientId);
+      let dateStr = '';
+      
+      if (event.startDate) {
+        try {
+          // Handle date string properly to avoid timezone issues
+          if (typeof event.startDate === 'string') {
+            // If startDate is already in YYYY-MM-DD format, use it directly
+            if (event.startDate.match(/^\d{4}-\d{2}-\d{2}$/)) {
+              dateStr = event.startDate;
+            } else if (event.startDate.includes('T')) {
+              // If it's a full datetime string, extract just the date part
+              dateStr = event.startDate.split('T')[0];
+            } else {
+              // Try to parse as Date object and format locally to avoid timezone issues
+              const parsedDate = new Date(event.startDate);
+              if (!isNaN(parsedDate.getTime())) {
+                // Use local date formatting instead of toISOString to avoid timezone issues
+                const year = parsedDate.getFullYear();
+                const month = String(parsedDate.getMonth() + 1).padStart(2, '0');
+                const day = String(parsedDate.getDate()).padStart(2, '0');
+                dateStr = `${year}-${month}-${day}`;
+              }
+            }
           } else {
-            // Try to parse as Date object and format locally to avoid timezone issues
+            // If it's a Date object, format locally
             const parsedDate = new Date(event.startDate);
             if (!isNaN(parsedDate.getTime())) {
               // Use local date formatting instead of toISOString to avoid timezone issues
@@ -122,50 +159,40 @@ const CalendarPage: React.FC<CalendarPageProps> = ({ onToggleSidebar }) => {
               dateStr = `${year}-${month}-${day}`;
             }
           }
-        } else {
-          // If it's a Date object, format locally
-          const parsedDate = new Date(event.startDate);
-          if (!isNaN(parsedDate.getTime())) {
-            // Use local date formatting instead of toISOString to avoid timezone issues
-            const year = parsedDate.getFullYear();
-            const month = String(parsedDate.getMonth() + 1).padStart(2, '0');
-            const day = String(parsedDate.getDate()).padStart(2, '0');
-            dateStr = `${year}-${month}-${day}`;
-          }
+        } catch (e) {
+          console.error('Error parsing event date:', event.startDate, e);
+          // Don't fall back to today's date, just skip this event
+          return null;
         }
-      } catch (e) {
-        console.error('Error parsing event date:', event.startDate, e);
-        // Don't fall back to today's date, just skip this event
+      }
+      
+      // Only return event if we have a valid date
+      if (!dateStr) {
+        console.warn('Event has no valid start date:', event);
         return null;
       }
-    }
-    
-    // Only return event if we have a valid date
-    if (!dateStr) {
-      console.warn('Event has no valid start date:', event);
-      return null;
-    }
-    
-    return {
-      ...event,
-      date: dateStr,
-      time: event.startTime || '',
-      client: client?.businessName || 'Unknown Client',
-    };
-  }).filter((event): event is NonNullable<typeof event> => event !== null); // Remove null events with proper typing
+      
+      return {
+        ...event,
+        date: dateStr,
+        time: event.startTime || '',
+        client: client?.businessName || 'Unknown Client',
+      };
+    }).filter((event): event is NonNullable<typeof event> => event !== null); // Remove null events with proper typing
+  }, [calendarEvents, clients]);
 
   const daysInMonth = new Date(currentDate.getFullYear(), currentDate.getMonth() + 1, 0).getDate();
   const firstDayOfMonth = new Date(currentDate.getFullYear(), currentDate.getMonth(), 1).getDay();
   const today = new Date();
 
-  const handleNavigation = (direction: 'prev' | 'next') => {
+  const handleNavigation = useCallback((direction: 'prev' | 'next') => {
     const newDate = new Date(currentDate);
     const offset = direction === 'next' ? 1 : -1;
     if (view === 'month') newDate.setMonth(currentDate.getMonth() + offset);
     else if (view === 'week') newDate.setDate(currentDate.getDate() + (offset * 7));
     else newDate.setDate(currentDate.getDate() + offset);
     setCurrentDate(newDate);
-  };
+  }, [currentDate, view]);
 
   const getEventTypeColor = (type: string) => {
     switch (type) {
@@ -177,7 +204,7 @@ const CalendarPage: React.FC<CalendarPageProps> = ({ onToggleSidebar }) => {
     }
   };
 
-  const getEventsForDate = (date: number) => {
+  const getEventsForDate = useCallback((date: number) => {
     // Use consistent date formatting that matches the events mapping
     const dateStr = `${currentDate.getFullYear()}-${String(currentDate.getMonth() + 1).padStart(2, '0')}-${String(date).padStart(2, '0')}`;
     
@@ -197,18 +224,17 @@ const CalendarPage: React.FC<CalendarPageProps> = ({ onToggleSidebar }) => {
         return false;
       }
     });
-  };
+  }, [currentDate, events]);
 
-  const handleEventClick = (event: any) => {
+  const handleEventClick = useCallback((event: any) => {
     const fullEvent = calendarEvents.find(e => e.id === event.id);
     if (fullEvent) {
       setSelectedEvent(fullEvent);
       setShowEventDetailsModal(true);
     }
-  };
+  }, [calendarEvents]);
   
-  const resetFormAndModals = () => {
-    setShowNewEventModal(false);
+  const resetFormAndModals = useCallback(() => {
     setShowEditEventModal(false);
     setShowEventDetailsModal(false);
     setSelectedEvent(null);
@@ -231,9 +257,9 @@ const CalendarPage: React.FC<CalendarPageProps> = ({ onToggleSidebar }) => {
       client: '', 
       type: 'meeting',
     });
-  };
+  }, []);
 
-  const handleEditEvent = () => {
+  const handleEditEvent = useCallback(() => {
     if (!selectedEvent) return;
     
     const formatToYYYYMMDD = (date: any) => {
@@ -271,9 +297,9 @@ const CalendarPage: React.FC<CalendarPageProps> = ({ onToggleSidebar }) => {
     
       setShowEventDetailsModal(false);
       setShowEditEventModal(true);
-  };
+  }, [selectedEvent, clients]);
 
-  const handleDeleteEvent = async () => {
+  const handleDeleteEvent = useCallback(async () => {
     if (selectedEvent) {
       showConfirmation(
         () => deleteCalendarEvent(selectedEvent.id),
@@ -285,15 +311,28 @@ const CalendarPage: React.FC<CalendarPageProps> = ({ onToggleSidebar }) => {
         }
       );
     }
-  };
+  }, [selectedEvent, showConfirmation, deleteCalendarEvent]);
 
-  const handleFormChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
-    setEventFormData(prev => ({ ...prev, [e.target.name]: e.target.value }));
-  };
+  const formDataRef = useRef(eventFormData);
+  formDataRef.current = eventFormData;
 
-  const handleSubmitEvent = async (e: React.FormEvent, isEdit = false) => {
+  const handleFormChange = useCallback((e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
+    const { name, value } = e.target;
+    setEventFormData(prev => {
+      // Only update if value actually changed to prevent unnecessary re-renders
+      if (prev[name as keyof typeof prev] === value) {
+        return prev;
+      }
+      return { ...prev, [name]: value };
+    });
+  }, []);
+
+  const handleSubmitEvent = useCallback(async (e: React.FormEvent, isEdit = false) => {
     e.preventDefault();
-    const { startDate, startTime, endDate, endTime, client: clientName } = eventFormData;
+    
+    // Get current form data from ref to avoid stale closures
+    const currentFormData = formDataRef.current;
+    const { startDate, startTime, endDate, endTime, client: clientName } = currentFormData;
     
     // Fix validation: Allow same start and end date, but end time must be after start time if same date
     const startDateTime = new Date(`${startDate}T${startTime}`);
@@ -311,7 +350,7 @@ const CalendarPage: React.FC<CalendarPageProps> = ({ onToggleSidebar }) => {
     }
     
     const eventData: Partial<CalendarEvent> = {
-      ...eventFormData,
+      ...currentFormData,
       clientId: client.id,
       startDate: startDate, // Store just the date part, not datetime
       endDate: endDate, // Store just the date part, not datetime
@@ -325,7 +364,7 @@ const CalendarPage: React.FC<CalendarPageProps> = ({ onToggleSidebar }) => {
     
     resetFormAndModals();
     fetchCalendarEvents();
-  };
+  }, [clients, selectedEvent, updateCalendarEvent, addCalendarEvent, resetFormAndModals, fetchCalendarEvents]);
 
   const renderCalendarDays = () => {
     const days = [];
@@ -412,7 +451,6 @@ const CalendarPage: React.FC<CalendarPageProps> = ({ onToggleSidebar }) => {
             <button onClick={() => setView('week')} className={`px-3 py-1 rounded-lg text-sm ${view === 'week' ? 'bg-blue-100 text-blue-700' : ''}`}>Week</button>
             <button onClick={() => setView('day')} className={`px-3 py-1 rounded-lg text-sm ${view === 'day' ? 'bg-blue-100 text-blue-700' : ''}`}>Day</button>
         </div>
-        <button onClick={() => setShowNewEventModal(true)} className="px-4 py-2 bg-blue-600 text-white rounded-lg flex items-center space-x-2"><Plus className="w-4 h-4" /><span>New Event</span></button>
       </div>
 
       <div className="bg-white rounded-xl shadow-sm border border-slate-200">
@@ -426,23 +464,12 @@ const CalendarPage: React.FC<CalendarPageProps> = ({ onToggleSidebar }) => {
           {view === 'day' && renderDayView()}
       </div>
 
-      {showNewEventModal && (
-        <Modal onClose={() => setShowNewEventModal(false)}>
-          <EventForm 
-            isEdit={false} 
-            eventFormData={eventFormData}
-            handleFormChange={handleFormChange}
-            handleSubmitEvent={handleSubmitEvent}
-            resetFormAndModals={resetFormAndModals}
-            clients={clients}
-          />
-        </Modal>
-      )}
+
       {showEditEventModal && (
         <Modal onClose={() => setShowEditEventModal(false)}>
           <EventForm 
             isEdit={true} 
-            eventFormData={eventFormData}
+            eventFormData={memoizedEventFormData}
             handleFormChange={handleFormChange}
             handleSubmitEvent={handleSubmitEvent}
             resetFormAndModals={resetFormAndModals}
