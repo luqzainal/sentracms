@@ -15,7 +15,7 @@ const CalendarPage = React.lazy(() => import('./components/Calendar/CalendarPage
 const ChatPage = React.lazy(() => import('./components/Chat/ChatPage'));
 const ReportsPage = React.lazy(() => import('./components/Reports/ReportsPage'));
 const SettingsPage = React.lazy(() => import('./components/Settings/SettingsPage'));
-const ClientPortalDashboard = React.lazy(() => import('./components/ClientPortal/ClientPortalDashboard'));
+const ClientPortalLayout = React.lazy(() => import('./components/ClientPortal/ClientPortalLayout'));
 const AddOnServicesPage = React.lazy(() => import('./components/AddOnServices/AddOnServicesPage'));
 const ClientRequestsPage = React.lazy(() => import('./components/AddOnServices/ClientRequestsPage'));
 const ToastTest = React.lazy(() => import('./components/common/ToastTest'));
@@ -118,7 +118,7 @@ function App() {
         <div className="min-h-screen bg-slate-50">
           <ToastContainer />
           <Suspense fallback={<LoadingSpinner />}>
-            <ClientPortalDashboard user={user} onBack={handleLogout} />
+            <ClientPortalLayout user={user} onLogout={handleLogout} />
           </Suspense>
         </div>
       </ToastProvider>

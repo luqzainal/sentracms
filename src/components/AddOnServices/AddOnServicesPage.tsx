@@ -42,16 +42,8 @@ const AddOnServicesPage: React.FC<AddOnServicesPageProps> = ({ onToggleSidebar }
     switch (category) {
       case 'Support':
         return 'bg-blue-100 text-blue-800 border-blue-200';
-      case 'Analytics':
-        return 'bg-purple-100 text-purple-800 border-purple-200';
-      case 'Domain':
+      case 'New Service':
         return 'bg-green-100 text-green-800 border-green-200';
-      case 'Integration':
-        return 'bg-orange-100 text-orange-800 border-orange-200';
-      case 'Mobile':
-        return 'bg-indigo-100 text-indigo-800 border-indigo-200';
-      case 'Security':
-        return 'bg-red-100 text-red-800 border-red-200';
       default:
         return 'bg-gray-100 text-gray-800 border-gray-200';
     }
@@ -132,11 +124,7 @@ const AddOnServicesPage: React.FC<AddOnServicesPageProps> = ({ onToggleSidebar }
 
   const categoryStats = {
     'Support': addOnServices.filter(s => s.category === 'Support').length,
-    'Analytics': addOnServices.filter(s => s.category === 'Analytics').length,
-    'Domain': addOnServices.filter(s => s.category === 'Domain').length,
-    'Integration': addOnServices.filter(s => s.category === 'Integration').length,
-    'Mobile': addOnServices.filter(s => s.category === 'Mobile').length,
-    'Security': addOnServices.filter(s => s.category === 'Security').length
+    'New Service': addOnServices.filter(s => s.category === 'New Service').length
   };
 
   const totalServices = addOnServices.length;
@@ -260,11 +248,7 @@ const AddOnServicesPage: React.FC<AddOnServicesPageProps> = ({ onToggleSidebar }
           >
             <option value="all">All Categories</option>
             <option value="Support">Support</option>
-            <option value="Analytics">Analytics</option>
-            <option value="Domain">Domain</option>
-            <option value="Integration">Integration</option>
-            <option value="Mobile">Mobile</option>
-            <option value="Security">Security</option>
+            <option value="New Service">New Service</option>
           </select>
           <select
             value={statusFilter}

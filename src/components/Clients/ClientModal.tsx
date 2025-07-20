@@ -9,7 +9,7 @@ interface ClientModalProps {
 }
 
 const ClientModal: React.FC<ClientModalProps> = ({ client, onClose, onSave }) => {
-  const { users, tags, fetchTags, fetchUsers, addTag, deleteTag } = useAppStore();
+  const { users, tags, fetchTags, fetchUsers, addTag, deleteTag, fetchClientPics, getClientPicsByClientId } = useAppStore();
   
   const [formData, setFormData] = useState({
     name: '',
@@ -20,6 +20,7 @@ const ClientModal: React.FC<ClientModalProps> = ({ client, onClose, onSave }) =>
     packageName: '',
     pic1: '',
     pic2: '',
+    additionalPics: [] as Array<{ id: string; name: string; position: number }>,
     tags: [] as string[],
     newTag: '',
   });
@@ -45,20 +46,54 @@ const ClientModal: React.FC<ClientModalProps> = ({ client, onClose, onSave }) =>
         pic1 = client.pic || '';
         pic2 = '';
       }
-      setFormData({
-        name: client.name || '',
-        businessName: client.businessName || '',
-        email: client.email || '',
-        phone: client.phone || '',
-        status: client.status || 'Complete',
-        packageName: client.packageName || '',
-        pic1,
-        pic2,
-        tags: client.tags || [],
-        newTag: '',
-      });
+      
+      // Load additional PICs from database
+      const loadAdditionalPics = async () => {
+        try {
+          await fetchClientPics(client.id);
+          const existingPics = getClientPicsByClientId(client.id);
+          const additionalPics = existingPics.map(pic => ({
+            id: pic.picId,
+            name: pic.user?.name || '',
+            position: pic.position
+          }));
+          
+          setFormData(prev => ({
+            ...prev,
+            name: client.name || '',
+            businessName: client.businessName || '',
+            email: client.email || '',
+            phone: client.phone || '',
+            status: client.status || 'Complete',
+            packageName: client.packageName || '',
+            pic1,
+            pic2,
+            additionalPics,
+            tags: client.tags || [],
+            newTag: '',
+          }));
+        } catch (error) {
+          console.error('Error loading additional PICs:', error);
+          setFormData(prev => ({
+            ...prev,
+            name: client.name || '',
+            businessName: client.businessName || '',
+            email: client.email || '',
+            phone: client.phone || '',
+            status: client.status || 'Complete',
+            packageName: client.packageName || '',
+            pic1,
+            pic2,
+            additionalPics: [],
+            tags: client.tags || [],
+            newTag: '',
+          }));
+        }
+      };
+      
+      loadAdditionalPics();
     }
-  }, [client, fetchTags, fetchUsers]);
+  }, [client, fetchTags, fetchUsers, fetchClientPics, getClientPicsByClientId]);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -66,7 +101,8 @@ const ClientModal: React.FC<ClientModalProps> = ({ client, onClose, onSave }) =>
     const picValue = formData.pic1 && formData.pic2 ? `${formData.pic1} - ${formData.pic2}` : formData.pic1;
     onSave({
       ...formData,
-      pic: picValue
+      pic: picValue,
+      additionalPics: formData.additionalPics
     });
   };
 
@@ -138,6 +174,44 @@ const ClientModal: React.FC<ClientModalProps> = ({ client, onClose, onSave }) =>
       e.preventDefault();
       handleAddNewTag();
     }
+  };
+
+  const handleAddAdditionalPic = () => {
+    const nextPosition = formData.additionalPics.length + 3; // Start from position 3
+    if (nextPosition <= 10) { // Max 10 PICs total
+      setFormData(prev => ({
+        ...prev,
+        additionalPics: [...prev.additionalPics, { id: '', name: '', position: nextPosition }]
+      }));
+    }
+  };
+
+  const handleRemoveAdditionalPic = (index: number) => {
+    setFormData(prev => ({
+      ...prev,
+      additionalPics: prev.additionalPics.filter((_, i) => i !== index)
+    }));
+  };
+
+  const handleAdditionalPicChange = (index: number, field: 'id' | 'name', value: string) => {
+    setFormData(prev => ({
+      ...prev,
+      additionalPics: prev.additionalPics.map((pic, i) => 
+        i === index ? { ...pic, [field]: value } : pic
+      )
+    }));
+  };
+
+  const getAvailableUsersForPic = (currentPicId: string) => {
+    const usedPicIds = [
+      formData.pic1,
+      formData.pic2,
+      ...formData.additionalPics.map(pic => pic.name)
+    ].filter(Boolean);
+    
+    return adminTeamUsers.filter(user => 
+      !usedPicIds.includes(user.name) || user.name === currentPicId
+    );
   };
 
   const availableTags = tags.filter(tag => !formData.tags.includes(tag.name));
@@ -256,12 +330,13 @@ const ClientModal: React.FC<ClientModalProps> = ({ client, onClose, onSave }) =>
 
               <div>
                 <label className="block text-sm font-medium text-slate-700 mb-2">
-                  PIC 1
+                  PIC 1 *
                 </label>
                 <select
                   name="pic1"
                   value={formData.pic1}
                   onChange={handleChange}
+                  required
                   className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none"
                 >
                   <option value="">Pilih PIC 1</option>
@@ -299,6 +374,50 @@ const ClientModal: React.FC<ClientModalProps> = ({ client, onClose, onSave }) =>
                   )}
                 </select>
               </div>
+
+              {/* Additional PICs */}
+              {formData.additionalPics.map((pic, index) => (
+                <div key={index} className="flex items-end space-x-2">
+                  <div className="flex-1">
+                    <label className="block text-sm font-medium text-slate-700 mb-2">
+                      PIC {pic.position}
+                    </label>
+                    <select
+                      value={pic.name}
+                      onChange={(e) => handleAdditionalPicChange(index, 'name', e.target.value)}
+                      className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none"
+                    >
+                      <option value="">Pilih PIC {pic.position}</option>
+                      {getAvailableUsersForPic(pic.name).map(user => (
+                        <option key={user.id} value={user.name}>
+                          {user.name} ({user.role})
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => handleRemoveAdditionalPic(index)}
+                    className="px-3 py-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                  >
+                    <Trash2 className="w-4 h-4" />
+                  </button>
+                </div>
+              ))}
+
+              {/* Add PIC Button */}
+              {formData.additionalPics.length < 8 && (
+                <div className="col-span-2">
+                  <button
+                    type="button"
+                    onClick={handleAddAdditionalPic}
+                    className="flex items-center space-x-2 px-4 py-2 text-blue-600 border border-blue-300 rounded-lg hover:bg-blue-50 transition-colors"
+                  >
+                    <Plus className="w-4 h-4" />
+                    <span>Tambah PIC</span>
+                  </button>
+                </div>
+              )}
 
 
               <div>

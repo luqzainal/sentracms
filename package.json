@@ -29,10 +29,16 @@
     "test-actual-upload": "node scripts/test-actual-upload.mjs",
     "test-cors": "node scripts/test-cors-config.mjs",
     "test-aws-upload": "node scripts/test-aws-s3-upload.mjs",
+    "setup-new-aws-s3": "node scripts/setup-new-aws-s3.mjs",
+    "test-new-aws-s3": "node scripts/test-new-aws-s3.mjs",
     "test-file-access": "node scripts/test-file-access.js",
     "fix-existing-files-acl": "node scripts/fix-existing-files-acl.js",
     "verify-deployment": "node scripts/verify-deployment.js",
-    "fix-deployment": "node scripts/fix-deployment.js"
+    "fix-deployment": "node scripts/fix-deployment.js",
+    "migrate:export-neon": "node scripts/export-neon-data.mjs",
+    "migrate:import-rds": "node scripts/import-to-rds.mjs",
+    "migrate:update-connection": "node scripts/update-connection-string.mjs",
+    "migrate:test-rds": "node scripts/test-rds-connection.mjs"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.848.0",
@@ -47,6 +53,7 @@
     "jspdf": "^3.0.1",
     "jspdf-autotable": "^5.0.2",
     "lucide-react": "^0.344.0",
+    "pg": "^8.16.3",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
     "react-dropzone": "^14.3.8",

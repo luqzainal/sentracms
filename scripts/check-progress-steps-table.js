@@ -7,9 +7,9 @@ const sql = neon(process.env.VITE_NEON_DATABASE_URL);
 
 async function checkProgressStepsTable() {
   try {
-    console.log('🔍 Checking progress_steps table structure...');
+    console.log('🔍 Checking progress_steps table structure...\n');
     
-    // Get table structure
+    // Get table columns
     const columns = await sql`
       SELECT column_name, data_type, is_nullable, column_default
       FROM information_schema.columns 
@@ -17,30 +17,44 @@ async function checkProgressStepsTable() {
       ORDER BY ordinal_position;
     `;
     
-    console.log('\n📋 Progress Steps table structure:');
-    if (columns.length > 0) {
-      columns.forEach(col => {
-        console.log(`  - ${col.column_name}: ${col.data_type} ${col.is_nullable === 'NO' ? '(NOT NULL)' : ''} ${col.column_default ? `DEFAULT ${col.column_default}` : ''}`);
+    console.log('📋 progress_steps table columns:');
+    columns.forEach(col => {
+      console.log(`  - ${col.column_name}: ${col.data_type} ${col.is_nullable === 'NO' ? '(NOT NULL)' : ''} ${col.column_default ? `DEFAULT ${col.column_default}` : ''}`);
+    });
+    
+    // Check if deadline columns exist
+    const deadlineColumns = columns.filter(col => 
+      col.column_name.includes('deadline') || 
+      col.column_name.includes('completed')
+    );
+    
+    console.log('\n📅 Deadline-related columns:');
+    if (deadlineColumns.length > 0) {
+      deadlineColumns.forEach(col => {
+        console.log(`  - ${col.column_name}: ${col.data_type}`);
       });
     } else {
-      console.log('  ❌ No columns found');
+      console.log('  ❌ No deadline columns found');
     }
     
-    // Check existing progress steps
-    const steps = await sql`
-      SELECT id, client_id, title, description, deadline, completed, important
+    // Check sample data
+    console.log('\n📋 Sample progress steps:');
+    const sampleSteps = await sql`
+      SELECT id, title, deadline, completed, important 
       FROM progress_steps 
-      ORDER BY created_at DESC;
+      LIMIT 3;
     `;
     
-    console.log('\n📋 Existing progress steps:');
-    steps.forEach(step => {
-      console.log(`  - ID: ${step.id}, Title: ${step.title}, Completed: ${step.completed}`);
+    sampleSteps.forEach(step => {
+      console.log(`  - ${step.title}:`);
+      console.log(`    Deadline: ${step.deadline}`);
+      console.log(`    Completed: ${step.completed}`);
+      console.log(`    Important: ${step.important}`);
     });
     
   } catch (error) {
-    console.error('❌ Error checking progress_steps table:', error.message);
+    console.error('❌ Error checking progress_steps table:', error);
   }
 }
 
-checkProgressStepsTable().catch(console.error); 
+checkProgressStepsTable(); 

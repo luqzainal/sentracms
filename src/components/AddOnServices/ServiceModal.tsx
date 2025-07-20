@@ -169,11 +169,7 @@ const ServiceModal: React.FC<ServiceModalProps> = ({ isOpen, onClose, service, o
                 className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition-all duration-200"
               >
                 <option value="Support">Support</option>
-                <option value="Analytics">Analytics</option>
-                <option value="Domain">Domain</option>
-                <option value="Integration">Integration</option>
-                <option value="Mobile">Mobile</option>
-                <option value="Security">Security</option>
+                <option value="New Service">New Service</option>
               </select>
             </div>
 

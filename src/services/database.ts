@@ -11,7 +11,8 @@ import type {
   ChatMessage,
   ClientLink,
   AddOnService as DatabaseAddOnService,
-  ClientServiceRequest as DatabaseClientServiceRequest
+  ClientServiceRequest as DatabaseClientServiceRequest,
+  DatabaseClientPic
 } from '../types/database';
 
 // Helper function to check if database is available
@@ -1245,6 +1246,8 @@ export const chatService = {
         last_message: row.last_message,
         last_message_at: row.last_message_at,
         unread_count: row.unread_count,
+        client_unread_count: row.client_unread_count || 0,
+        admin_unread_count: row.admin_unread_count || 0,
         online: row.online,
         created_at: row.created_at,
         updated_at: row.updated_at,
@@ -1301,7 +1304,11 @@ export const chatService = {
     chat_id: number;
     sender: 'client' | 'admin';
     content: string;
-    message_type?: string;
+    message_type?: 'text' | 'file' | 'image';
+    attachment_url?: string;
+    attachment_name?: string;
+    attachment_type?: string;
+    attachment_size?: number;
   }): Promise<ChatMessage> {
     if (!sql) {
       // Mock message creation
@@ -1311,6 +1318,10 @@ export const chatService = {
         sender: message.sender,
         content: message.content,
         message_type: message.message_type || 'text',
+        attachment_url: message.attachment_url,
+        attachment_name: message.attachment_name,
+        attachment_type: message.attachment_type,
+        attachment_size: message.attachment_size,
         created_at: new Date().toISOString()
       };
       
@@ -1322,10 +1333,15 @@ export const chatService = {
       // Insert the message without timeout - let it run in background
       const insertResult = await sql!`
         INSERT INTO chat_messages (
-          chat_id, sender, content, message_type, created_at
+          chat_id, sender, content, message_type, 
+          attachment_url, attachment_name, attachment_type, attachment_size,
+          created_at
         ) VALUES (
           ${message.chat_id}, ${message.sender}, 
-          ${message.content}, ${message.message_type || 'text'}, NOW()
+          ${message.content}, ${message.message_type || 'text'},
+          ${message.attachment_url || null}, ${message.attachment_name || null},
+          ${message.attachment_type || null}, ${message.attachment_size || null},
+          NOW()
         )
         RETURNING *
       `;
@@ -1337,9 +1353,13 @@ export const chatService = {
         UPDATE chats 
         SET last_message = ${message.content}, 
             last_message_at = NOW(),
-            unread_count = CASE 
-              WHEN ${message.sender} = 'admin' THEN unread_count + 1
-              ELSE unread_count
+            client_unread_count = CASE 
+              WHEN ${message.sender} = 'admin' THEN client_unread_count + 1
+              ELSE client_unread_count
+            END,
+            admin_unread_count = CASE 
+              WHEN ${message.sender} = 'client' THEN admin_unread_count + 1
+              ELSE admin_unread_count
             END
         WHERE id = ${message.chat_id}
       `.catch(error => {
@@ -1358,6 +1378,10 @@ export const chatService = {
         sender: message.sender,
         content: message.content,
         message_type: message.message_type || 'text',
+        attachment_url: message.attachment_url,
+        attachment_name: message.attachment_name,
+        attachment_type: message.attachment_type,
+        attachment_size: message.attachment_size,
         created_at: new Date().toISOString()
       };
       
@@ -1365,18 +1389,26 @@ export const chatService = {
     }
   },
 
-  async markAsRead(chatId: number): Promise<void> {
+  async markAsRead(chatId: number, userType: 'client' | 'admin'): Promise<void> {
     if (!sql) {
       // Mock - in real app this would update the store
       return;
     }
 
     try {
-      await sql!`
-        UPDATE chats 
-        SET unread_count = 0 
-        WHERE id = ${chatId}
-      `;
+      if (userType === 'client') {
+        await sql!`
+          UPDATE chats 
+          SET client_unread_count = 0 
+          WHERE id = ${chatId}
+        `;
+      } else {
+        await sql!`
+          UPDATE chats 
+          SET admin_unread_count = 0 
+          WHERE id = ${chatId}
+        `;
+      }
     } catch (error) {
       console.error('Error marking chat as read:', error);
       throw error;
@@ -1457,17 +1489,25 @@ export const chatService = {
     }
   },
 
-  async getUnreadCount(): Promise<number> {
+  async getUnreadCount(userType: 'client' | 'admin'): Promise<number> {
     if (!sql) {
       return 0;
     }
 
     try {
-      const data = await sql!`
-        SELECT SUM(unread_count) as total_unread 
-        FROM chats
-      `;
-      return data[0]?.total_unread || 0;
+      if (userType === 'client') {
+        const data = await sql!`
+          SELECT SUM(client_unread_count) as total_unread 
+          FROM chats
+        `;
+        return data[0]?.total_unread || 0;
+      } else {
+        const data = await sql!`
+          SELECT SUM(admin_unread_count) as total_unread 
+          FROM chats
+        `;
+        return data[0]?.total_unread || 0;
+      }
     } catch (error) {
       console.error('Error getting unread count:', error);
       return 0;
@@ -2205,13 +2245,141 @@ export const clientServiceRequestsService = {
     if (!isDatabaseAvailable()) {
       throw new Error('Database connection not available. Please check your configuration.');
     }
+
     try {
       await sql!`
-        DELETE FROM client_service_requests
+        DELETE FROM client_service_requests 
         WHERE id = ${id}
       `;
     } catch (error) {
       console.error('Error deleting client service request:', error);
+      throw error;
+    }
+  }
+};
+
+// Client PICs Services
+export const clientPicsService = {
+  async getByClientId(clientId: number): Promise<DatabaseClientPic[]> {
+    if (!isDatabaseAvailable()) {
+      return handleDatabaseUnavailable('getByClientId clientPics') as DatabaseClientPic[];
+    }
+
+    try {
+      const data = await sql!`
+        SELECT cp.*, u.name as user_name, u.email as user_email, u.role as user_role
+        FROM client_pics cp
+        LEFT JOIN users u ON cp.pic_id = u.id
+        WHERE cp.client_id = ${clientId}
+        ORDER BY cp.position ASC
+      `;
+      return data as DatabaseClientPic[];
+    } catch (error) {
+      console.error('Error fetching client PICs:', error);
+      throw error;
+    }
+  },
+
+  async create(pic: Partial<DatabaseClientPic>): Promise<DatabaseClientPic> {
+    if (!isDatabaseAvailable()) {
+      console.error('Database not available for creating client PIC. Cannot proceed.');
+      throw new Error('Database connection not available. Please check your configuration.');
+    }
+
+    try {
+      const data = await sql!`
+        INSERT INTO client_pics (
+          client_id, pic_id, position
+        ) VALUES (
+          ${pic.client_id}, ${pic.pic_id}, ${pic.position}
+        )
+        RETURNING *
+      `;
+      return data[0] as DatabaseClientPic;
+    } catch (error) {
+      console.error('Error creating client PIC:', error);
+      throw error;
+    }
+  },
+
+  async update(id: number, updates: Partial<DatabaseClientPic>): Promise<DatabaseClientPic> {
+    if (!isDatabaseAvailable()) {
+      console.error('Database not available for updating client PIC. Cannot proceed.');
+      throw new Error('Database connection not available. Please check your configuration.');
+    }
+
+    try {
+      const data = await sql!`
+        UPDATE client_pics
+        SET 
+          pic_id = COALESCE(${updates.pic_id}, pic_id),
+          position = COALESCE(${updates.position}, position),
+          updated_at = NOW()
+        WHERE id = ${id}
+        RETURNING *
+      `;
+      return data[0] as DatabaseClientPic;
+    } catch (error) {
+      console.error('Error updating client PIC:', error);
+      throw error;
+    }
+  },
+
+  async delete(id: number): Promise<void> {
+    if (!isDatabaseAvailable()) {
+      console.error('Database not available for deleting client PIC. Cannot proceed.');
+      throw new Error('Database connection not available. Please check your configuration.');
+    }
+
+    try {
+      await sql!`
+        DELETE FROM client_pics 
+        WHERE id = ${id}
+      `;
+    } catch (error) {
+      console.error('Error deleting client PIC:', error);
+      throw error;
+    }
+  },
+
+  async deleteByClientId(clientId: number): Promise<void> {
+    if (!isDatabaseAvailable()) {
+      console.error('Database not available for deleting client PICs. Cannot proceed.');
+      throw new Error('Database connection not available. Please check your configuration.');
+    }
+
+    try {
+      await sql!`
+        DELETE FROM client_pics 
+        WHERE client_id = ${clientId}
+      `;
+    } catch (error) {
+      console.error('Error deleting client PICs:', error);
+      throw error;
+    }
+  },
+
+  async reorderPositions(clientId: number): Promise<void> {
+    if (!isDatabaseAvailable()) {
+      console.error('Database not available for reordering client PICs. Cannot proceed.');
+      throw new Error('Database connection not available. Please check your configuration.');
+    }
+
+    try {
+      // Reorder positions to be sequential starting from 3
+      await sql!`
+        WITH ordered_pics AS (
+          SELECT id, ROW_NUMBER() OVER (ORDER BY position) + 2 as new_position
+          FROM client_pics 
+          WHERE client_id = ${clientId}
+        )
+        UPDATE client_pics 
+        SET position = ordered_pics.new_position
+        FROM ordered_pics
+        WHERE client_pics.id = ordered_pics.id
+      `;
+    } catch (error) {
+      console.error('Error reordering client PICs:', error);
       throw error;
     }
   }

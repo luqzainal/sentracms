@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef, memo } from 'react';
-import { Search, Send, MessageSquare, Users, Clock, Menu, ArrowLeft, RefreshCw } from 'lucide-react';
+import { Search, Send, MessageSquare, Users, Clock, Menu, ArrowLeft, RefreshCw, Paperclip, X, Download, FileText, Image, File } from 'lucide-react';
 import { useAppStore } from '../../store/AppStore';
 import { getInitials } from '../../utils/avatarUtils';
 
@@ -33,6 +33,26 @@ function getColorForName(name: string): { bg: string; text: string } {
   return AVATAR_COLORS[index];
 }
 
+// Helper function to get file icon
+function getFileIcon(fileType: string) {
+  if (fileType.startsWith('image/')) {
+    return <Image className="w-4 h-4" />;
+  }
+  if (fileType.includes('pdf')) {
+    return <FileText className="w-4 h-4" />;
+  }
+  return <File className="w-4 h-4" />;
+}
+
+// Helper function to format file size
+function formatFileSize(bytes: number) {
+  if (bytes === 0) return '0 Bytes';
+  const k = 1024;
+  const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+  const i = Math.floor(Math.log(bytes) / Math.log(k));
+  return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+}
+
 // MessageList komponen memoized
 const MessageList = memo(({ messages, isAdmin, clientName, clientId }: { messages: any[]; isAdmin: boolean; clientName?: string; clientId?: number }) => {
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -43,6 +63,16 @@ const MessageList = memo(({ messages, isAdmin, clientName, clientId }: { message
       scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
     }
   }, [messages.length > 0 ? messages[messages.length - 1]?.id : null]);
+
+  const handleFileDownload = (attachmentUrl: string, fileName: string) => {
+    const link = document.createElement('a');
+    link.href = attachmentUrl;
+    link.download = fileName;
+    link.target = '_blank';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
 
   return (
     <div ref={scrollRef} className="flex-1 overflow-y-auto p-4 space-y-4 min-h-0">
@@ -73,7 +103,57 @@ const MessageList = memo(({ messages, isAdmin, clientName, clientId }: { message
                 {clientId ? getClientRole(clientId) : 'Client'} - {clientName || 'Unknown Client'}
               </div>
             )}
-            <p className="text-sm">{msg.content}</p>
+            
+            {/* Message content */}
+            {msg.message_type === 'text' && (
+              <p className="text-sm">{msg.content}</p>
+            )}
+            
+            {/* File attachment */}
+            {msg.message_type === 'file' && msg.attachment_url && (
+              <div className="space-y-2">
+                <div className="flex items-center space-x-2 p-2 bg-white bg-opacity-20 rounded-lg">
+                  {getFileIcon(msg.attachment_type || '')}
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-medium truncate">{msg.attachment_name || 'File'}</p>
+                    {msg.attachment_size && (
+                      <p className="text-xs opacity-75">{formatFileSize(msg.attachment_size)}</p>
+                    )}
+                  </div>
+                  <button
+                    onClick={() => handleFileDownload(msg.attachment_url, msg.attachment_name || 'file')}
+                    className="p-1 hover:bg-white hover:bg-opacity-20 rounded transition-colors"
+                    title="Download file"
+                  >
+                    <Download className="w-4 h-4" />
+                  </button>
+                </div>
+                {msg.content && <p className="text-sm">{msg.content}</p>}
+              </div>
+            )}
+            
+            {/* Image attachment */}
+            {msg.message_type === 'image' && msg.attachment_url && (
+              <div className="space-y-2">
+                <div className="relative">
+                  <img 
+                    src={msg.attachment_url} 
+                    alt={msg.attachment_name || 'Image'} 
+                    className="max-w-full h-auto rounded-lg cursor-pointer"
+                    onClick={() => window.open(msg.attachment_url, '_blank')}
+                  />
+                  <button
+                    onClick={() => handleFileDownload(msg.attachment_url, msg.attachment_name || 'image')}
+                    className="absolute top-2 right-2 p-1 bg-black bg-opacity-50 text-white rounded hover:bg-opacity-70 transition-colors"
+                    title="Download image"
+                  >
+                    <Download className="w-4 h-4" />
+                  </button>
+                </div>
+                {msg.content && <p className="text-sm">{msg.content}</p>}
+              </div>
+            )}
+            
             <p className={`text-xs mt-1 ${
               msg.sender === (isAdmin ? 'admin' : 'client') ? 'text-blue-100' : 'text-slate-500'
             }`}>
@@ -89,8 +169,10 @@ const MessageList = memo(({ messages, isAdmin, clientName, clientId }: { message
 const ChatPage: React.FC<ChatPageProps> = ({ onToggleSidebar }) => {
   const [activeChat, setActiveChat] = useState<number | null>(null);
   const [message, setMessage] = useState('');
-  // const [searchTerm, setSearchTerm] = useState('');
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [isUploading, setIsUploading] = useState(false);
   const [showChatView, setShowChatView] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const pollingInitialized = useRef(false);
 
   const { 
@@ -131,18 +213,114 @@ const ChatPage: React.FC<ChatPageProps> = ({ onToggleSidebar }) => {
   useEffect(() => {
     if (activeChat) {
       loadChatMessages(activeChat);
-      markChatAsRead(activeChat); // Mark as read when opened
+      markChatAsRead(activeChat, 'admin'); // Mark as read when opened (admin user type)
     }
   }, [activeChat]); // Only depend on activeChat
 
-  const handleSendMessage = async () => {
-    if (message.trim() && activeChat) {
-      try {
-        await sendMessage(activeChat, message.trim(), 'admin');
-        setMessage('');
-      } catch (error) {
-        console.error('Error sending message:', error);
+  const handleFileSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (file) {
+      // Check file size (max 10MB)
+      if (file.size > 10 * 1024 * 1024) {
+        alert('File size must be less than 10MB');
+        return;
       }
+      setSelectedFile(file);
+    }
+  };
+
+  const handleRemoveFile = () => {
+    setSelectedFile(null);
+    if (fileInputRef.current) {
+      fileInputRef.current.value = '';
+    }
+  };
+
+  const uploadFile = async (file: File): Promise<string> => {
+    try {
+      // Generate upload URL
+      const response = await fetch('/api/generate-upload-url', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          fileName: file.name,
+          fileType: file.type,
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to generate upload URL');
+      }
+
+      const { uploadUrl, publicUrl } = await response.json();
+
+      // Upload file to S3
+      const uploadResponse = await fetch(uploadUrl, {
+        method: 'PUT',
+        body: file,
+        headers: {
+          'Content-Type': file.type,
+        },
+      });
+
+      if (!uploadResponse.ok) {
+        throw new Error('Failed to upload file');
+      }
+
+      return publicUrl;
+    } catch (error) {
+      console.error('Error uploading file:', error);
+      throw error;
+    }
+  };
+
+  const handleSendMessage = async () => {
+    if ((!message.trim() && !selectedFile) || !activeChat) return;
+
+    setIsUploading(true);
+    try {
+      let attachmentUrl: string | undefined;
+      let messageType: 'text' | 'file' | 'image' = 'text';
+      let attachmentName: string | undefined;
+      let attachmentType: string | undefined;
+      let attachmentSize: number | undefined;
+
+      // Upload file if selected
+      if (selectedFile) {
+        attachmentUrl = await uploadFile(selectedFile);
+        attachmentName = selectedFile.name;
+        attachmentType = selectedFile.type;
+        attachmentSize = selectedFile.size;
+        
+        // Determine message type
+        if (selectedFile.type.startsWith('image/')) {
+          messageType = 'image';
+        } else {
+          messageType = 'file';
+        }
+      }
+
+      // Send message with attachment
+      await sendMessage(activeChat, message.trim() || (selectedFile ? `Sent ${selectedFile.name}` : ''), 'admin', {
+        messageType,
+        attachmentUrl,
+        attachmentName,
+        attachmentType,
+        attachmentSize
+      });
+
+      setMessage('');
+      setSelectedFile(null);
+      if (fileInputRef.current) {
+        fileInputRef.current.value = '';
+      }
+    } catch (error) {
+      console.error('Error sending message:', error);
+      alert('Failed to send message. Please try again.');
+    } finally {
+      setIsUploading(false);
     }
   };
 
@@ -173,10 +351,6 @@ const ChatPage: React.FC<ChatPageProps> = ({ onToggleSidebar }) => {
   const formatTime = (timestamp: string) => {
     return new Date(timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
   };
-
-  // const formatDate = (timestamp: string) => {
-  //   return new Date(timestamp).toLocaleDateString();
-  // };
 
   return (
     <div className="p-4 lg:p-6 h-screen lg:h-[calc(100vh-8rem)]">
@@ -228,41 +402,41 @@ const ChatPage: React.FC<ChatPageProps> = ({ onToggleSidebar }) => {
                     return new Date(bTime).getTime() - new Date(aTime).getTime();
                   })
                   .map((chat) => (
-                  <div
-                    key={chat.id}
-                    onClick={() => handleChatSelect(chat.id)}
-                    className={`p-4 cursor-pointer border-b border-slate-100 hover:bg-slate-50 ${
-                      activeChat === chat.id ? 'bg-blue-50 border-blue-200' : ''
-                    }`}
-                  >
-                    <div className="flex items-center space-x-3">
-                      <div className="relative">
-                        <div className={`w-12 h-12 ${getColorForName(chat.client).bg} rounded-full flex items-center justify-center ${getColorForName(chat.client).text} font-medium`}>
-                          {getInitials(chat.client)}
+                    <div
+                      key={chat.id}
+                      onClick={() => handleChatSelect(chat.id)}
+                      className={`p-4 cursor-pointer border-b border-slate-100 hover:bg-slate-50 ${
+                        activeChat === chat.id ? 'bg-blue-50 border-blue-200' : ''
+                      }`}
+                    >
+                      <div className="flex items-center space-x-3">
+                        <div className="relative">
+                          <div className={`w-12 h-12 ${getColorForName(chat.client).bg} rounded-full flex items-center justify-center ${getColorForName(chat.client).text} font-medium`}>
+                            {getInitials(chat.client)}
+                          </div>
+                          {chat.online && (
+                            <div className="absolute bottom-0 right-0 w-3 h-3 bg-green-500 rounded-full border-2 border-white"></div>
+                          )}
                         </div>
-                        {chat.online && (
-                          <div className="absolute bottom-0 right-0 w-3 h-3 bg-green-500 rounded-full border-2 border-white"></div>
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center justify-between">
+                            <h3 className="font-medium text-slate-900 truncate">{chat.client}</h3>
+                            <span className="text-xs text-slate-500">
+                              {chat.lastMessageAt && formatTime(chat.lastMessageAt)}
+                            </span>
+                          </div>
+                          <p className="text-sm text-slate-600 truncate">
+                            {chat.lastMessage || 'No messages yet'}
+                          </p>
+                        </div>
+                        {chat.unread_count > 0 && (
+                          <div className="w-5 h-5 bg-blue-500 rounded-full flex items-center justify-center">
+                            <span className="text-xs text-white font-medium">{chat.unread_count}</span>
+                          </div>
                         )}
                       </div>
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center justify-between">
-                          <h3 className="font-medium text-slate-900 truncate">{chat.client}</h3>
-                          <span className="text-xs text-slate-500">
-                            {chat.lastMessageAt && formatTime(chat.lastMessageAt)}
-                          </span>
-                        </div>
-                        <p className="text-sm text-slate-600 truncate">
-                          {chat.lastMessage || 'No messages yet'}
-                        </p>
-                      </div>
-                      {chat.unread_count > 0 && (
-                        <div className="w-5 h-5 bg-blue-500 rounded-full flex items-center justify-center">
-                          <span className="text-xs text-white font-medium">{chat.unread_count}</span>
-                        </div>
-                      )}
                     </div>
-                  </div>
-                ))
+                  ))
               )}
             </div>
           </div>
@@ -305,7 +479,42 @@ const ChatPage: React.FC<ChatPageProps> = ({ onToggleSidebar }) => {
 
                 {/* Message Input */}
                 <div className="p-4 border-t border-slate-200">
+                  {/* Selected File Preview */}
+                  {selectedFile && (
+                    <div className="mb-3 p-3 bg-blue-50 border border-blue-200 rounded-lg">
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center space-x-2">
+                          {getFileIcon(selectedFile.type)}
+                          <div>
+                            <p className="text-sm font-medium text-blue-900">{selectedFile.name}</p>
+                            <p className="text-xs text-blue-700">{formatFileSize(selectedFile.size)}</p>
+                          </div>
+                        </div>
+                        <button
+                          onClick={handleRemoveFile}
+                          className="p-1 text-blue-600 hover:text-blue-800 hover:bg-blue-100 rounded transition-colors"
+                        >
+                          <X className="w-4 h-4" />
+                        </button>
+                      </div>
+                    </div>
+                  )}
+                  
                   <div className="flex items-center space-x-2">
+                    <button
+                      onClick={() => fileInputRef.current?.click()}
+                      className="p-2 text-slate-600 hover:text-slate-900 hover:bg-slate-100 rounded-lg transition-colors"
+                      title="Attach file"
+                    >
+                      <Paperclip className="w-5 h-5" />
+                    </button>
+                    <input
+                      ref={fileInputRef}
+                      type="file"
+                      onChange={handleFileSelect}
+                      className="hidden"
+                      accept="image/*,.pdf,.doc,.docx,.xls,.xlsx,.txt"
+                    />
                     <div className="flex-1 relative">
                       <input
                         type="text"
@@ -318,10 +527,14 @@ const ChatPage: React.FC<ChatPageProps> = ({ onToggleSidebar }) => {
                     </div>
                     <button
                       onClick={handleSendMessage}
-                      disabled={!message.trim()}
+                      disabled={(!message.trim() && !selectedFile) || isUploading}
                       className="p-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                     >
-                      <Send className="w-5 h-5" />
+                      {isUploading ? (
+                        <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                      ) : (
+                        <Send className="w-5 h-5" />
+                      )}
                     </button>
                   </div>
                 </div>
@@ -362,39 +575,39 @@ const ChatPage: React.FC<ChatPageProps> = ({ onToggleSidebar }) => {
                     return new Date(bTime).getTime() - new Date(aTime).getTime();
                   })
                   .map((chat) => (
-                  <div
-                    key={chat.id}
-                    onClick={() => handleChatSelect(chat.id)}
-                    className="p-3 cursor-pointer border-b border-slate-100 hover:bg-slate-50"
-                  >
-                    <div className="flex items-center space-x-3">
-                      <div className="relative">
-                        <div className={`w-10 h-10 ${getColorForName(chat.client).bg} rounded-full flex items-center justify-center ${getColorForName(chat.client).text} font-medium text-sm`}>
-                          {getInitials(chat.client)}
+                    <div
+                      key={chat.id}
+                      onClick={() => handleChatSelect(chat.id)}
+                      className="p-3 cursor-pointer border-b border-slate-100 hover:bg-slate-50"
+                    >
+                      <div className="flex items-center space-x-3">
+                        <div className="relative">
+                          <div className={`w-10 h-10 ${getColorForName(chat.client).bg} rounded-full flex items-center justify-center ${getColorForName(chat.client).text} font-medium text-sm`}>
+                            {getInitials(chat.client)}
+                          </div>
+                          {chat.online && (
+                            <div className="absolute bottom-0 right-0 w-3 h-3 bg-green-500 rounded-full border-2 border-white"></div>
+                          )}
                         </div>
-                        {chat.online && (
-                          <div className="absolute bottom-0 right-0 w-3 h-3 bg-green-500 rounded-full border-2 border-white"></div>
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center justify-between">
+                            <h3 className="font-medium text-slate-900 truncate text-sm">{chat.client}</h3>
+                            <span className="text-xs text-slate-500">
+                              {chat.lastMessageAt && formatTime(chat.lastMessageAt)}
+                            </span>
+                          </div>
+                          <p className="text-xs text-slate-600 truncate">
+                            {chat.lastMessage || 'No messages yet'}
+                          </p>
+                        </div>
+                        {chat.unread_count > 0 && (
+                          <div className="w-4 h-4 bg-blue-500 rounded-full flex items-center justify-center">
+                            <span className="text-xs text-white font-medium">{chat.unread_count}</span>
+                          </div>
                         )}
                       </div>
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center justify-between">
-                          <h3 className="font-medium text-slate-900 truncate text-sm">{chat.client}</h3>
-                          <span className="text-xs text-slate-500">
-                            {chat.lastMessageAt && formatTime(chat.lastMessageAt)}
-                          </span>
-                        </div>
-                        <p className="text-xs text-slate-600 truncate">
-                          {chat.lastMessage || 'No messages yet'}
-                        </p>
-                      </div>
-                      {chat.unread_count > 0 && (
-                        <div className="w-4 h-4 bg-blue-500 rounded-full flex items-center justify-center">
-                          <span className="text-xs text-white font-medium">{chat.unread_count}</span>
-                        </div>
-                      )}
                     </div>
-                  </div>
-                ))
+                  ))
               )}
             </div>
           ) : (
@@ -442,7 +655,42 @@ const ChatPage: React.FC<ChatPageProps> = ({ onToggleSidebar }) => {
 
               {/* Mobile Message Input */}
               <div className="p-3 border-t border-slate-200">
+                {/* Selected File Preview */}
+                {selectedFile && (
+                  <div className="mb-3 p-2 bg-blue-50 border border-blue-200 rounded-lg">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center space-x-2">
+                        {getFileIcon(selectedFile.type)}
+                        <div>
+                          <p className="text-xs font-medium text-blue-900 truncate">{selectedFile.name}</p>
+                          <p className="text-xs text-blue-700">{formatFileSize(selectedFile.size)}</p>
+                        </div>
+                      </div>
+                      <button
+                        onClick={handleRemoveFile}
+                        className="p-1 text-blue-600 hover:text-blue-800 hover:bg-blue-100 rounded transition-colors"
+                      >
+                        <X className="w-3 h-3" />
+                      </button>
+                    </div>
+                  </div>
+                )}
+                
                 <div className="flex items-center space-x-2">
+                  <button
+                    onClick={() => fileInputRef.current?.click()}
+                    className="p-2 text-slate-600 hover:text-slate-900 hover:bg-slate-100 rounded-lg transition-colors"
+                    title="Attach file"
+                  >
+                    <Paperclip className="w-4 h-4" />
+                  </button>
+                  <input
+                    ref={fileInputRef}
+                    type="file"
+                    onChange={handleFileSelect}
+                    className="hidden"
+                    accept="image/*,.pdf,.doc,.docx,.xls,.xlsx,.txt"
+                  />
                   <div className="flex-1 relative">
                     <input
                       type="text"
@@ -455,10 +703,14 @@ const ChatPage: React.FC<ChatPageProps> = ({ onToggleSidebar }) => {
                   </div>
                   <button
                     onClick={handleSendMessage}
-                    disabled={!message.trim()}
+                    disabled={(!message.trim() && !selectedFile) || isUploading}
                     className="p-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                   >
-                    <Send className="w-4 h-4" />
+                    {isUploading ? (
+                      <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                    ) : (
+                      <Send className="w-4 h-4" />
+                    )}
                   </button>
                 </div>
               </div>

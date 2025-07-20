@@ -12,10 +12,27 @@ import {
   clientFilesService,
   tagsService,
   addOnServicesService,
-  clientServiceRequestsService
+  clientServiceRequestsService,
+  clientPicsService
 } from '../services/database';
 import { generateAvatarUrl } from '../utils/avatarUtils';
 import type { Client as DatabaseClient, ClientLink as TClientLink, DatabaseProgressStepComment, AddOnService, ClientServiceRequest } from '../types/database';
+import { 
+  DatabaseInvoice, 
+  DatabasePayment, 
+  DatabaseComponent, 
+  DatabaseProgressStep, 
+  DatabaseCalendarEvent,
+  DatabaseChat,
+  DatabaseChatMessage,
+  DatabaseClientLink,
+  DatabaseAddOnService,
+  DatabaseClientServiceRequest,
+  Chat as DatabaseChatType,
+  ChatMessage as DatabaseChatMessageType,
+  ClientServiceRequest as DatabaseClientServiceRequestType,
+  AddOnService as DatabaseAddOnServiceType
+} from '../types/database';
 
 export interface Client {
   id: number;
@@ -130,19 +147,25 @@ export interface Chat {
   lastMessage?: string;
   lastMessageAt?: string;
   unread_count: number;
+  client_unread_count: number;
+  admin_unread_count: number;
   online: boolean;
-  messages: ChatMessage[];
+  messages: DatabaseChatMessageType[];
   createdAt: string;
   updatedAt: string;
 }
 
 export interface ChatMessage {
   id: number;
-  chat_id: number;
+  chatId: number;
   sender: 'client' | 'admin';
   content: string;
-  message_type: string;
-  created_at: string;
+  messageType: 'text' | 'file' | 'image';
+  attachmentUrl?: string;
+  attachmentName?: string;
+  attachmentType?: string;
+  attachmentSize?: number;
+  createdAt: string;
 }
 
 export interface Tag {
@@ -178,6 +201,21 @@ export interface ClientFile {
   updatedAt: string;
 }
 
+export interface ClientPic {
+  id: number;
+  clientId: number;
+  picId: string;
+  position: number;
+  user?: {
+    id: string;
+    name: string;
+    email: string;
+    role: string;
+  };
+  createdAt: string;
+  updatedAt: string;
+}
+
 export type ClientLink = TClientLink;
 
 interface AppState {
@@ -195,6 +233,7 @@ interface AppState {
   clientFiles: ClientFile[];
   addOnServices: AddOnService[];
   clientServiceRequests: ClientServiceRequest[];
+  clientPics: ClientPic[];
 
   // Navigation & User state
   user: User | null;
@@ -218,6 +257,10 @@ interface AppState {
     tags: boolean;
     users: boolean;
     clientLinks: boolean;
+    clientFiles: boolean;
+    addOnServices: boolean;
+    clientServiceRequests: boolean;
+    clientPics: boolean;
   };
 
   // Actions
@@ -245,12 +288,18 @@ interface AppState {
   pollForUpdates: () => Promise<void>;
 
   // Chat actions
-  sendMessage: (chatId: number, content: string, sender: 'client' | 'admin') => Promise<void>;
+  sendMessage: (chatId: number, content: string, sender: 'client' | 'admin', attachmentData?: {
+    messageType: 'text' | 'file' | 'image';
+    attachmentUrl?: string;
+    attachmentName?: string;
+    attachmentType?: string;
+    attachmentSize?: number;
+  }) => Promise<void>;
   loadChatMessages: (chatId: number) => Promise<void>;
-  markChatAsRead: (chatId: number) => Promise<void>;
+  markChatAsRead: (chatId: number, userType: 'client' | 'admin') => Promise<void>;
   createChatForClient: (clientId: number) => Promise<void>;
   updateChatOnlineStatus: (chatId: number, online: boolean) => Promise<void>;
-  getUnreadMessagesCount: () => number;
+  getUnreadMessagesCount: (userType?: 'client' | 'admin') => number;
   getChatById: (chatId: number) => Chat | undefined;
 
   addClient: (client: Omit<Client, 'id' | 'createdAt' | 'updatedAt'>) => Promise<Client>;
@@ -345,6 +394,14 @@ interface AppState {
   
   // Helper function to clean up PIC references
   cleanupPicReferences: (userName: string, reason: string) => Promise<void>;
+
+  // Client PICs actions
+  fetchClientPics: (clientId: number) => Promise<void>;
+  addClientPic: (pic: Partial<ClientPic>) => Promise<void>;
+  updateClientPic: (id: number, updates: Partial<ClientPic>) => Promise<void>;
+  deleteClientPic: (id: number) => Promise<void>;
+  getClientPicsByClientId: (clientId: number) => ClientPic[];
+  reorderClientPics: (clientId: number) => Promise<void>;
 }
 
 export const useAppStore = create<AppState>((set, get) => ({
@@ -375,6 +432,7 @@ export const useAppStore = create<AppState>((set, get) => ({
   clientFiles: [],
   addOnServices: [],
   clientServiceRequests: [],
+  clientPics: [],
 
   loading: {
     clients: false,
@@ -390,6 +448,7 @@ export const useAppStore = create<AppState>((set, get) => ({
     clientFiles: false,
     addOnServices: false,
     clientServiceRequests: false,
+    clientPics: false,
   },
 
   // Navigation & User state - Initialize user from localStorage
@@ -446,14 +505,14 @@ export const useAppStore = create<AppState>((set, get) => ({
           const demoClientEmail = import.meta.env.VITE_DEMO_CLIENT_EMAIL || 'client@demo.com';
           const demoClientName = import.meta.env.VITE_DEMO_CLIENT_NAME || 'Demo Client';
           
-          if (user.email === demoClientEmail) {
+          if (user.email === demoClientEmail || user.email === 'test12@test.com') {
             console.log('Creating demo client data for demo user');
             // Create demo client data
             const demoClient: DatabaseClient = {
               id: 1,
               name: demoClientName,
               business_name: 'Demo Business',
-              email: demoClientEmail,
+              email: user.email, // Use actual user email
               phone: '+60123456789',
               status: 'Complete',
               pic: 'Project Management',
@@ -881,6 +940,8 @@ export const useAppStore = create<AppState>((set, get) => ({
           lastMessage: dbChat.last_message, // Use database value
           lastMessageAt: dbChat.last_message_at, // Use database value
           unread_count: dbChat.unread_count || 0, // Use database value
+          client_unread_count: dbChat.client_unread_count || 0, // Use database value
+          admin_unread_count: dbChat.admin_unread_count || 0, // Use database value
           online: dbChat.online || false,
           messages: existingChat ? existingChat.messages : [], // Preserve existing messages
           createdAt: dbChat.created_at,
@@ -1169,14 +1230,20 @@ export const useAppStore = create<AppState>((set, get) => ({
   },
 
   // Chat actions
-  sendMessage: async (chatId, content, sender) => {
+  sendMessage: async (chatId, content, sender, attachmentData) => {
+    const messageType = attachmentData?.messageType || 'text';
+    
     // Create optimistic message immediately for instant UI response
-    const optimisticMessage: ChatMessage = {
+    const optimisticMessage: DatabaseChatMessageType = {
       id: Date.now(),
       chat_id: chatId,
       sender: sender,
       content: content,
-      message_type: 'text',
+      message_type: messageType,
+      attachment_url: attachmentData?.attachmentUrl,
+      attachment_name: attachmentData?.attachmentName,
+      attachment_type: attachmentData?.attachmentType,
+      attachment_size: attachmentData?.attachmentSize,
       created_at: new Date().toISOString(),
     };
     
@@ -1190,9 +1257,10 @@ export const useAppStore = create<AppState>((set, get) => ({
                 messages: [...chat.messages, optimisticMessage],
                 lastMessage: optimisticMessage.content,
                 lastMessageAt: optimisticMessage.created_at,
-                // Don't increment unread_count when client sends message
-                // Only increment when admin sends message to client
-                unread_count: sender === 'admin' ? chat.unread_count + 1 : chat.unread_count,
+                // Increment appropriate unread count based on sender
+                unread_count: chat.unread_count + 1,
+                client_unread_count: sender === 'admin' ? chat.client_unread_count + 1 : chat.client_unread_count,
+                admin_unread_count: sender === 'client' ? chat.admin_unread_count + 1 : chat.admin_unread_count,
                 updatedAt: new Date().toISOString(),
               }
             : chat
@@ -1205,7 +1273,11 @@ export const useAppStore = create<AppState>((set, get) => ({
       chat_id: chatId,
       sender: sender,
       content: content,
-      message_type: 'text'
+      message_type: messageType,
+      attachment_url: attachmentData?.attachmentUrl,
+      attachment_name: attachmentData?.attachmentName,
+      attachment_type: attachmentData?.attachmentType,
+      attachment_size: attachmentData?.attachmentSize
     }).then((newMessage: any) => {
       // Only update ID if server responds successfully
       set((state) => ({
@@ -1266,15 +1338,17 @@ export const useAppStore = create<AppState>((set, get) => ({
     }
   },
   
-  markChatAsRead: async (chatId) => {
+  markChatAsRead: async (chatId, userType: 'client' | 'admin') => {
     try {
-      await chatService.markAsRead(chatId);
+      await chatService.markAsRead(chatId, userType);
       set((state) => ({
         chats: state.chats.map((chat) =>
           chat.id === chatId
             ? {
                 ...chat,
                 unread_count: 0,
+                client_unread_count: userType === 'client' ? 0 : chat.client_unread_count,
+                admin_unread_count: userType === 'admin' ? 0 : chat.admin_unread_count,
                 updatedAt: new Date().toISOString(),
               }
             : chat
@@ -1289,6 +1363,8 @@ export const useAppStore = create<AppState>((set, get) => ({
             ? {
                 ...chat,
                 unread_count: 0,
+                client_unread_count: userType === 'client' ? 0 : chat.client_unread_count,
+                admin_unread_count: userType === 'admin' ? 0 : chat.admin_unread_count,
                 updatedAt: new Date().toISOString(),
               }
             : chat
@@ -1310,6 +1386,8 @@ export const useAppStore = create<AppState>((set, get) => ({
         lastMessage: newChat.last_message,
         lastMessageAt: newChat.last_message_at,
         unread_count: newChat.unread_count,
+        client_unread_count: newChat.client_unread_count || 0,
+        admin_unread_count: newChat.admin_unread_count || 0,
         online: newChat.online,
         messages: [],
         createdAt: newChat.created_at,
@@ -1331,6 +1409,8 @@ export const useAppStore = create<AppState>((set, get) => ({
         lastMessage: undefined,
         lastMessageAt: undefined,
         unread_count: 0,
+        client_unread_count: 0,
+        admin_unread_count: 0,
         online: false,
         messages: [],
         createdAt: new Date().toISOString(),
@@ -1357,8 +1437,14 @@ export const useAppStore = create<AppState>((set, get) => ({
     }
   },
   
-  getUnreadMessagesCount: () => {
-    return get().chats.reduce((total: number, chat: Chat) => total + chat.unread_count, 0);
+  getUnreadMessagesCount: (userType: 'client' | 'admin' = 'admin') => {
+    return get().chats.reduce((total: number, chat: Chat) => {
+      if (userType === 'client') {
+        return total + (chat.client_unread_count || 0);
+      } else {
+        return total + (chat.admin_unread_count || 0);
+      }
+    }, 0);
   },
   
   getChatById: (chatId: number) => {
@@ -3301,5 +3387,229 @@ export const useAppStore = create<AppState>((set, get) => ({
 
     // Refresh clients to update UI
     await get().fetchClients();
+  },
+
+  // Client PICs actions
+  fetchClientPics: async (clientId: number) => {
+    set((state) => ({ loading: { ...state.loading, clientPics: true } }));
+    try {
+      console.log(`🔄 Fetching client pics for client ${clientId}...`);
+      const dbPics = await clientPicsService.getByClientId(clientId);
+      console.log('📋 Raw database pics count:', dbPics.length);
+      
+      if (dbPics.length > 0) {
+        console.log('📋 Sample raw database pic:', {
+          id: dbPics[0].id,
+          clientId: dbPics[0].clientId,
+          picId: dbPics[0].picId,
+          position: dbPics[0].position,
+          userId: dbPics[0].user?.id,
+          userName: dbPics[0].user?.name,
+          userEmail: dbPics[0].user?.email,
+          userRole: dbPics[0].user?.role,
+          createdAt: dbPics[0].createdAt,
+          updatedAt: dbPics[0].updatedAt
+        });
+      }
+      
+      const pics: ClientPic[] = dbPics.map((dbPic) => ({
+        id: dbPic.id,
+        clientId: dbPic.clientId || dbPic.client_id,
+        picId: dbPic.picId,
+        position: dbPic.position,
+        user: dbPic.user ? {
+          id: dbPic.user.id,
+          name: dbPic.user.name,
+          email: dbPic.user.email,
+          role: dbPic.user.role
+        } : undefined,
+        createdAt: dbPic.createdAt,
+        updatedAt: dbPic.updatedAt
+      }));
+      
+      console.log('📄 Processed pics count:', pics.length);
+      
+      if (pics.length > 0) {
+        console.log('📄 Sample processed pic:', {
+          id: pics[0].id,
+          clientId: pics[0].clientId,
+          picId: pics[0].picId,
+          position: pics[0].position,
+          userId: pics[0].user?.id,
+          userName: pics[0].user?.name,
+          userEmail: pics[0].user?.email,
+          userRole: pics[0].user?.role,
+          createdAt: pics[0].createdAt,
+          updatedAt: pics[0].updatedAt
+        });
+      }
+      
+      set((state) => {
+        // Clear existing pics for this client and add new ones
+        const otherClientPics = state.clientPics.filter(p => p.clientId !== clientId);
+        const newState = {
+          clientPics: [...otherClientPics, ...pics]
+        };
+        console.log('🔄 State update - Other client pics:', otherClientPics.length);
+        console.log('🔄 State update - New pics for client', clientId, ':', pics.length);
+        console.log('🔄 State update - Total pics in state:', newState.clientPics.length);
+        return newState;
+      });
+      
+      console.log(`✅ Fetched ${pics.length} pics for client ${clientId}:`, pics.map(p => p.picId));
+    } catch (error) {
+      console.error('❌ Error fetching client pics:', error);
+    } finally {
+      set((state) => ({ loading: { ...state.loading, clientPics: false } }));
+    }
+  },
+
+  addClientPic: async (pic: Partial<ClientPic>) => {
+    try {
+      const dbPic = await clientPicsService.add(pic);
+      const newPic: ClientPic = {
+        id: dbPic.id,
+        clientId: dbPic.clientId || dbPic.client_id,
+        picId: dbPic.picId,
+        position: dbPic.position,
+        user: dbPic.user ? {
+          id: dbPic.user.id,
+          name: dbPic.user.name,
+          email: dbPic.user.email,
+          role: dbPic.user.role
+        } : undefined,
+        createdAt: dbPic.createdAt,
+        updatedAt: dbPic.updatedAt
+      };
+      
+      set((state) => ({
+        clientPics: [...state.clientPics, newPic]
+      }));
+      
+      console.log('Client pic added to database:', newPic);
+    } catch (error) {
+      console.error('Error adding client pic:', error);
+      throw error;
+    }
+  },
+
+  updateClientPic: async (id: number, updates: Partial<ClientPic>) => {
+    try {
+      const dbPic = await clientPicsService.update(id, updates);
+      const updatedPic: ClientPic = {
+        id: dbPic.id,
+        clientId: dbPic.clientId || dbPic.client_id,
+        picId: dbPic.picId,
+        position: dbPic.position,
+        user: dbPic.user ? {
+          id: dbPic.user.id,
+          name: dbPic.user.name,
+          email: dbPic.user.email,
+          role: dbPic.user.role
+        } : undefined,
+        createdAt: dbPic.createdAt,
+        updatedAt: dbPic.updatedAt
+      };
+      
+      set((state) => ({
+        clientPics: state.clientPics.map(pic =>
+          pic.id === id ? updatedPic : pic
+        )
+      }));
+      
+      console.log('Client pic updated:', updatedPic);
+    } catch (error) {
+      console.error('Error updating client pic:', error);
+      throw error;
+    }
+  },
+
+  deleteClientPic: async (id: number) => {
+    try {
+      await clientPicsService.delete(id);
+      
+      set((state) => ({
+        clientPics: state.clientPics.filter(pic => pic.id !== id)
+      }));
+      
+      console.log(`Client pic ${id} deleted from database`);
+    } catch (error) {
+      console.error('Error deleting client pic:', error);
+      throw error;
+    }
+  },
+
+  getClientPicsByClientId: (clientId: number) => {
+    const allPics = get().clientPics;
+    console.log(`🔍 getClientPicsByClientId(${clientId}) - All pics in state:`, allPics.length);
+    
+    // Debug first few pics
+    if (allPics.length > 0) {
+      console.log('🔍 Sample pics in state:');
+      allPics.slice(0, 3).forEach((pic, index) => {
+        console.log(`  Pic ${index}:`, {
+          id: pic.id,
+          clientId: pic.clientId,
+          picId: pic.picId,
+          position: pic.position,
+          userId: pic.user?.id,
+          userName: pic.user?.name,
+          userEmail: pic.user?.email,
+          userRole: pic.user?.role,
+          createdAt: pic.createdAt,
+          updatedAt: pic.updatedAt
+        });
+      });
+    }
+    
+    const pics = allPics.filter(pic => pic.clientId === clientId);
+    console.log(`🔍 getClientPicsByClientId(${clientId}) - Filtered pics:`, pics.length);
+    
+    // Debug filtered pics
+    if (pics.length > 0) {
+      console.log('🔍 Filtered pics details:');
+      pics.forEach((pic, index) => {
+        console.log(`  Filtered Pic ${index}:`, {
+          id: pic.id,
+          clientId: pic.clientId,
+          picId: pic.picId,
+          position: pic.position,
+          userId: pic.user?.id,
+          userName: pic.user?.name,
+          userEmail: pic.user?.email,
+          userRole: pic.user?.role,
+          createdAt: pic.createdAt,
+          updatedAt: pic.updatedAt
+        });
+      });
+    }
+    
+    return pics;
+  },
+
+  reorderClientPics: async (clientId: number) => {
+    try {
+      const pics = get().clientPics.filter(pic => pic.clientId === clientId);
+      const newOrder = pics.map(pic => pic.id);
+      
+      // Update database
+      for (let i = 0; i < newOrder.length; i++) {
+        await clientPicsService.update(newOrder[i], { position: i + 1 });
+      }
+      
+      // Update local state
+      set((state) => ({
+        clientPics: state.clientPics.map(pic => {
+          const newPic = { ...pic };
+          newPic.position = newOrder.indexOf(pic.id) + 1;
+          return newPic;
+        })
+      }));
+      
+      console.log(`Client pics reordered successfully for client ${clientId}`);
+    } catch (error) {
+      console.error('Error reordering client pics:', error);
+      throw error;
+    }
   }
 }));

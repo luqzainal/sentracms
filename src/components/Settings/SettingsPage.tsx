@@ -6,7 +6,6 @@ import ConfirmationModal from '../common/ConfirmationModal';
 import { useConfirmation } from '../../hooks/useConfirmation';
 import UserModal from './UserModal';
 import UserProfileView from './UserProfileView';
-import Toast from '../common/Toast';
 
 interface SettingsPageProps {
   onToggleSidebar?: () => void;
@@ -24,7 +23,6 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ onToggleSidebar }) => {
   const [isCleaningChats, setIsCleaningChats] = useState(false);
   const [isMergingChats, setIsMergingChats] = useState(false);
   const [isFixingFiles, setIsFixingFiles] = useState(false);
-  const [toast, setToast] = useState<{ type: 'success' | 'error' | 'warning' | 'info'; message: string } | null>(null);
 
   const { 
     users, 
@@ -36,6 +34,8 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ onToggleSidebar }) => {
     cleanOrphanedChats,
     mergeDuplicateChats 
   } = useAppStore();
+
+  const { success, error } = useToast();
 
   // Custom confirmation modal
   const { confirmation, showConfirmation, hideConfirmation, handleConfirm } = useConfirmation();
@@ -122,9 +122,9 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ onToggleSidebar }) => {
         const result = await updateUser(selectedUser.id, userData);
         if (result.success) {
           if (result.passwordUpdated) {
-            setToast({ type: 'success', message: 'User updated successfully! Password has been changed and saved to database.' });
+            success('User updated successfully! Password has been changed and saved to database.');
           } else {
-            setToast({ type: 'success', message: 'User updated successfully!' });
+            success('User updated successfully!');
           }
         }
       } else {
@@ -133,12 +133,13 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ onToggleSidebar }) => {
           ...userData,
           lastLogin: null
         });
-        setToast({ type: 'success', message: 'User created successfully!' });
+        success('User created successfully!');
       }
       setShowUserModal(false);
-    } catch (error) {
-      console.error('Error saving user:', error);
-      setToast({ type: 'error', message: 'Failed to save user. Please try again.' });
+    } catch (err) {
+      console.error('Error saving user:', err);
+      const errorMessage = err instanceof Error ? err.message : 'Failed to save user. Please try again.';
+      error('Failed to save user', errorMessage);
     }
   };
 
@@ -158,10 +159,11 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ onToggleSidebar }) => {
         setIsCleaningChats(true);
         try {
           const deletedCount = await cleanOrphanedChats();
-          alert(`Successfully cleaned ${deletedCount} orphaned chat rooms.`);
-        } catch (error) {
-          console.error('Error cleaning orphaned chats:', error);
-          alert('Failed to clean orphaned chats. Please try again.');
+          success(`Successfully cleaned ${deletedCount} orphaned chat rooms.`);
+        } catch (err) {
+          console.error('Error cleaning orphaned chats:', err);
+          const errorMessage = err instanceof Error ? err.message : 'Failed to clean orphaned chats. Please try again.';
+          error('Failed to clean orphaned chats', errorMessage);
         } finally {
           setIsCleaningChats(false);
         }
@@ -181,10 +183,11 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ onToggleSidebar }) => {
         setIsMergingChats(true);
         try {
           const mergedCount = await mergeDuplicateChats();
-          alert(`Successfully merged ${mergedCount} duplicate chat rooms.`);
-        } catch (error) {
-          console.error('Error merging duplicate chats:', error);
-          alert('Failed to merge duplicate chats. Please try again.');
+          success(`Successfully merged ${mergedCount} duplicate chat rooms.`);
+        } catch (err) {
+          console.error('Error merging duplicate chats:', err);
+          const errorMessage = err instanceof Error ? err.message : 'Failed to merge duplicate chats. Please try again.';
+          error('Failed to merge duplicate chats', errorMessage);
         } finally {
           setIsMergingChats(false);
         }
@@ -217,14 +220,15 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ onToggleSidebar }) => {
             const message = result.fixedCount 
               ? `Successfully fixed ACL for ${result.fixedCount} files!`
               : result.message;
-            alert(message);
+            success(message);
           } else {
             const errorData = await response.json();
             throw new Error(errorData.details || 'Failed to fix files');
           }
-        } catch (error) {
-          console.error('Error fixing files:', error);
-          alert(`Failed to fix files: ${error.message}`);
+        } catch (err) {
+          console.error('Error fixing files:', err);
+          const errorMessage = err instanceof Error ? err.message : 'Failed to fix files';
+          error('Failed to fix files', errorMessage);
         } finally {
           setIsFixingFiles(false);
         }
@@ -586,13 +590,7 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ onToggleSidebar }) => {
       )}
 
       {/* Toast Notification */}
-      {toast && (
-        <Toast
-          type={toast.type}
-          message={toast.message}
-          onClose={() => setToast(null)}
-        />
-      )}
+      {/* The useToast hook handles its own rendering */}
 
       {/* Custom Confirmation Modal */}
       {confirmation && (

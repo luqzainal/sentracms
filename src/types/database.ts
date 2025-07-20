@@ -127,6 +127,8 @@ export interface DatabaseChat {
   last_message?: string;
   last_message_at: string;
   unread_count: number;
+  client_unread_count: number;
+  admin_unread_count: number;
   online: boolean;
   created_at: string;
   updated_at: string;
@@ -137,7 +139,11 @@ export interface DatabaseChatMessage {
   chat_id: number;
   sender: 'client' | 'admin';
   content: string;
-  message_type: string;
+  message_type: 'text' | 'file' | 'image';
+  attachment_url?: string;
+  attachment_name?: string;
+  attachment_type?: string;
+  attachment_size?: number;
   created_at: string;
 }
 
@@ -198,7 +204,7 @@ export interface DatabaseAddOnService {
   id: number;
   name: string;
   description: string;
-  category: 'Support' | 'Analytics' | 'Domain' | 'Integration' | 'Mobile' | 'Security';
+  category: 'Support' | 'New Service';
   price: number;
   status: 'Available' | 'Unavailable';
   features?: string[];
@@ -221,6 +227,15 @@ export interface DatabaseClientServiceRequest {
   updated_at: string;
 }
 
+export interface DatabaseClientPic {
+  id: number;
+  client_id: number;
+  pic_id: string; // UUID reference to users.id
+  position: number; // 3-10
+  created_at: string;
+  updated_at: string;
+}
+
 export interface AddOnService extends DatabaseAddOnService {
   // Additional computed fields can be added here
 }
@@ -231,5 +246,14 @@ export interface ClientServiceRequest extends DatabaseClientServiceRequest {
     id: number;
     name: string;
     email: string;
+  };
+}
+
+export interface ClientPic extends DatabaseClientPic {
+  user?: {
+    id: string;
+    name: string;
+    email: string;
+    role: string;
   };
 } 

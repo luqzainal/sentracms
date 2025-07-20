@@ -29,6 +29,7 @@ const ClientsPage: React.FC<ClientsPageProps> = ({ setActiveTab, onToggleSidebar
     clients, 
     loading,
     tags,
+    users,
     fetchClients,
     fetchTags,
     fetchProgressSteps,
@@ -37,7 +38,11 @@ const ClientsPage: React.FC<ClientsPageProps> = ({ setActiveTab, onToggleSidebar
     updateClient, 
     deleteClient,
     addUser,
-    calculateClientProgressStatus
+    calculateClientProgressStatus,
+    addClientPic,
+    deleteClientPic,
+    reorderClientPics,
+    getClientPicsByClientId
   } = useAppStore();
 
   // Custom confirmation modal
@@ -197,6 +202,34 @@ const ClientsPage: React.FC<ClientsPageProps> = ({ setActiveTab, onToggleSidebar
       try {
         await updateClient(selectedClient.id, clientData);
         
+        // Handle additional PICs for existing client
+        if (clientData.additionalPics) {
+          // Get existing PICs from database
+          const existingPics = getClientPicsByClientId(selectedClient.id);
+          
+          // Delete all existing additional PICs
+          for (const pic of existingPics) {
+            await deleteClientPic(pic.id);
+          }
+          
+          // Add new additional PICs
+          for (const pic of clientData.additionalPics) {
+            if (pic.name) {
+              const user = users.find((u: any) => u.name === pic.name);
+              if (user) {
+                await addClientPic({
+                  clientId: selectedClient.id,
+                  picId: user.id,
+                  position: pic.position
+                });
+              }
+            }
+          }
+          
+          // Reorder positions
+          await reorderClientPics(selectedClient.id);
+        }
+        
         // Refresh data from database to get updated tags
         await Promise.all([
           fetchClients(),
@@ -223,9 +256,26 @@ const ClientsPage: React.FC<ClientsPageProps> = ({ setActiveTab, onToggleSidebar
         notes: 'New client'
       };
       
-      const promise = addClient(newClient).then(createdClient => {
-        // Removed automatic progress step creation to prevent duplication
-        // This will be handled manually via a sync button in the client profile
+      const promise = addClient(newClient).then(async (createdClient) => {
+        // Handle additional PICs for new client
+        if (clientData.additionalPics) {
+          for (const pic of clientData.additionalPics) {
+            if (pic.name) {
+              const user = users.find(u => u.name === pic.name);
+              if (user) {
+                await addClientPic({
+                  clientId: createdClient.id,
+                  picId: user.id,
+                  position: pic.position
+                });
+              }
+            }
+          }
+          
+          // Reorder positions
+          await reorderClientPics(createdClient.id);
+        }
+        
         return createdClient;
       });
 
@@ -429,7 +479,21 @@ const ClientsPage: React.FC<ClientsPageProps> = ({ setActiveTab, onToggleSidebar
                         <p className="text-xs lg:text-sm text-slate-900">{client.email}</p>
                         <p className="text-xs lg:text-sm text-slate-600">{client.phone}</p>
                         {client.pic && (
-                          <p className="text-xs text-blue-600 font-medium">PIC: {client.pic}</p>
+                          <p className="text-xs text-blue-600 font-medium">
+                            {(() => {
+                              const pic1 = client.pic.split(' - ')[0];
+                              const additionalPics = getClientPicsByClientId(client.id);
+                              const totalPics = 1 + (client.pic.includes(' - ') ? 1 : 0) + additionalPics.length;
+                              
+                              if (totalPics === 1) {
+                                return `PIC 1: ${pic1}`;
+                              } else if (totalPics === 2) {
+                                return `PIC 1: ${pic1} & 1 other`;
+                              } else {
+                                return `PIC 1: ${pic1} & ${totalPics - 1} others`;
+                              }
+                            })()}
+                          </p>
                         )}
                       </div>
                     </td>

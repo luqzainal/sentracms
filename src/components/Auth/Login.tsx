@@ -228,20 +228,17 @@ const Login: React.FC = () => {
         </div>
       </div>
 
-      {/* Right Side - Image with Blurred Background */}
-      <div className="hidden lg:flex w-1/2 relative items-center justify-center overflow-hidden bg-black">
-        {/* Blurred Background Image */}
-        <div
-          className="absolute inset-0 w-full h-full bg-cover bg-center filter blur-md scale-110"
-          style={{ backgroundImage: `url(${loginBgImage})` }}
-        ></div>
-        {/* Black overlay to enhance readability */}
-        <div className="absolute inset-0 bg-black opacity-50"></div>
-        {/* Contained, Clear Image on top */}
+      {/* Right Side - Image */}
+      <div className="hidden lg:flex w-1/2 relative items-center justify-center overflow-hidden bg-white">
+        {/* Main Image - Fill container while preserving aspect ratio */}
         <img
           src={loginBgImage}
           alt="Mysentree AI CRM Consulting"
-          className="relative z-10 max-w-full max-h-full object-contain"
+          className="w-full h-full object-cover"
+          style={{
+            objectPosition: 'right center',
+            objectFit: 'cover'
+          }}
         />
       </div>
     </div>

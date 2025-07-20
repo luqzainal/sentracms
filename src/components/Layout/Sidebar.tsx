@@ -24,7 +24,7 @@ interface SidebarProps {
 
 const Sidebar: React.FC<SidebarProps> = ({ activeTab, setActiveTab, onLogout, isOpen = true, onToggle }) => {
   const { getUnreadMessagesCount } = useAppStore();
-  const unreadCount = getUnreadMessagesCount();
+  const unreadCount = getUnreadMessagesCount('admin');
 
   const menuItems = [
     { id: 'dashboard', icon: LayoutDashboard, label: 'Dashboard' },
