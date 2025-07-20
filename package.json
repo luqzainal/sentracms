@@ -38,7 +38,8 @@
     "migrate:export-neon": "node scripts/export-neon-data.mjs",
     "migrate:import-rds": "node scripts/import-to-rds.mjs",
     "migrate:update-connection": "node scripts/update-connection-string.mjs",
-    "migrate:test-rds": "node scripts/test-rds-connection.mjs"
+    "migrate:test-rds": "node scripts/test-rds-connection.mjs",
+    "setup:clean": "node scripts/clean-do-setup.mjs"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.848.0",
