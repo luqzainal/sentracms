@@ -1,4 +1,4 @@
-import { sql } from '../context/DatabaseContext';
+import { sql } from '../context/SupabaseContext';
 import type { 
   Client, 
   DatabaseUser, 

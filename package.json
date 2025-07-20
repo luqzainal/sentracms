@@ -34,13 +34,7 @@
     "test-file-access": "node scripts/test-file-access.js",
     "fix-existing-files-acl": "node scripts/fix-existing-files-acl.js",
     "verify-deployment": "node scripts/verify-deployment.js",
-    "fix-deployment": "node scripts/fix-deployment.js",
-    "migrate:export-neon": "node scripts/export-neon-data.mjs",
-    "migrate:import-rds": "node scripts/import-to-rds.mjs",
-    "migrate:update-connection": "node scripts/update-connection-string.mjs",
-    "migrate:test-rds": "node scripts/test-rds-connection.mjs",
-    "start:api": "node api/database-server.mjs",
-    "setup:clean": "node scripts/clean-do-setup.mjs"
+    "fix-deployment": "node scripts/fix-deployment.js"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.848.0",
