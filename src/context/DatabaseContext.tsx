@@ -1,6 +1,5 @@
 import React, { createContext, useContext, useEffect, useState, ReactNode } from 'react';
 import { neon } from '@neondatabase/serverless';
-import { Client } from 'pg';
 
 // Database connection configuration
 const neonConnectionString = import.meta.env.VITE_NEON_DATABASE_URL || "";
@@ -9,9 +8,11 @@ const neonConnectionString = import.meta.env.VITE_NEON_DATABASE_URL || "";
 const isNeonDatabase = neonConnectionString.includes('neon.tech');
 const isDigitalOceanDatabase = neonConnectionString.includes('ondigitalocean.com');
 
+// API server URL
+const API_BASE_URL = 'http://localhost:3003/api';
+
 // Initialize appropriate database client
 let neonClient: any = null;
-let pgClient: Client | null = null;
 
 if (isNeonDatabase) {
   // Use Neon client for Neon database
@@ -20,27 +21,7 @@ if (isNeonDatabase) {
   });
   console.log('🔗 Using Neon database client');
 } else if (isDigitalOceanDatabase) {
-  // Parse DO connection string for pg client
-  const url = new URL(neonConnectionString);
-  pgClient = new Client({
-    host: url.hostname,
-    port: parseInt(url.port),
-    database: url.pathname.slice(1),
-    user: url.username,
-    password: url.password,
-    ssl: {
-      rejectUnauthorized: false
-    }
-  });
-  
-  // Connect to DO database
-  pgClient.connect().then(() => {
-    console.log('🔗 Connected to DigitalOcean database');
-  }).catch((error) => {
-    console.error('❌ Failed to connect to DO database:', error);
-  });
-  
-  console.log('🔗 Using DigitalOcean database client');
+  console.log('🔗 DigitalOcean database detected - using API server');
 } else {
   console.log('⚠️ No database connection string provided');
 }
@@ -51,15 +32,38 @@ export const executeQuery = async (query: string, params: any[] = []) => {
     if (isNeonDatabase && neonClient) {
       // Use Neon client
       return await neonClient.query(query, params);
-    } else if (isDigitalOceanDatabase && pgClient) {
-      // Use pg client
-      const result = await pgClient.query(query, params);
-      return result.rows;
+    } else if (isDigitalOceanDatabase) {
+      // Use API server for DO database
+      console.log('⚠️ Direct queries not supported for DO database - use API endpoints');
+      return [];
     } else {
       throw new Error('No database client available');
     }
   } catch (error) {
     console.error('Database query error:', error);
+    throw error;
+  }
+};
+
+// API functions for DO database
+export const apiCall = async (endpoint: string, options: RequestInit = {}) => {
+  try {
+    const response = await fetch(`${API_BASE_URL}${endpoint}`, {
+      headers: {
+        'Content-Type': 'application/json',
+        ...options.headers,
+      },
+      ...options,
+    });
+    
+    if (!response.ok) {
+      const errorData = await response.json();
+      throw new Error(errorData.error || `HTTP ${response.status}`);
+    }
+    
+    return await response.json();
+  } catch (error) {
+    console.error('API call error:', error);
     throw error;
   }
 };
@@ -219,63 +223,85 @@ export const DatabaseProvider: React.FC<DatabaseProviderProps> = ({ children }) 
         try {
           console.log('Attempting database authentication for:', email);
           
-          const userCheck = await executeQuery(
-            'SELECT id, email, name, role, client_id, permissions, status FROM users WHERE email = $1 LIMIT 1',
-            [email]
-          );
-          
-          if (userCheck.length === 0) {
-            console.log('User not found in database');
-            setLoading(false);
-            return { data: null, error: { message: 'Account not found. Please check your email address or contact your administrator to create an account.' } };
-          }
-          
-          const userRecord = userCheck[0];
-          console.log('User found:', { id: userRecord.id, email: userRecord.email, status: userRecord.status, role: userRecord.role });
-          
-          if (userRecord.status !== 'Active') {
-            console.log('User account is not active:', userRecord.status);
-            setLoading(false);
+          if (isNeonDatabase) {
+            // Use Neon database
+            const userCheck = await executeQuery(
+              'SELECT id, email, name, role, client_id, permissions, status FROM users WHERE email = $1 LIMIT 1',
+              [email]
+            );
             
-            const roleMessage = userRecord.role === 'Client Admin' || userRecord.role === 'Client Team' 
-              ? 'Your client account has been deactivated. Please contact your service provider to reactivate your account.'
-              : 'Your account has been deactivated. Please contact your administrator to reactivate your account.';
+            if (userCheck.length === 0) {
+              console.log('User not found in database');
+              setLoading(false);
+              return { data: null, error: { message: 'Account not found. Please check your email address or contact your administrator to create an account.' } };
+            }
             
-            return { data: null, error: { message: roleMessage } };
-          }
-          
-          // Password authentication
-          const authResult = await executeQuery(
-            'SELECT id, email, name, role, client_id, permissions, status FROM users WHERE email = $1 AND password = crypt($2, password)',
-            [email, password]
-          );
-          
-          if (authResult.length > 0) {
-            const userRecord = authResult[0];
-            const authUser: AuthUser = {
-              id: userRecord.id,
-              email: userRecord.email,
-              name: userRecord.name,
-              role: userRecord.role,
-              clientId: userRecord.client_id,
-              permissions: userRecord.permissions || []
-            };
+            const userRecord = userCheck[0];
+            console.log('User found:', { id: userRecord.id, email: userRecord.email, status: userRecord.status, role: userRecord.role });
             
-            setUser(authUser);
-            localStorage.setItem('demoUser', JSON.stringify(authUser));
-            localStorage.setItem('demoUserTimestamp', Date.now().toString());
-            console.log('✅ Database authentication successful');
-            setLoading(false);
-            return { data: { user: authUser }, error: null };
-          } else {
-            console.log('Invalid password');
-            setLoading(false);
-            return { data: null, error: { message: 'Invalid password. Please try again.' } };
+            if (userRecord.status !== 'Active') {
+              console.log('User account is not active:', userRecord.status);
+              setLoading(false);
+              
+              const roleMessage = userRecord.role === 'Client Admin' || userRecord.role === 'Client Team' 
+                ? 'Your client account has been deactivated. Please contact your service provider to reactivate your account.'
+                : 'Your account has been deactivated. Please contact your administrator to reactivate your account.';
+              
+              return { data: null, error: { message: roleMessage } };
+            }
+            
+            // Password authentication
+            const authResult = await executeQuery(
+              'SELECT id, email, name, role, client_id, permissions, status FROM users WHERE email = $1 AND password = crypt($2, password)',
+              [email, password]
+            );
+            
+            if (authResult.length > 0) {
+              const userRecord = authResult[0];
+              const authUser: AuthUser = {
+                id: userRecord.id,
+                email: userRecord.email,
+                name: userRecord.name,
+                role: userRecord.role,
+                clientId: userRecord.client_id,
+                permissions: userRecord.permissions || []
+              };
+              
+              setUser(authUser);
+              localStorage.setItem('demoUser', JSON.stringify(authUser));
+              localStorage.setItem('demoUserTimestamp', Date.now().toString());
+              console.log('✅ Database authentication successful');
+              setLoading(false);
+              return { data: { user: authUser }, error: null };
+            } else {
+              console.log('Invalid password');
+              setLoading(false);
+              return { data: null, error: { message: 'Invalid password. Please try again.' } };
+            }
+          } else if (isDigitalOceanDatabase) {
+            // Use API server for DO database
+            const response = await apiCall('/auth/login', {
+              method: 'POST',
+              body: JSON.stringify({ email, password })
+            });
+            
+            if (response.success) {
+              const authUser: AuthUser = response.user;
+              setUser(authUser);
+              localStorage.setItem('demoUser', JSON.stringify(authUser));
+              localStorage.setItem('demoUserTimestamp', Date.now().toString());
+              console.log('✅ API authentication successful');
+              setLoading(false);
+              return { data: { user: authUser }, error: null };
+            } else {
+              setLoading(false);
+              return { data: null, error: { message: response.error || 'Authentication failed' } };
+            }
           }
-        } catch (error) {
+        } catch (error: any) {
           console.error('Database authentication error:', error);
           setLoading(false);
-          return { data: null, error: { message: 'Authentication service temporarily unavailable. Please try again later.' } };
+          return { data: null, error: { message: error.message || 'Authentication service temporarily unavailable. Please try again later.' } };
         }
       }
 
@@ -310,6 +336,11 @@ export const DatabaseProvider: React.FC<DatabaseProviderProps> = ({ children }) 
     try {
       if (!dbConnectionStatus.isAvailable) {
         return { data: null, error: { message: 'Database not available for registration.' } };
+      }
+
+      // Only support Neon database for registration for now
+      if (!isNeonDatabase) {
+        return { data: null, error: { message: 'Registration not available for this database type.' } };
       }
 
       const result = await executeQuery(
