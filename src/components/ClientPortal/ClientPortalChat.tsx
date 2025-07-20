@@ -249,10 +249,10 @@ const ClientPortalChat: React.FC<ClientPortalChatProps> = ({ user, onBack }) => 
       }, 200);
       
     } catch (error) {
-      console.error('Error sending message:', error);
+          console.error('Error sending message:', error);
       alert('Failed to send message. Please try again.');
     } finally {
-      setIsSending(false);
+          setIsSending(false);
       setIsUploading(false);
     }
   };
@@ -402,7 +402,7 @@ const ClientPortalChat: React.FC<ClientPortalChatProps> = ({ user, onBack }) => 
                       
                       {/* Message content */}
                       {msg.message_type === 'text' && (
-                        <p className="text-sm">{msg.content}</p>
+                      <p className="text-sm">{msg.content}</p>
                       )}
                       
                       {/* File attachment */}

@@ -76,17 +76,17 @@ const ClientModal: React.FC<ClientModalProps> = ({ client, onClose, onSave }) =>
           console.error('Error loading additional PICs:', error);
           setFormData(prev => ({
             ...prev,
-            name: client.name || '',
-            businessName: client.businessName || '',
-            email: client.email || '',
-            phone: client.phone || '',
-            status: client.status || 'Complete',
-            packageName: client.packageName || '',
-            pic1,
-            pic2,
+        name: client.name || '',
+        businessName: client.businessName || '',
+        email: client.email || '',
+        phone: client.phone || '',
+        status: client.status || 'Complete',
+        packageName: client.packageName || '',
+        pic1,
+        pic2,
             additionalPics: [],
-            tags: client.tags || [],
-            newTag: '',
+        tags: client.tags || [],
+        newTag: '',
           }));
         }
       };

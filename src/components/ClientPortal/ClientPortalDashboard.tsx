@@ -180,15 +180,15 @@ const ClientPortalDashboard: React.FC<ClientPortalDashboardProps> = ({ user, onB
     try {
       let currentChat = chats.find(chat => chat.clientId === client.id);
       
-      // If no chat exists, create one
-      if (!currentChat) {
-        await createChatForClient(client.id);
-        // Re-fetch chats to get the new chat ID
-        const newChats = useAppStore.getState().chats;
-        currentChat = newChats.find(chat => chat.clientId === client.id);
-      }
+        // If no chat exists, create one
+        if (!currentChat) {
+          await createChatForClient(client.id);
+          // Re-fetch chats to get the new chat ID
+          const newChats = useAppStore.getState().chats;
+          currentChat = newChats.find(chat => chat.clientId === client.id);
+        }
 
-      if (currentChat) {
+        if (currentChat) {
         let attachmentUrl: string | undefined;
         let messageType: 'text' | 'file' | 'image' = 'text';
         let attachmentName: string | undefined;
@@ -226,13 +226,13 @@ const ClientPortalDashboard: React.FC<ClientPortalDashboardProps> = ({ user, onB
           fileInputRef.current.value = '';
         }
 
-        // Reload messages for the chat to show the new one
-        await loadChatMessages(currentChat.id);
-      } else {
-        console.error("Failed to create or find chat for the client.");
-      }
-    } catch (error) {
-      console.error('Error sending message:', error);
+          // Reload messages for the chat to show the new one
+          await loadChatMessages(currentChat.id);
+        } else {
+          console.error("Failed to create or find chat for the client.");
+        }
+      } catch (error) {
+        console.error('Error sending message:', error);
       alert('Failed to send message. Please try again.');
     } finally {
       setIsSending(false);
@@ -717,19 +717,19 @@ const ClientPortalDashboard: React.FC<ClientPortalDashboardProps> = ({ user, onB
               </h1>
               <p className="text-slate-600 mt-1 lg:mt-2 text-sm lg:text-base">Welcome to your client portal</p>
             </div>
-          </div>
         </div>
-      </div>
+            </div>
+          </div>
 
       {/* Content */}
       <div className="max-w-4xl mx-auto p-4 lg:p-8">
         {/* Welcome Section */}
         <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-6 mb-6">
-          <div className="text-center">
+            <div className="text-center">
             <h2 className="text-2xl font-bold text-slate-900 mb-2">Welcome to Your Client Portal</h2>
             <p className="text-slate-600">Manage your project progress, view packages, and stay connected with our team.</p>
+            </div>
           </div>
-        </div>
 
         {/* Quick Stats */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
@@ -741,8 +741,8 @@ const ClientPortalDashboard: React.FC<ClientPortalDashboardProps> = ({ user, onB
               <div>
                 <h3 className="font-semibold text-slate-900">Progress</h3>
                 <p className="text-sm text-slate-600">{progressPercentage}% Complete</p>
-              </div>
             </div>
+          </div>
             <div className="w-full bg-slate-200 rounded-full h-2">
               <div 
                 className="bg-blue-600 h-2 rounded-full transition-all duration-500"
@@ -786,45 +786,45 @@ const ClientPortalDashboard: React.FC<ClientPortalDashboardProps> = ({ user, onB
               <div className="w-8 h-8 bg-red-100 rounded-full flex items-center justify-center">
                 <Phone className="w-4 h-4 text-red-600" />
               </div>
-              <div>
+                <div>
                 <p className="font-medium text-slate-900">Phone Support</p>
                 <p className="text-sm text-slate-600">03 9388 0531</p>
+                </div>
               </div>
-            </div>
             <div className="flex items-center space-x-3">
               <div className="w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center">
                 <Mail className="w-4 h-4 text-blue-600" />
               </div>
-              <div>
+                <div>
                 <p className="font-medium text-slate-900">Email Support</p>
                 <p className="text-sm text-slate-600">evodagang.malaysia@gmail.com</p>
+                </div>
               </div>
             </div>
           </div>
-        </div>
 
         {/* Chat Section */}
         <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-6">
           <div className="flex items-center justify-between mb-4">
-            <div className="flex items-center space-x-3">
-              <div className="w-10 h-10 bg-blue-500 rounded-full flex items-center justify-center text-white font-medium">
+              <div className="flex items-center space-x-3">
+                <div className="w-10 h-10 bg-blue-500 rounded-full flex items-center justify-center text-white font-medium">
                 SA
-              </div>
-              <div>
+                </div>
+                <div>
                 <h3 className="font-semibold text-slate-900">Sambal King</h3>
                 <p className="text-sm text-green-600">Online</p>
+                </div>
               </div>
             </div>
-          </div>
 
           <div className="bg-slate-50 rounded-lg p-4 mb-4 max-h-48 overflow-y-auto">
-            {clientChat && clientChat.messages && clientChat.messages.length > 0 ? (
+              {clientChat && clientChat.messages && clientChat.messages.length > 0 ? (
               <div className="space-y-3">
                 {clientChat.messages.slice(-3).map((message, index) => (
                   <div key={index} className={`flex ${message.sender === 'client' ? 'justify-end' : 'justify-start'}`}>
                     <div className={`max-w-xs px-3 py-2 rounded-lg ${
                       message.sender === 'client' 
-                        ? 'bg-blue-500 text-white' 
+                          ? 'bg-blue-500 text-white'
                         : 'bg-white text-slate-900 border border-slate-200'
                     }`}>
                       <p className="text-sm">{message.content}</p>
@@ -849,28 +849,28 @@ const ClientPortalDashboard: React.FC<ClientPortalDashboardProps> = ({ user, onB
                     </div>
                   </div>
                 ))}
-              </div>
+                  </div>
             ) : (
               <p className="text-slate-500 text-sm">No messages yet. Start a conversation!</p>
-            )}
-          </div>
+              )}
+            </div>
 
-          <div className="flex items-center space-x-2">
-            <input
-              type="text"
-              value={message}
-              onChange={(e) => setMessage(e.target.value)}
-              onKeyPress={(e) => e.key === 'Enter' && handleSendMessage()}
+              <div className="flex items-center space-x-2">
+                  <input
+                    type="text"
+                    value={message}
+                    onChange={(e) => setMessage(e.target.value)}
+                    onKeyPress={(e) => e.key === 'Enter' && handleSendMessage()}
               placeholder="Type your message..."
               className="flex-1 px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-            />
-            <button
-              onClick={handleSendMessage}
+                  />
+                <button
+                  onClick={handleSendMessage}
               disabled={isSending || (!message.trim() && !selectedFile)}
               className="px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 disabled:opacity-50 disabled:cursor-not-allowed"
-            >
+                >
               {isSending ? 'Sending...' : 'Send'}
-            </button>
+                </button>
           </div>
         </div>
       </div>
