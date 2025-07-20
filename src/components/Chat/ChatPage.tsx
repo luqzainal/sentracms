@@ -241,8 +241,13 @@ const ChatPage: React.FC<ChatPageProps> = ({ onToggleSidebar }) => {
       // Try S3 upload first
       console.log('📤 Attempting S3 upload...');
       
+      // Use absolute URL for production, relative for development
+      const apiUrl = import.meta.env.PROD 
+        ? 'https://sentra-api-app-sxdm6.ondigitalocean.app/api/generate-upload-url'
+        : '/api/generate-upload-url';
+      
       // Generate upload URL
-      const response = await fetch('/api/generate-upload-url', {
+      const response = await fetch(apiUrl, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -257,7 +262,16 @@ const ChatPage: React.FC<ChatPageProps> = ({ onToggleSidebar }) => {
         throw new Error('Failed to generate upload URL');
       }
 
-      const { uploadUrl, publicUrl } = await response.json();
+      const responseText = await response.text();
+      
+      // Check if response is HTML (API server not running)
+      if (responseText.includes('<!doctype html>') || responseText.includes('<html')) {
+        console.log('❌ API server not running, falling back to local storage...');
+        throw new Error('API server not available');
+      }
+      
+      // Parse JSON response
+      const { uploadUrl, publicUrl } = JSON.parse(responseText);
 
       // Upload file to S3
       const uploadResponse = await fetch(uploadUrl, {
@@ -338,7 +352,9 @@ const ChatPage: React.FC<ChatPageProps> = ({ onToggleSidebar }) => {
       console.error('Error sending message:', error);
       
       // Show more specific error message
-      if (error?.message?.includes('S3 upload failed')) {
+      if (error?.message?.includes('API server not available')) {
+        alert('S3 upload server not available. File saved locally. Message sent with local file.');
+      } else if (error?.message?.includes('S3 upload failed')) {
         alert('S3 upload failed, but file was saved locally. Message sent with local file.');
       } else if (error?.message?.includes('Failed to read file')) {
         alert('Failed to process file. Please try again.');
