@@ -2195,6 +2195,17 @@ export const useAppStore = create<AppState>((set, get) => ({
       if (updates.completedDate !== undefined) dbUpdates.completed_date = updates.completedDate;
       if (updates.important !== undefined) dbUpdates.important = updates.important;
       
+      // Handle new deadline fields
+      if (updates.onboardingDeadline !== undefined) dbUpdates.onboarding_deadline = updates.onboardingDeadline;
+      if (updates.firstDraftDeadline !== undefined) dbUpdates.first_draft_deadline = updates.firstDraftDeadline;
+      if (updates.secondDraftDeadline !== undefined) dbUpdates.second_draft_deadline = updates.secondDraftDeadline;
+      if (updates.onboardingCompleted !== undefined) dbUpdates.onboarding_completed = updates.onboardingCompleted;
+      if (updates.firstDraftCompleted !== undefined) dbUpdates.first_draft_completed = updates.firstDraftCompleted;
+      if (updates.secondDraftCompleted !== undefined) dbUpdates.second_draft_completed = updates.secondDraftCompleted;
+      if (updates.onboardingCompletedDate !== undefined) dbUpdates.onboarding_completed_date = updates.onboardingCompletedDate;
+      if (updates.firstDraftCompletedDate !== undefined) dbUpdates.first_draft_completed_date = updates.firstDraftCompletedDate;
+      if (updates.secondDraftCompletedDate !== undefined) dbUpdates.second_draft_completed_date = updates.secondDraftCompletedDate;
+      
       // Update in database
       const updatedDbStep = await progressService.update(id, dbUpdates);
       
