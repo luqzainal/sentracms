@@ -1268,7 +1268,7 @@ export const useAppStore = create<AppState>((set, get) => ({
       };
     });
     
-    // Send message to server in background (fire and forget)
+    // Send message to server in background
     chatService.sendMessage({
       chat_id: chatId,
       sender: sender,
@@ -1294,9 +1294,24 @@ export const useAppStore = create<AppState>((set, get) => ({
         ),
       }));
     }).catch((error) => {
-      // Silently fail - optimistic message will remain
-      // User won't know about the failure, message appears sent
-      console.warn('Background message send failed:', error.message);
+      // Show error to user and remove optimistic message
+      console.error('Message send failed:', error);
+      
+      // Remove the optimistic message from UI
+      set((state) => ({
+        chats: state.chats.map((chat) =>
+          chat.id === chatId
+            ? {
+                ...chat,
+                messages: chat.messages.filter(msg => msg.id !== optimisticMessage.id),
+                updatedAt: new Date().toISOString(),
+              }
+            : chat
+        ),
+      }));
+      
+      // Show error alert to user
+      alert(`Failed to send message: ${error.message || 'Unknown error'}`);
     });
   },
   

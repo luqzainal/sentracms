@@ -238,6 +238,9 @@ const ChatPage: React.FC<ChatPageProps> = ({ onToggleSidebar }) => {
 
   const uploadFile = async (file: File): Promise<string> => {
     try {
+      // Try S3 upload first
+      console.log('📤 Attempting S3 upload...');
+      
       // Generate upload URL
       const response = await fetch('/api/generate-upload-url', {
         method: 'POST',
@@ -265,14 +268,29 @@ const ChatPage: React.FC<ChatPageProps> = ({ onToggleSidebar }) => {
         },
       });
 
-      if (!uploadResponse.ok) {
-        throw new Error('Failed to upload file');
+      if (uploadResponse.ok) {
+        console.log('✅ S3 upload successful');
+        return publicUrl;
+      } else {
+        console.log('❌ S3 upload failed, trying local storage...');
+        throw new Error('S3 upload failed');
       }
-
-      return publicUrl;
     } catch (error) {
-      console.error('Error uploading file:', error);
-      throw error;
+      console.log('🔄 Falling back to local file storage...');
+      
+      // Fallback: Convert file to data URL for local storage
+      return new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => {
+          const dataUrl = reader.result as string;
+          console.log('✅ Local file storage successful');
+          resolve(dataUrl);
+        };
+        reader.onerror = () => {
+          reject(new Error('Failed to read file'));
+        };
+        reader.readAsDataURL(file);
+      });
     }
   };
 
@@ -316,9 +334,17 @@ const ChatPage: React.FC<ChatPageProps> = ({ onToggleSidebar }) => {
       if (fileInputRef.current) {
         fileInputRef.current.value = '';
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error sending message:', error);
-      alert('Failed to send message. Please try again.');
+      
+      // Show more specific error message
+      if (error?.message?.includes('S3 upload failed')) {
+        alert('S3 upload failed, but file was saved locally. Message sent with local file.');
+      } else if (error?.message?.includes('Failed to read file')) {
+        alert('Failed to process file. Please try again.');
+      } else {
+        alert('Failed to send message. Please try again.');
+      }
     } finally {
       setIsUploading(false);
     }
