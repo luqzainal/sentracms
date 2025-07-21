@@ -1410,22 +1410,13 @@ const ClientProgressTracker: React.FC<ClientProgressTrackerProps> = ({ clientId,
   );
 
   return (
-    <div className="min-h-screen bg-slate-50">
+    <div className="bg-slate-50">
       <div className="max-w-6xl mx-auto p-8 space-y-8">
         {/* Header */}
         <div className="flex items-center justify-between">
-          <div className="flex items-center space-x-6">
-            <button
-              onClick={onBack}
-              className="flex items-center space-x-2 px-3 sm:px-4 py-2 text-slate-600 hover:text-slate-900 hover:bg-white rounded-lg transition-all duration-200 border border-slate-200 text-sm sm:text-base"
-            >
-              <ArrowLeft className="w-5 h-5" />
-              <span className="font-medium">Back</span>
-            </button>
-            <div>
-              <h1 className="text-xl sm:text-2xl lg:text-3xl font-bold text-slate-900">Customer Progress</h1>
-              <p className="text-slate-600 mt-1 text-sm sm:text-base">Track and manage client project milestones</p>
-            </div>
+          <div>
+            <h1 className="text-xl sm:text-2xl lg:text-3xl font-bold text-slate-900">Customer Progress</h1>
+            <p className="text-slate-600 mt-1 text-sm sm:text-base">Track and manage client project milestones</p>
           </div>
         </div>
 

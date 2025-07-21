@@ -1,8 +1,9 @@
 import React, { useState, useEffect } from 'react';
-import { ArrowLeft, Calendar, MessageSquare, DollarSign, HelpCircle, Package, Eye, Clock, CheckCircle, AlertCircle, User, Phone, Mail, MapPin, ChevronLeft, ChevronRight, X, Send, Plus } from 'lucide-react';
+import { ArrowLeft, Calendar, DollarSign, HelpCircle, Package, Eye, CheckCircle, Phone, Mail, Plus } from 'lucide-react';
 import ClientProgressTracker from '../Clients/ClientProgressTracker';
 import AddOnServiceModal from '../common/AddOnServiceModal';
-import { useAppStore } from '../../store/AppStore';
+import EventPopup from '../common/EventPopup';
+import { useAppStore, CalendarEvent } from '../../store/AppStore';
 
 interface ClientDashboardProps {
   user: any;
@@ -15,7 +16,11 @@ const ClientDashboard: React.FC<ClientDashboardProps> = ({ user, onBack }) => {
   const [showBilling, setShowBilling] = useState(false);
   const [showViewAppointments, setShowViewAppointments] = useState(false);
   const [showAddOnModal, setShowAddOnModal] = useState(false);
-  const [message, setMessage] = useState('');
+
+  // State untuk kalendar
+  const [calendarView, setCalendarView] = useState<'month' | 'week' | 'day'>('month');
+  const [selectedEvent, setSelectedEvent] = useState<CalendarEvent | null>(null);
+  const [showEventPopup, setShowEventPopup] = useState(false);
 
   const { addOnServices, fetchAddOnServices, addClientServiceRequest } = useAppStore();
 
@@ -42,14 +47,12 @@ const ClientDashboard: React.FC<ClientDashboardProps> = ({ user, onBack }) => {
     getComponentsByClientId,
     getInvoicesByClientId,
     getPaymentsByClientId,
-    chats,
     calendarEvents,
     fetchClients,
     fetchProgressSteps,
     fetchComponents,
     fetchInvoices,
     fetchPayments,
-    fetchChats,
     fetchCalendarEvents,
     startPolling,
     stopPolling,
@@ -65,7 +68,6 @@ const ClientDashboard: React.FC<ClientDashboardProps> = ({ user, onBack }) => {
     fetchComponents();
     fetchInvoices();
     fetchPayments();
-    fetchChats();
     fetchCalendarEvents();
     
     // Start polling for real-time updates
@@ -77,7 +79,7 @@ const ClientDashboard: React.FC<ClientDashboardProps> = ({ user, onBack }) => {
     return () => {
       stopPolling();
     };
-  }, [fetchClients, fetchProgressSteps, fetchComponents, fetchInvoices, fetchPayments, fetchChats, fetchCalendarEvents, startPolling, stopPolling, isPolling]);
+  }, [fetchClients, fetchProgressSteps, fetchComponents, fetchInvoices, fetchPayments, fetchCalendarEvents, startPolling, stopPolling, isPolling]);
 
   // Find the client data based on the user email or create demo client for demo users
   let client = clients.find(c => c.email === user.email);
@@ -103,7 +105,6 @@ const ClientDashboard: React.FC<ClientDashboardProps> = ({ user, onBack }) => {
   const components = getComponentsByClientId(client.id);
   const invoices = getInvoicesByClientId(client.id);
   const payments = getPaymentsByClientId(client.id);
-  const clientChat = chats.find(chat => chat.clientId === client.id);
   const clientEvents = calendarEvents.filter(event => event.clientId === client.id);
 
   // Calculate progress using consistent calculation from store
@@ -117,69 +118,6 @@ const ClientDashboard: React.FC<ClientDashboardProps> = ({ user, onBack }) => {
 
   // Get the actual package name from invoices if available
   const actualPackageName = invoices.length > 0 ? invoices[0].packageName : 'No Package Assigned';
-
-  const handleSendMessage = async () => {
-    if (message.trim() && client) {
-      const messageContent = message.trim();
-      setMessage(''); // Clear input immediately for better UX
-      
-      let currentChat = chats.find(chat => chat.clientId === client.id);
-      
-      try {
-        // If no chat exists, create one
-        if (!currentChat) {
-          const { createChatForClient } = useAppStore.getState();
-          await createChatForClient(client.id);
-          // Re-fetch chats to get the new chat ID
-          const newChats = useAppStore.getState().chats;
-          currentChat = newChats.find(chat => chat.clientId === client.id);
-        }
-
-        if (currentChat) {
-          // Optimistic update - add message to UI immediately
-          const optimisticMessage = {
-            id: Date.now(),
-            chat_id: currentChat.id,
-            sender: 'client' as const,
-            content: messageContent,
-            message_type: 'text',
-            created_at: new Date().toISOString()
-          };
-          
-          // Update local state immediately
-          const { chats } = useAppStore.getState();
-          const updatedChats = chats.map(chat => 
-            chat.id === currentChat!.id 
-              ? {
-                  ...chat,
-                  messages: [...chat.messages, optimisticMessage],
-                  lastMessage: messageContent,
-                  lastMessageAt: optimisticMessage.created_at,
-                  updatedAt: new Date().toISOString()
-                }
-              : chat
-          );
-          useAppStore.setState({ chats: updatedChats });
-          
-          // Send to server in background
-        const { sendMessage } = useAppStore.getState();
-          sendMessage(currentChat.id, messageContent, 'client').catch(error => {
-            console.error('Error sending message:', error);
-            // Optionally show error toast to user
-          });
-        } else {
-          console.error("Failed to create or find chat for the client.");
-        }
-      } catch (error) {
-        console.error('Error sending message:', error);
-        // Optionally show error toast to user
-      }
-    }
-  };
-
-  const formatTime = (timestamp: string) => {
-    return new Date(timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-  };
 
   const handleAddOnServiceSubmit = async (selectedServices: string[]) => {
     console.log('Selected add-on services:', selectedServices);
@@ -216,25 +154,19 @@ const ClientDashboard: React.FC<ClientDashboardProps> = ({ user, onBack }) => {
     }
   };
 
-  // Auto scroll to bottom when new messages arrive
-  useEffect(() => {
-    const chatContainer = document.getElementById('chat-messages');
-    if (chatContainer) {
-      chatContainer.scrollTop = chatContainer.scrollHeight;
-    }
-  }, [clientChat?.messages]);
+  // Filter event appointment untuk client ini sahaja
+  const clientAppointments = calendarEvents.filter(e => e.clientId === client.id);
 
-  // Update clientChat reference when chats change
-  useEffect(() => {
-    if (client && chats.length > 0) {
-      const updatedClientChat = chats.find(chat => chat.clientId === client.id);
-      if (updatedClientChat && !clientChat) {
-        // Load messages for the chat
-        const { loadChatMessages } = useAppStore.getState();
-        loadChatMessages(updatedClientChat.id);
-      }
-    }
-  }, [chats, client, clientChat]);
+  // Handler klik event
+  const handleEventClick = (event: CalendarEvent) => {
+    setSelectedEvent(event);
+    setShowEventPopup(true);
+  };
+
+  const closeEventPopup = () => {
+    setShowEventPopup(false);
+    setSelectedEvent(null);
+  };
 
   // Show Progress Tracker
   if (showProgressTracker) {
@@ -644,7 +576,6 @@ const ClientDashboard: React.FC<ClientDashboardProps> = ({ user, onBack }) => {
               <h3 className="font-semibold text-slate-900 mb-2">Need Help?</h3>
               <p className="text-sm text-slate-600">Contact us for assistance</p>
             </div>
-            
             <div className="space-y-3">
               <div className="flex items-center space-x-3 p-3 bg-slate-50 rounded-lg">
                 <Phone className="w-4 h-4 text-slate-500" />
@@ -653,7 +584,6 @@ const ClientDashboard: React.FC<ClientDashboardProps> = ({ user, onBack }) => {
                   <p className="text-xs text-slate-600">03 9388 0531</p>
                 </div>
               </div>
-              
               <div className="flex items-center space-x-3 p-3 bg-slate-50 rounded-lg">
                 <Mail className="w-4 h-4 text-slate-500" />
                 <div>
@@ -661,112 +591,99 @@ const ClientDashboard: React.FC<ClientDashboardProps> = ({ user, onBack }) => {
                   <p className="text-xs text-slate-600">evodagang.malaysia@gmail.com</p>
                 </div>
               </div>
-              
-              {clientChat && (
-                <div className="flex items-center space-x-3 p-3 bg-blue-50 rounded-lg border border-blue-200">
-                  <MessageSquare className="w-4 h-4 text-blue-600" />
-                  <div className="flex-1">
-                    <p className="text-sm font-medium text-blue-900">Live Chat</p>
-                    <p className="text-xs text-blue-700">
-                      {clientChat.unread_count > 0 ? `${clientChat.unread_count} new messages` : 'No new messages'}
-                    </p>
-                  </div>
-                  {clientChat.unread_count > 0 && (
-                    <div className="w-5 h-5 bg-blue-500 rounded-full flex items-center justify-center">
-                      <span className="text-xs text-white font-medium">{clientChat.unread_count}</span>
-                    </div>
-                  )}
-                </div>
-              )}
             </div>
           </div>
-
-          {/* Chat Messages Section */}
-          <div className="lg:col-span-2 bg-white rounded-xl shadow-sm border border-slate-200 flex flex-col h-96">
-            {/* Chat Header */}
-            <div className="p-4 border-b border-slate-200 flex items-center justify-between">
-              <div className="flex items-center space-x-3">
-                <div className="w-10 h-10 bg-blue-500 rounded-full flex items-center justify-center text-white font-medium">
-                  AT
-                </div>
-                <div>
-                  <h3 className="font-medium text-slate-900">Ahmad Tech Solutions</h3>
-                  <p className="text-sm text-slate-500">Online</p>
-                </div>
-              </div>
-              {/* Chat action buttons removed - keeping only essential functional elements */}
-            </div>
-
-            {/* Messages */}
-            <div className="flex-1 overflow-y-auto p-4 space-y-4" id="chat-messages">
-              {clientChat && clientChat.messages && clientChat.messages.length > 0 ? (
-                clientChat.messages.map((msg) => (
-                <div
-                  key={msg.id}
-                  className={`flex ${msg.sender === 'client' ? 'justify-end' : 'justify-start'}`}
-                >
-                  <div
-                    className={`max-w-xs lg:max-w-md px-4 py-2 rounded-lg ${
-                      msg.sender === 'client'
-                        ? 'bg-blue-500 text-white'
-                        : 'bg-slate-100 text-slate-900'
-                    }`}
-                  >
-                    {/* Show sender info for all messages */}
-                    {msg.sender === 'admin' && (
-                      <div className="text-xs font-medium mb-1 text-slate-600">
-                        Admin Team - Support
-                      </div>
-                    )}
-                    {msg.sender === 'client' && (
-                      <div className="text-xs font-medium mb-1 text-blue-100">
-                        {getClientRole(client.id)} - {client.name}
-                      </div>
-                    )}
-                    <p className="text-sm">{msg.content}</p>
-                    <p className={`text-xs mt-1 ${
-                      msg.sender === 'client' ? 'text-blue-100' : 'text-slate-500'
-                    }`}>
-                      {formatTime(msg.created_at)}
-                    </p>
-                  </div>
-                </div>
-                ))
-              ) : (
-                <div className="flex items-center justify-center h-full text-slate-500">
-                  <div className="text-center">
-                    <MessageSquare className="w-12 h-12 text-slate-300 mx-auto mb-3" />
-                    <p>No messages yet</p>
-                    <p className="text-sm">Start a conversation with your team</p>
-                  </div>
-                </div>
-              )}
-            </div>
-
-            {/* Message Input */}
-            <div className="p-4 border-t border-slate-200">
+          {/* Paparan Kalendar Appointment */}
+          <div className="lg:col-span-2 bg-white rounded-xl shadow-sm border border-slate-200 p-6">
+            <div className="flex items-center justify-between mb-4">
               <div className="flex items-center space-x-2">
-                {/* Removed non-functional attachment and emoji buttons */}
-                <div className="flex-1">
-                  <input
-                    type="text"
-                    value={message}
-                    onChange={(e) => setMessage(e.target.value)}
-                    onKeyPress={(e) => e.key === 'Enter' && !e.shiftKey && handleSendMessage()}
-                    placeholder="Type a message..."
-                    className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none"
-                    disabled={!clientChat}
-                  />
-                </div>
-                <button
-                  onClick={handleSendMessage}
-                  disabled={!message.trim() || !clientChat}
-                  className="p-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                >
-                  <Send className="w-4 h-4" />
-                </button>
+                <button onClick={() => setCalendarView('month')} className={`px-3 py-1 rounded-lg text-sm ${calendarView === 'month' ? 'bg-blue-100 text-blue-700' : ''}`}>Bulan</button>
+                <button onClick={() => setCalendarView('week')} className={`px-3 py-1 rounded-lg text-sm ${calendarView === 'week' ? 'bg-blue-100 text-blue-700' : ''}`}>Minggu</button>
+                <button onClick={() => setCalendarView('day')} className={`px-3 py-1 rounded-lg text-sm ${calendarView === 'day' ? 'bg-blue-100 text-blue-700' : ''}`}>Hari</button>
               </div>
             </div>
+            {/* Paparan grid kalendar ikut view */}
+            {/* Untuk ringkas, hanya tunjuk event dalam bentuk list ikut view yang dipilih */}
+            {calendarView === 'month' && (
+              <div>
+                <h3 className="font-semibold mb-2">Senarai Appointment Bulan Ini</h3>
+                <ul className="space-y-2">
+                  {clientAppointments.filter(e => new Date(e.startDate).getMonth() === new Date().getMonth()).map(e => (
+                    <li key={e.id} className="p-3 border rounded cursor-pointer hover:bg-blue-50" onClick={() => handleEventClick(e)}>
+                      <div className="font-medium">{e.title}</div>
+                      <div className="text-xs text-slate-500">{e.startDate} {e.startTime} - {e.endDate} {e.endTime}</div>
+                    </li>
+                  ))}
+                  {clientAppointments.filter(e => new Date(e.startDate).getMonth() === new Date().getMonth()).length === 0 && (
+                    <li className="text-slate-400">Tiada appointment bulan ini.</li>
+                  )}
+                </ul>
+              </div>
+            )}
+            {calendarView === 'week' && (
+              <div>
+                <h3 className="font-semibold mb-2">Senarai Appointment Minggu Ini</h3>
+                <ul className="space-y-2">
+                  {clientAppointments.filter(e => {
+                    const now = new Date();
+                    const start = new Date(e.startDate);
+                    const end = new Date(e.endDate);
+                    const weekStart = new Date(now);
+                    weekStart.setDate(now.getDate() - now.getDay());
+                    const weekEnd = new Date(weekStart);
+                    weekEnd.setDate(weekStart.getDate() + 6);
+                    return (start >= weekStart && start <= weekEnd) || (end >= weekStart && end <= weekEnd);
+                  }).map(e => (
+                    <li key={e.id} className="p-3 border rounded cursor-pointer hover:bg-blue-50" onClick={() => handleEventClick(e)}>
+                      <div className="font-medium">{e.title}</div>
+                      <div className="text-xs text-slate-500">{e.startDate} {e.startTime} - {e.endDate} {e.endTime}</div>
+                    </li>
+                  ))}
+                  {clientAppointments.filter(e => {
+                    const now = new Date();
+                    const start = new Date(e.startDate);
+                    const end = new Date(e.endDate);
+                    const weekStart = new Date(now);
+                    weekStart.setDate(now.getDate() - now.getDay());
+                    const weekEnd = new Date(weekStart);
+                    weekEnd.setDate(weekStart.getDate() + 6);
+                    return (start >= weekStart && start <= weekEnd) || (end >= weekStart && end <= weekEnd);
+                  }).length === 0 && (
+                    <li className="text-slate-400">Tiada appointment minggu ini.</li>
+                  )}
+                </ul>
+              </div>
+            )}
+            {calendarView === 'day' && (
+              <div>
+                <h3 className="font-semibold mb-2">Senarai Appointment Hari Ini</h3>
+                <ul className="space-y-2">
+                  {clientAppointments.filter(e => {
+                    const now = new Date();
+                    const start = new Date(e.startDate);
+                    const end = new Date(e.endDate);
+                    return (start.toDateString() === now.toDateString()) || (end.toDateString() === now.toDateString());
+                  }).map(e => (
+                    <li key={e.id} className="p-3 border rounded cursor-pointer hover:bg-blue-50" onClick={() => handleEventClick(e)}>
+                      <div className="font-medium">{e.title}</div>
+                      <div className="text-xs text-slate-500">{e.startDate} {e.startTime} - {e.endDate} {e.endTime}</div>
+                    </li>
+                  ))}
+                  {clientAppointments.filter(e => {
+                    const now = new Date();
+                    const start = new Date(e.startDate);
+                    const end = new Date(e.endDate);
+                    return (start.toDateString() === now.toDateString()) || (end.toDateString() === now.toDateString());
+                  }).length === 0 && (
+                    <li className="text-slate-400">Tiada appointment hari ini.</li>
+                  )}
+                </ul>
+              </div>
+            )}
+            {/* Popup info appointment */}
+            {showEventPopup && selectedEvent && (
+              <EventPopup event={selectedEvent} clients={clients} onClose={closeEventPopup} onEdit={() => {}} onDelete={() => {}} />
+            )}
           </div>
         </div>
       </div>

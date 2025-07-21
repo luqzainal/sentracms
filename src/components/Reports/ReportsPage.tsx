@@ -273,21 +273,28 @@ const ReportsPage: React.FC<ReportsPageProps> = ({ onToggleSidebar }) => {
 
   const { 
     clients,
+    invoices,
+    payments,
+    fetchClients,
+    fetchInvoices,
     fetchPayments,
     fetchProgressSteps,
     getMonthlySalesData,
     calculateClientProgressStatus,
-    refreshDashboardData
-    // getTotalSales, 
-    // getTotalCollection, 
-    // getTotalBalance 
+    refreshDashboardData,
+    getTotalSales, 
+    getTotalCollection, 
+    getTotalBalance 
   } = useAppStore();
 
   // Fetch data on component mount
   useEffect(() => {
+    console.log('🔄 Reports page useEffect: Fetching all required data...');
+    fetchClients();
+    fetchInvoices();
     fetchPayments();
     fetchProgressSteps();
-  }, [fetchPayments, fetchProgressSteps]);
+  }, [fetchClients, fetchInvoices, fetchPayments, fetchProgressSteps]);
 
   // Filter clients based on date range if custom dates are selected
   const getFilteredClients = () => {
@@ -304,10 +311,20 @@ const ReportsPage: React.FC<ReportsPageProps> = ({ onToggleSidebar }) => {
 
   const filteredClients = getFilteredClients();
 
-  // Calculate metrics
-  const totalSales = filteredClients.reduce((sum, client) => sum + (Number(client.totalSales) || 0), 0);
-  const totalCollection = filteredClients.reduce((sum, client) => sum + (Number(client.totalCollection) || 0), 0);
-  const totalBalance = filteredClients.reduce((sum, client) => sum + (Number(client.balance) || 0), 0);
+  // Calculate metrics - use store functions for consistency with Dashboard
+  const totalSales = getTotalSales();
+  const totalCollection = getTotalCollection();
+  const totalBalance = getTotalBalance();
+  
+  // Debug logging for Reports page
+  console.log('📊 Reports page metrics:', {
+    totalSales,
+    totalCollection,
+    totalBalance,
+    clientsCount: clients.length,
+    invoicesCount: invoices.length,
+    paymentsCount: payments.length
+  });
   const collectionRate = totalSales > 0 ? (totalCollection / totalSales) * 100 : 0;
   
   const totalClients = filteredClients.length;
@@ -325,8 +342,11 @@ const ReportsPage: React.FC<ReportsPageProps> = ({ onToggleSidebar }) => {
     return `RM ${validAmount.toLocaleString()}`;
   };
 
-  // Monthly sales data based on actual payment dates
+  // Monthly sales data based on total sales (invoice amounts)
   const monthlyData = getMonthlySalesData();
+  
+  // Debug monthly data for Reports page
+  console.log('📊 Reports monthly data:', monthlyData);
 
   const maxSales = Math.max(...monthlyData.map(d => d.sales));
 
@@ -382,7 +402,13 @@ const ReportsPage: React.FC<ReportsPageProps> = ({ onToggleSidebar }) => {
         <div className="flex items-center space-x-2 lg:space-x-3 flex-wrap gap-2">
           {/* Refresh Button */}
           <button
-            onClick={refreshDashboardData}
+            onClick={async () => {
+              console.log('🔄 Reports refresh triggered - checking data');
+              console.log('📊 Before refresh - clients:', clients.length, 'invoices:', invoices.length);
+              console.log('📊 Before refresh - monthlyData:', getMonthlySalesData());
+              await refreshDashboardData();
+              console.log('📊 After refresh - data should be updated');
+            }}
             className="flex items-center space-x-2 bg-green-600 hover:bg-green-700 text-white rounded-lg px-3 lg:px-4 py-2 transition-colors"
           >
             <RefreshCw className="w-4 h-4" />

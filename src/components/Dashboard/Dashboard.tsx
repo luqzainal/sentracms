@@ -22,6 +22,7 @@ const Dashboard: React.FC<DashboardProps> = ({ setActiveTab, onToggleSidebar }) 
     calendarEvents,
     loading,
     fetchClients,
+    fetchInvoices,
     fetchChats,
     fetchTags,
     fetchPayments,
@@ -40,13 +41,15 @@ const Dashboard: React.FC<DashboardProps> = ({ setActiveTab, onToggleSidebar }) 
   useEffect(() => {
     // Fetch initial data
     console.log('🔄 Dashboard useEffect: Fetching data...');
+    console.log('🔍 Current user for data fetching:', useAppStore.getState().user);
     fetchClients();
+    fetchInvoices(); // Add this to ensure invoices are fetched
     fetchChats();
     fetchTags();
     fetchPayments();
     fetchCalendarEvents();
     fetchProgressSteps();
-  }, [fetchClients, fetchChats, fetchTags, fetchPayments, fetchCalendarEvents, fetchProgressSteps]);
+  }, [fetchClients, fetchInvoices, fetchChats, fetchTags, fetchPayments, fetchCalendarEvents, fetchProgressSteps]);
 
   // Add a refresh effect when clients data changes
   useEffect(() => {
@@ -127,8 +130,16 @@ const Dashboard: React.FC<DashboardProps> = ({ setActiveTab, onToggleSidebar }) 
   // Calculate total unread messages using the store function
   const totalUnreadMessages = getUnreadMessagesCount();
 
-  // Monthly sales data based on actual payment dates
+  // Monthly sales data based on total sales (invoice amounts)
   const monthlyData = getMonthlySalesData();
+  
+  // Debug logging for monthly data
+  console.log('📊 Monthly Sales Data Debug:', {
+    monthlyData,
+    totalInvoices: invoices.length,
+    totalSalesFromFunction: totalSales,
+    invoiceAmounts: invoices.map(inv => ({ id: inv.id, amount: inv.amount, createdAt: inv.createdAt }))
+  });
 
   // Get today's appointments
   const today = new Date().toISOString().split('T')[0]; // YYYY-MM-DD format
@@ -265,7 +276,14 @@ const Dashboard: React.FC<DashboardProps> = ({ setActiveTab, onToggleSidebar }) 
         <div className="flex items-center space-x-3 lg:space-x-6 flex-wrap gap-2">
           {/* Refresh Button */}
           <button
-            onClick={refreshDashboardData}
+            onClick={async () => {
+              console.log('🔄 Force refresh triggered - checking graph data');
+              console.log('📊 Before refresh - invoices:', invoices.length);
+              console.log('📊 Before refresh - monthlyData:', getMonthlySalesData());
+              await refreshDashboardData();
+              console.log('📊 After refresh - invoices:', useAppStore.getState().invoices.length);
+              console.log('📊 After refresh - monthlyData:', useAppStore.getState().getMonthlySalesData());
+            }}
             className="flex items-center space-x-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg px-3 lg:px-4 py-2 transition-colors"
           >
             <RefreshCw className="w-4 h-4" />

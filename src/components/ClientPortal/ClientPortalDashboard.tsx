@@ -1,887 +1,303 @@
-import React, { useState, useEffect, useRef } from 'react';
-import { CheckCircle, Package, DollarSign, Phone, Mail, Send } from 'lucide-react';
-import { useAppStore } from '../../store/AppStore';
-import { useToast } from '../../hooks/useToast';
+import React, { useState, useMemo, useCallback } from 'react';
+import { CheckCircle, Package, DollarSign, Phone, Mail, Calendar as CalendarIcon, ChevronLeft, ChevronRight } from 'lucide-react';
+import { useAppStore, CalendarEvent } from '../../store/AppStore';
+import EventPopup from '../common/EventPopup';
+import { useNavigate } from 'react-router-dom';
 
 interface ClientPortalDashboardProps {
   user: any;
-  onBack: () => void;
 }
 
-// Helper function to get file icon
-function getFileIcon(fileType: string) {
-  if (fileType.startsWith('image/')) {
-    return <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
-    </svg>;
-  }
-  return <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-  </svg>;
-}
-
-// Helper function to format file size
-function formatFileSize(bytes: number) {
-  if (bytes === 0) return '0 Bytes';
-  const k = 1024;
-  const sizes = ['Bytes', 'KB', 'MB', 'GB'];
-  const i = Math.floor(Math.log(bytes) / Math.log(k));
-  return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
-}
-
-const ClientPortalDashboard: React.FC<ClientPortalDashboardProps> = ({ user, onBack }) => {
-  const [message, setMessage] = useState('');
-  const [selectedFile, setSelectedFile] = useState<File | null>(null);
-  const [isSending, setIsSending] = useState(false);
-  const [isUploading, setIsUploading] = useState(false);
-  const [isLoading, setIsLoading] = useState(true); // Tambah loading state ringan
-  const fileInputRef = useRef<HTMLInputElement>(null);
-
-  const { addOnServices, fetchAddOnServices, addClientServiceRequest, getClientServiceRequestsByClientId, fetchClientServiceRequests } = useAppStore();
-  const { success, error } = useToast();
-
-  // Convert database services to modal format
-  const availableAddOnServices = addOnServices
-    .filter(service => service.status === 'Available')
-    .map(service => ({
-      id: service.id.toString(),
-      name: service.name,
-      description: service.description,
-      price: `RM ${service.price.toLocaleString('en-MY', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`,
-      category: service.category,
-      available: service.status === 'Available'
-    }));
-
-  // Fetch add-on services and client service requests on component mount (background)
-  useEffect(() => {
-    // Tunda fetch supaya tidak block paparan utama
-    setTimeout(() => {
-      fetchAddOnServices();
-      fetchClientServiceRequests();
-    }, 500);
-  }, [fetchAddOnServices, fetchClientServiceRequests]);
+const ClientPortalDashboard: React.FC<ClientPortalDashboardProps> = ({ user }) => {
+  // All hooks at the top - ALWAYS called in same order
+  const navigate = useNavigate();
+  const [selectedEvent, setSelectedEvent] = useState<CalendarEvent | null>(null);
+  const [showEventPopup, setShowEventPopup] = useState(false);
+  const [calendarView, setCalendarView] = useState<'month' | 'week' | 'day'>('month');
+  const [currentDate, setCurrentDate] = useState(new Date());
 
   const { 
     clients, 
-    chats,
-    fetchClients,
-    fetchProgressSteps,
-    fetchComponents,
-    fetchInvoices,
-    fetchPayments,
-    fetchChats,
-    fetchCalendarEvents,
-    sendMessage,
-    createChatForClient,
-    loadChatMessages,
-    updateChatOnlineStatus,
+    calendarEvents,
     calculateClientProgressStatus,
-    getClientRole,
-    getProgressStepsByClientId,
     getComponentsByClientId,
-    getInvoicesByClientId
+    getInvoicesByClientId,
+    getProgressStepsByClientId
   } = useAppStore();
 
+  // Data processing - AFTER all hooks
   const client = clients.length > 0 ? clients[0] : null;
-
-  // Effect to manage user's online status
-  useEffect(() => {
-    const chat = chats.find(c => c.clientId === client?.id);
-    if (chat) {
-      updateChatOnlineStatus(chat.id, true);
-
-      // Set to offline on component unmount
-      return () => {
-        updateChatOnlineStatus(chat.id, false);
-      };
-    }
-  }, [client, chats, updateChatOnlineStatus]);
-
-  // Fetch data when component mounts to ensure sync with admin
-  useEffect(() => {
-    const fetchData = async () => {
-      try {
-        // Load essential data first (client info and basic progress)
-        await Promise.all([
-          fetchClients(),
-          fetchProgressSteps(),
-          fetchComponents(),
-          fetchInvoices(),
-          fetchPayments()
-        ]);
-        setIsLoading(false); // Paparan utama boleh render
-        // Load non-critical data in background
-        setTimeout(() => {
-          fetchChats();
-          fetchCalendarEvents();
-        }, 500);
-      } catch (error) {
-        setIsLoading(false);
-        console.error("Failed to fetch essential client portal data:", error);
-      }
-    };
-    fetchData();
-  }, [fetchClients, fetchProgressSteps, fetchComponents, fetchInvoices, fetchPayments, fetchChats, fetchCalendarEvents]);
-
-  // If a client is logged in, the clients array should contain exactly one client.
   
-  if (isLoading) {
-    return (
-      <div className="min-h-screen bg-slate-50 flex items-center justify-center p-4">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
-      </div>
-    );
-  }
-  
-  if (!client) {
-    return (
-      <div className="min-h-screen bg-slate-50 flex items-center justify-center p-4">
-        <div className="text-center">
-          <h2 className="text-xl font-semibold text-slate-900 mb-2">Client data not found</h2>
-          <p className="text-slate-600 mb-4">Unable to load client information</p>
-          <button 
-            onClick={onBack}
-            className="text-blue-600 hover:text-blue-700 font-medium"
-          >
-            Go back
-          </button>
-        </div>
-      </div>
-    );
-  }
-
-  const progressSteps = getProgressStepsByClientId(client.id);
-  const components = getComponentsByClientId(client.id);
-  const invoices = getInvoicesByClientId(client.id);
-  const clientChat = chats.find(chat => chat.clientId === client.id);
-
-  // Calculate progress using consistent calculation from store
-  const progressStatus = calculateClientProgressStatus(client.id);
+  // Only process data if client exists
+  const components = client ? getComponentsByClientId(client.id) : [];
+  const invoices = client ? getInvoicesByClientId(client.id) : [];
+  const progressStatus = client ? calculateClientProgressStatus(client.id) : { percentage: 0 };
   const { percentage: progressPercentage } = progressStatus;
 
-  // Calculate billing summary
+  // Calendar logic - ALWAYS executed
+  const monthNames = [
+    'January', 'February', 'March', 'April', 'May', 'June',
+    'July', 'August', 'September', 'October', 'November', 'December'
+  ];
+  
+  const clientAppointments = useMemo(() => 
+    client ? calendarEvents.filter(e => e.clientId === client.id) : [], 
+    [calendarEvents, client]
+  );
+  
+  const events = useMemo(() => clientAppointments.map(event => {
+    let dateStr = '';
+    if (event.startDate) {
+      if (typeof event.startDate === 'string') {
+        dateStr = event.startDate.split('T')[0];
+          } else {
+        const d = new Date(event.startDate);
+        dateStr = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+      }
+    }
+    return { ...event, date: dateStr, time: event.startTime || '' };
+  }), [clientAppointments]);
+
+  const daysInMonth = new Date(currentDate.getFullYear(), currentDate.getMonth() + 1, 0).getDate();
+  const firstDayOfMonth = new Date(currentDate.getFullYear(), currentDate.getMonth(), 1).getDay();
+  const today = new Date();
+
+  const handleNavigation = useCallback((direction: 'prev' | 'next') => {
+    setCurrentDate(current => {
+      const newDate = new Date(current);
+      const offset = direction === 'next' ? 1 : -1;
+      if (calendarView === 'month') newDate.setMonth(newDate.getMonth() + offset);
+      else if (calendarView === 'week') newDate.setDate(newDate.getDate() + (offset * 7));
+      else newDate.setDate(newDate.getDate() + offset);
+      return newDate;
+    });
+  }, [calendarView]);
+
+  const getEventsForDate = useCallback((date: number) => {
+    const dateStr = `${currentDate.getFullYear()}-${String(currentDate.getMonth() + 1).padStart(2, '0')}-${String(date).padStart(2, '0')}`;
+    return events.filter(event => event.date === dateStr);
+  }, [currentDate, events]);
+
+  const renderCalendarDays = () => {
+    const days = [];
+    for (let i = 0; i < firstDayOfMonth; i++) {
+      days.push(<div key={`prev-${i}`} className="min-h-[80px] bg-slate-50 border-b border-r border-slate-200"></div>);
+    }
+    for (let day = 1; day <= daysInMonth; day++) {
+      const isToday = day === today.getDate() && currentDate.getMonth() === today.getMonth() && currentDate.getFullYear() === today.getFullYear();
+      const dayEvents = getEventsForDate(day);
+      days.push(
+        <div key={day} className={`min-h-[80px] p-2 border-b border-r border-slate-200 ${isToday ? 'bg-blue-50' : ''}`}> 
+          <div className={`text-xs font-medium ${isToday ? 'text-blue-600' : ''}`}>{day}</div>
+          <div className="space-y-1 mt-1">
+            {dayEvents.slice(0, 2).map(event => (
+              <div key={event.id} onClick={() => handleEventClick(event)} className="text-xs p-1 rounded border bg-blue-50 text-blue-800 border-blue-200 truncate cursor-pointer hover:bg-blue-100">{event.title}</div>
+            ))}
+            {dayEvents.length > 2 && <div className="text-xs text-slate-500 mt-1">+{dayEvents.length - 2} more</div>}
+          </div>
+        </div>
+      );
+    }
+    while (days.length % 7 !== 0) {
+      days.push(<div key={`next-${days.length}`} className="min-h-[80px] bg-slate-50 border-b border-r border-slate-200"></div>);
+    }
+    return days;
+  };
+
+  // Event handlers - ALWAYS defined
+  const handleEventClick = (event: CalendarEvent) => {
+    setSelectedEvent(event);
+    setShowEventPopup(true);
+  };
+  
+  const closeEventPopup = () => {
+    setShowEventPopup(false);
+    setSelectedEvent(null);
+  };
+
+  // Component definitions - ALWAYS defined
+  const StatCard = ({ icon, title, value, onClick, colorClass }: { icon: React.ReactNode, title: string, value: string, onClick?: () => void, colorClass: string }) => (
+    <div
+      onClick={onClick}
+      className={`bg-white rounded-lg border border-slate-200 px-6 py-4 flex flex-col items-start justify-center ${onClick ? 'cursor-pointer hover:shadow-md hover:-translate-y-0.5 transition-all duration-200' : ''} min-w-[180px] min-h-[80px] group`}
+      style={{ boxShadow: '0 2px 8px 0 rgba(30,41,59,0.04)' }}
+    >
+      <div className="flex items-center mb-2">
+        <div className={`w-8 h-8 ${colorClass} rounded flex items-center justify-center mr-3 group-hover:scale-105 transition-transform`}>
+          {icon}
+        </div>
+        <span className="text-base font-semibold text-slate-700 tracking-tight">{title}</span>
+      </div>
+      <div className="text-2xl font-bold text-slate-900 tracking-tight">{value}</div>
+    </div>
+  );
+
+  const MiniCard = ({ label, value, color }: { label: string, value: string, color?: string }) => (
+    <div className="flex flex-col items-center justify-center bg-slate-50 rounded-lg border border-slate-200 px-4 py-2 min-w-[120px]">
+      <span className="text-xs text-slate-500 mb-1">{label}</span>
+      <span className={`text-lg font-bold ${color || 'text-slate-900'}`}>{value}</span>
+    </div>
+  );
+
+  // Data calculations - only if client exists
   const totalAmount = invoices.reduce((sum, inv) => sum + inv.amount, 0);
   const paidAmount = invoices.reduce((sum, inv) => sum + inv.paid, 0);
-  const dueAmount = invoices.reduce((sum, inv) => sum + inv.due, 0);
+  const outstanding = invoices.reduce((sum, inv) => sum + inv.due, 0);
 
-  // Get the actual package name from invoices if available
-  const actualPackageName = invoices.length > 0 ? invoices[0].packageName : 'No Package Assigned';
-  const activeComponents = components.filter(c => c.active);
+  const progressSteps = client ? getProgressStepsByClientId(client.id) : [];
+  const totalSteps = progressSteps.length;
+  const completedSteps = progressSteps.filter(s => s.completed).length;
+  const pendingSteps = totalSteps - completedSteps;
+  const showMore = totalSteps > 3;
+  const visibleSteps = progressSteps.slice(0, 3);
 
-  const handleSendMessage = async () => {
-    if ((!message.trim() && !selectedFile) || !client || isSending) return;
-
-    setIsSending(true);
-    setIsUploading(true);
-    
-    try {
-      let currentChat = chats.find(chat => chat.clientId === client.id);
-      
-        // If no chat exists, create one
-        if (!currentChat) {
-          await createChatForClient(client.id);
-          // Re-fetch chats to get the new chat ID
-          const newChats = useAppStore.getState().chats;
-          currentChat = newChats.find(chat => chat.clientId === client.id);
-        }
-
-        if (currentChat) {
-        let attachmentUrl: string | undefined;
-        let messageType: 'text' | 'file' | 'image' = 'text';
-        let attachmentName: string | undefined;
-        let attachmentType: string | undefined;
-        let attachmentSize: number | undefined;
-
-        // Upload file if selected
-        if (selectedFile) {
-          attachmentUrl = await uploadFile(selectedFile);
-          attachmentName = selectedFile.name;
-          attachmentType = selectedFile.type;
-          attachmentSize = selectedFile.size;
-          
-          // Determine message type
-          if (selectedFile.type.startsWith('image/')) {
-            messageType = 'image';
-          } else {
-            messageType = 'file';
-          }
-        }
-
-        // Send message with attachment
-        await sendMessage(currentChat.id, message.trim() || (selectedFile ? `Sent ${selectedFile.name}` : ''), 'client', {
-          messageType,
-          attachmentUrl,
-          attachmentName,
-          attachmentType,
-          attachmentSize
-        });
-
-        // Clear input and file
-        setMessage('');
-        setSelectedFile(null);
-        if (fileInputRef.current) {
-          fileInputRef.current.value = '';
-        }
-
-          // Reload messages for the chat to show the new one
-          await loadChatMessages(currentChat.id);
-        } else {
-          console.error("Failed to create or find chat for the client.");
-        }
-      } catch (error) {
-        console.error('Error sending message:', error);
-      alert('Failed to send message. Please try again.');
-    } finally {
-      setIsSending(false);
-      setIsUploading(false);
-    }
-  };
-
-  const formatTime = (timestamp: string) => {
-    return new Date(timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-  };
-
-  const handleFileSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0];
-    if (file) {
-      // Check file size (max 10MB)
-      if (file.size > 10 * 1024 * 1024) {
-        alert('File size must be less than 10MB');
-        return;
-      }
-      setSelectedFile(file);
-    }
-  };
-
-  const handleRemoveFile = () => {
-    setSelectedFile(null);
-    if (fileInputRef.current) {
-      fileInputRef.current.value = '';
-    }
-  };
-
-  const uploadFile = async (file: File): Promise<string> => {
-    try {
-      // Generate upload URL
-      const response = await fetch('/api/generate-upload-url', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          fileName: file.name,
-          fileType: file.type,
-        }),
-      });
-
-      if (!response.ok) {
-        throw new Error('Failed to generate upload URL');
-      }
-
-      const { uploadUrl, publicUrl } = await response.json();
-
-      // Upload file to S3
-      const uploadResponse = await fetch(uploadUrl, {
-        method: 'PUT',
-        body: file,
-        headers: {
-          'Content-Type': file.type,
-        },
-      });
-
-      if (!uploadResponse.ok) {
-        throw new Error('Failed to upload file');
-      }
-
-      return publicUrl;
-    } catch (error) {
-      console.error('Error uploading file:', error);
-      throw error;
-    }
-  };
-
-  const handleFileDownload = (attachmentUrl: string, fileName: string) => {
-    const link = document.createElement('a');
-    link.href = attachmentUrl;
-    link.download = fileName;
-    link.target = '_blank';
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-  };
-
-  const handleAddOnServiceSubmit = async (selectedServices: string[]) => {
-    console.log('Selected add-on services:', selectedServices);
-    
-    if (!client) {
-      error('Client Error', 'Client information not available. Please contact support.');
-      return;
-    }
-
-    try {
-      // Create service requests for each selected service
-      for (const serviceId of selectedServices) {
-        await addClientServiceRequest({
-          client_id: client.id,
-          service_id: parseInt(serviceId),
-          status: 'Pending'
-        });
-      }
-
-      // Find the selected services for display
-      const selectedServiceDetails = availableAddOnServices.filter(service => 
-        selectedServices.includes(service.id)
-      );
-      
-      const totalCost = selectedServiceDetails.reduce((total, service) => 
-        total + parseFloat(service.price.replace('RM ', '')), 0
-      );
-      
-      success(
-        'Add-on Services Requested!',
-        `Services: ${selectedServiceDetails.map(s => s.name).join(', ')}\nTotal Cost: RM ${totalCost.toFixed(2)}\n\nOur team will review your request and contact you shortly.`
-      );
-      
-      // Refresh client service requests to show the new request
-      await fetchClientServiceRequests();
-      
-    } catch (err) {
-      console.error('Error submitting add-on services:', err);
-      error('Request Failed', 'Failed to submit add-on services. Please try again or contact support.');
-    }
-  };
-
-  // Show Progress Tracker
-  // if (showProgressTracker) { // This state was removed
-  //   return (
-  //     <ClientProgressTracker
-  //       clientId={client.id.toString()}
-  //       onBack={() => setShowProgressTracker(false)}
-  //     />
-  //   );
-  // }
-
-  // Show Package Components
-  // if (showPackageComponents) { // This state was removed
-  //   return (
-  //     <div className="min-h-screen bg-slate-50">
-  //       <div className="bg-white border-b border-slate-200 px-4 lg:px-8 py-4 lg:py-6">
-  //         <div className="max-w-7xl mx-auto flex items-center justify-between">
-  //           <div className="flex items-center space-x-4">
-  //             <button
-  //               onClick={() => setShowPackageComponents(false)}
-  //               className="flex items-center space-x-2 px-3 py-2 text-slate-600 hover:text-slate-900 hover:bg-slate-100 rounded-lg transition-colors"
-  //             >
-  //               <ArrowLeft className="w-5 h-5" />
-  //               <span className="font-medium">Back</span>
-  //             </button>
-  //             <div>
-  //               <h1 className="text-xl lg:text-2xl font-bold text-slate-900 flex items-center space-x-2">
-  //                 <Package className="w-6 h-6 text-orange-600" />
-  //                 <span>My Packages</span>
-  //               </h1>
-  //             </div>
-  //           </div>
-  //         </div>
-  //       </div>
-
-  //       <div className="max-w-4xl mx-auto p-4 lg:p-8">
-  //         <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-6">
-  //           <div className="mb-6">
-  //             <p className="text-slate-600 mb-2">Current Package :</p>
-  //             <h2 className="text-2xl font-bold text-slate-900">{actualPackageName}</h2>
-  //           </div>
-
-  //           <div className="mb-6">
-  //             <h3 className="text-lg font-semibold text-slate-900 mb-4">List of Components</h3>
-  //             <div className="space-y-3">
-  //               {components.map((component, index) => (
-  //                 <div key={component.id} className="flex items-center justify-between p-4 border border-slate-200 rounded-lg">
-  //                   <div className="flex items-center space-x-3">
-  //                     <div className="w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center flex-shrink-0">
-  //                       <span className="text-xs font-bold text-blue-600">{index + 1}</span>
-  //                     </div>
-  //                     <Package className="w-5 h-5 text-slate-600" />
-  //                     <div>
-  //                       <span className="font-medium text-slate-900">No. {index + 1} - {component.name}</span>
-  //                       <p className="text-sm text-slate-600">{component.price}</p>
-  //                     </div>
-  //                     {component.active && (
-  //                       <span className="px-2 py-1 bg-green-100 text-green-700 text-xs font-medium rounded-full">
-  //                         Completed
-  //                       </span>
-  //                     )}
-  //                   </div>
-  //                 </div>
-  //               ))}
-  //             </div>
-  //           </div>
-  //         </div>
-  //       </div>
-  //     </div>
-  //   );
-  // }
-
-  // Show Billing
-  // if (showBilling) { // This state was removed
-  //   return (
-  //     <div className="min-h-screen bg-slate-50">
-  //       <div className="bg-white border-b border-slate-200 px-4 lg:px-8 py-4 lg:py-6">
-  //         <div className="max-w-7xl mx-auto flex items-center justify-between">
-  //           <div className="flex items-center space-x-4">
-  //             <button
-  //               onClick={() => setShowBilling(false)}
-  //               className="flex items-center space-x-2 px-3 py-2 text-slate-600 hover:text-slate-900 hover:bg-slate-100 rounded-lg transition-colors"
-  //             >
-  //               <ArrowLeft className="w-5 h-5" />
-  //               <span className="font-medium">Back</span>
-  //             </button>
-  //             <div>
-  //               <h1 className="text-xl lg:text-2xl font-bold text-slate-900">My Account & Billing</h1>
-  //             </div>
-  //           </div>
-  //         </div>
-  //       </div>
-
-  //       <div className="max-w-4xl mx-auto p-4 lg:p-8 space-y-6">
-  //         {/* Account Information */}
-  //         <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-6">
-  //           <h3 className="text-lg font-semibold text-slate-900 mb-4">Account Information</h3>
-  //           <div className="space-y-3">
-  //             <div>
-  //               <span className="font-medium text-slate-700">Name: </span>
-  //               <span className="text-slate-900">{client.name}</span>
-  //             </div>
-  //             <div>
-  //               <span className="font-medium text-slate-700">Email: </span>
-  //               <span className="text-slate-900">{client.email}</span>
-  //             </div>
-  //             <div>
-  //               <span className="font-medium text-slate-700">Phone: </span>
-  //               <span className="text-slate-900">{client.phone || 'Not provided'}</span>
-  //             </div>
-  //             <div>
-  //               <span className="font-medium text-slate-700">Business: </span>
-  //               <span className="text-slate-900">{client.businessName}</span>
-  //             </div>
-  //             <div>
-  //               <span className="font-medium text-slate-700">Registered Package: </span>
-  //               <span className="text-slate-900">{actualPackageName}</span>
-  //             </div>
-  //           </div>
-  //         </div>
-
-  //         {/* Payment Summary */}
-  //         <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-6">
-  //           <h3 className="text-lg font-semibold text-slate-900 mb-4">Payment Summary</h3>
-  //           <div className="space-y-3">
-  //             <div>
-  //               <span className="font-medium text-slate-700">Total Invoiced: </span>
-  //               <span className="text-slate-900">RM {totalAmount.toLocaleString()}</span>
-  //             </div>
-  //             <div>
-  //               <span className="font-medium text-slate-700">Total Paid: </span>
-  //               <span className="text-green-600">RM {paidAmount.toLocaleString()}</span>
-  //             </div>
-  //             <div>
-  //               <span className="font-medium text-slate-700">Balance: </span>
-  //               <span className="text-red-600">RM {dueAmount.toLocaleString()}</span>
-  //             </div>
-  //           </div>
-  //         </div>
-
-  //         {/* Invoice & Payment History */}
-  //         <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-6">
-  //           <h3 className="text-lg font-semibold text-slate-900 mb-4">Invoice & Payment History</h3>
-  //           <div className="overflow-x-auto">
-  //             <table className="w-full">
-  //               <thead className="bg-slate-50 border-b border-slate-200">
-  //                 <tr>
-  //                   <th className="text-left py-3 px-4 font-medium text-slate-900">Invoice</th>
-  //                   <th className="text-left py-3 px-4 font-medium text-slate-900">Amount</th>
-  //                   <th className="text-left py-3 px-4 font-medium text-slate-900">Date</th>
-  //                   <th className="text-left py-3 px-4 font-medium text-slate-900">Payment</th>
-  //                   <th className="text-left py-3 px-4 font-medium text-slate-900">Receipt</th>
-  //                   <th className="text-left py-3 px-4 font-medium text-slate-900">Status</th>
-  //                 </tr>
-  //               </thead>
-  //               <tbody className="divide-y divide-slate-200">
-  //                 {invoices.map((invoice) => (
-  //                   <tr key={invoice.id}>
-  //                     <td className="py-3 px-4 text-slate-900">{invoice.packageName || 'Package Invoice'}</td>
-  //                     <td className="py-3 px-4 text-slate-900">RM {invoice.amount.toLocaleString()}</td>
-  //                     <td className="py-3 px-4 text-slate-600">{new Date(invoice.createdAt).toLocaleDateString()}</td>
-  //                     <td className="py-3 px-4 text-slate-900">RM {invoice.paid.toLocaleString()}</td>
-  //                     <td className="py-3 px-4 text-slate-600">-</td>
-  //                     <td className="py-3 px-4">
-  //                       <span className={`px-2 py-1 text-xs font-medium rounded-full ${
-  //                         invoice.paid >= invoice.amount ? 'bg-green-100 text-green-700' : 'bg-yellow-100 text-yellow-700'
-  //                       }`}>
-  //                         {invoice.paid >= invoice.amount ? 'Paid' : 'Partial'}
-  //                       </span>
-  //                     </td>
-  //                   </tr>
-  //                 ))}
-  //               </tbody>
-  //             </table>
-  //           </div>
-  //         </div>
-  //       </div>
-  //     </div>
-  //   );
-  // }
-
-  // Show View Appointments
-  // if (showViewAppointments) { // This state was removed
-  //   const clientEvents = calendarEvents.filter(event => event.clientId === client.id);
-    
-  //   return (
-  //     <div className="min-h-screen bg-slate-50">
-  //       <div className="bg-white border-b border-slate-200 px-4 lg:px-8 py-4 lg:py-6">
-  //         <div className="max-w-7xl mx-auto flex items-center justify-between">
-  //           <div className="flex items-center space-x-4">
-  //             <button
-  //               onClick={() => setShowViewAppointments(false)}
-  //               className="flex items-center space-x-2 px-3 py-2 text-slate-600 hover:text-slate-900 hover:bg-slate-100 rounded-lg transition-colors"
-  //             >
-  //               <ArrowLeft className="w-5 h-5" />
-  //               <span className="font-medium">Back</span>
-  //             </button>
-  //             <div>
-  //               <h1 className="text-xl lg:text-2xl font-bold text-slate-900 flex items-center space-x-2">
-  //                 <Package className="w-6 h-6 text-orange-600" />
-  //                 <span>View Appointments</span>
-  //               </h1>
-  //             </div>
-  //           </div>
-  //         </div>
-  //       </div>
-
-  //       <div className="max-w-4xl mx-auto p-4 lg:p-8">
-  //         <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-6">
-  //           <h3 className="text-lg font-semibold text-slate-900 mb-4">Your Appointments</h3>
-  //           {clientEvents.length > 0 ? (
-  //             <div className="overflow-x-auto">
-  //               <table className="w-full">
-  //                 <thead className="bg-slate-50 border-b border-slate-200">
-  //                   <tr>
-  //                     <th className="text-left py-3 px-4 font-medium text-slate-900">Title</th>
-  //                     <th className="text-left py-3 px-4 font-medium text-slate-900">Date</th>
-  //                     <th className="text-left py-3 px-4 font-medium text-slate-900">Time</th>
-  //                     <th className="text-left py-3 px-4 font-medium text-slate-900">Description</th>
-  //                     <th className="text-left py-3 px-4 font-medium text-slate-900">Type</th>
-  //                   </tr>
-  //                 </thead>
-  //                 <tbody className="divide-y divide-slate-200">
-  //                   {clientEvents.map((event) => (
-  //                     <tr key={event.id}>
-  //                       <td className="py-3 px-4 text-slate-900">{event.title}</td>
-  //                       <td className="py-3 px-4 text-slate-600">{new Date(event.startDate).toLocaleDateString()}</td>
-  //                       <td className="py-3 px-4 text-slate-600">{event.startTime} - {event.endTime}</td>
-  //                       <td className="py-3 px-4 text-slate-600">{event.description || '-'}</td>
-  //                       <td className="py-3 px-4">
-  //                         <span className="px-2 py-1 bg-blue-100 text-blue-700 text-xs font-medium rounded-full">
-  //                           {event.type}
-  //                         </span>
-  //                       </td>
-  //                     </tr>
-  //                   ))}
-  //                 </tbody>
-  //               </table>
-  //             </div>
-  //           ) : (
-  //             <div className="text-center py-8 text-slate-500">
-  //               <Calendar className="w-12 h-12 text-slate-300 mx-auto mb-3" />
-  //               <p>No appointments scheduled</p>
-  //               <p className="text-sm">Contact support to schedule an appointment</p>
-  //             </div>
-  //           )}
-  //         </div>
-  //       </div>
-  //     </div>
-  //   );
-  // }
-
-  // Show My Requests
-  // if (showMyRequests) { // This state was removed
-  //   const clientRequests = getClientServiceRequestsByClientId(client.id);
-    
-  //   return (
-  //     <div className="min-h-screen bg-slate-50">
-  //       <div className="bg-white border-b border-slate-200 px-4 lg:px-8 py-4 lg:py-6">
-  //         <div className="max-w-7xl mx-auto flex items-center justify-between">
-  //           <div className="flex items-center space-x-4">
-  //             <button
-  //               onClick={() => setShowMyRequests(false)}
-  //               className="flex items-center space-x-2 px-3 py-2 text-slate-600 hover:text-slate-900 hover:bg-slate-100 rounded-lg transition-colors"
-  //             >
-  //               <ArrowLeft className="w-5 h-5" />
-  //               <span className="font-medium">Back</span>
-  //             </button>
-  //             <div>
-  //               <h1 className="text-xl lg:text-2xl font-bold text-slate-900 flex items-center space-x-2">
-  //                 <Clock className="w-6 h-6 text-indigo-600" />
-  //                 <span>My Add-On Service Requests</span>
-  //               </h1>
-  //             </div>
-  //           </div>
-  //         </div>
-  //       </div>
-
-  //       <div className="max-w-4xl mx-auto p-4 lg:p-8">
-  //         <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-6">
-  //           <h3 className="text-lg font-semibold text-slate-900 mb-4">Your Service Requests</h3>
-  //           {clientRequests.length > 0 ? (
-  //             <div className="overflow-x-auto">
-  //               <table className="w-full">
-  //                 <thead className="bg-slate-50 border-b border-slate-200">
-  //                   <tr>
-  //                     <th className="text-left py-3 px-4 font-medium text-slate-900">Service</th>
-  //                     <th className="text-left py-3 px-4 font-medium text-slate-900">Category</th>
-  //                     <th className="text-left py-3 px-4 font-medium text-slate-900">Price</th>
-  //                     <th className="text-left py-3 px-4 font-medium text-slate-900">Request Date</th>
-  //                     <th className="text-left py-3 px-4 font-medium text-slate-900">Status</th>
-  //                     <th className="text-left py-3 px-4 font-medium text-slate-900">Notes</th>
-  //                   </tr>
-  //                 </thead>
-  //                 <tbody className="divide-y divide-slate-200">
-  //                   {clientRequests.map((request) => {
-  //                     const service = addOnServices.find(s => s.id === request.service_id);
-  //                     return (
-  //                       <tr key={request.id}>
-  //                         <td className="py-3 px-4 text-slate-900">
-  //                           <div>
-  //                             <div className="font-medium">{service?.name || 'Unknown Service'}</div>
-  //                             <div className="text-sm text-slate-600">{service?.description || ''}</div>
-  //                           </div>
-  //                         </td>
-  //                         <td className="py-3 px-4 text-slate-600">{service?.category || '-'}</td>
-  //                         <td className="py-3 px-4 text-slate-900">RM {service?.price?.toLocaleString() || '0'}</td>
-  //                         <td className="py-3 px-4 text-slate-600">
-  //                           {new Date(request.request_date).toLocaleDateString()}
-  //                         </td>
-  //                         <td className="py-3 px-4">
-  //                           <span className={`px-2 py-1 text-xs font-medium rounded-full ${
-  //                             request.status === 'Pending' ? 'bg-yellow-100 text-yellow-700' :
-  //                             request.status === 'Approved' ? 'bg-green-100 text-green-700' :
-  //                             request.status === 'Rejected' ? 'bg-red-100 text-red-700' :
-  //                             request.status === 'Completed' ? 'bg-blue-100 text-blue-700' :
-  //                             'bg-slate-100 text-slate-700'
-  //                           }`}>
-  //                             {request.status}
-  //                           </span>
-  //                         </td>
-  //                         <td className="py-3 px-4 text-slate-600">
-  //                           {request.admin_notes || request.rejection_reason || '-'}
-  //                         </td>
-  //                       </tr>
-  //                     );
-  //                   })}
-  //                 </tbody>
-  //               </table>
-  //             </div>
-  //           ) : (
-  //             <div className="text-center py-8 text-slate-500">
-  //               <Clock className="w-12 h-12 text-slate-300 mx-auto mb-3" />
-  //               <p>No service requests found</p>
-  //               <p className="text-sm">You haven't requested any add-on services yet</p>
-  //               <button
-  //                 onClick={() => {
-  //                   setShowMyRequests(false);
-  //                   setShowAddOnModal(true);
-  //                 }}
-  //                 className="mt-4 bg-indigo-600 text-white px-4 py-2 rounded-lg hover:bg-indigo-700 transition-colors"
-  //               >
-  //                 Request Add-On Services
-  //               </button>
-  //             </div>
-  //           )}
-  //         </div>
-  //       </div>
-  //     </div>
-  //   );
-  // }
-
+  // MAIN RETURN - conditional rendering based on client
   return (
-    <div className="bg-slate-50">
-      {/* Header */}
-      <div className="bg-white border-b border-slate-200 px-4 lg:px-8 py-4">
-        <div className="max-w-4xl mx-auto">
-          <div className="flex items-center justify-between">
+    <div className="h-full flex flex-col px-8 pt-6">
+      {!client ? (
+        // Loading state when no client data
+        <div className="flex-1 flex items-center justify-center">
+          <div className="text-center">
+            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto mb-4"></div>
+            <p className="text-slate-600">Loading client data...</p>
+            </div>
+        </div>
+      ) : (
+        // Main dashboard content when client exists
+        <>
+          {/* Header */}
+          <header className="flex-shrink-0 mb-4 flex items-center justify-between gap-4">
             <div>
-              <h1 className="text-2xl lg:text-3xl font-bold text-slate-900">
-                Hai, {client?.name || 'Client'} 👋
-              </h1>
-              <p className="text-slate-600 mt-1 lg:mt-2 text-sm lg:text-base">Welcome to your client portal</p>
+              <h1 className="text-xl font-bold text-slate-900">Hi, {client.name} 👋</h1>
+              <p className="text-slate-600 text-sm">Welcome to your portal.</p>
             </div>
+            <div className="bg-white rounded-xl border border-slate-200 px-6 py-3 flex items-center gap-6 shadow-sm min-w-[340px]">
+              <div>
+                <div className="text-base font-semibold text-slate-800 mb-0.5">Need Help?</div>
+                <div className="text-xs text-slate-500">Contact our support team.</div>
+              </div>
+              <div className="flex items-center gap-4">
+                <div className="flex items-center gap-2">
+                  <span className="w-8 h-8 rounded-full bg-red-100 flex items-center justify-center"><Phone className="w-4 h-4 text-red-500" /></span>
+              <div>
+                    <div className="text-xs font-semibold text-slate-700">Phone</div>
+                    <div className="text-xs text-slate-600">03 9388 0531</div>
+              </div>
+            </div>
+                <div className="flex items-center gap-2">
+                  <span className="w-8 h-8 rounded-full bg-blue-100 flex items-center justify-center"><Mail className="w-4 h-4 text-blue-600" /></span>
+                  <div>
+                    <div className="text-xs font-semibold text-slate-700">Email</div>
+                    <div className="text-xs text-slate-600">evodagang.malaysia@gmail.com</div>
+          </div>
+              </div>
+              </div>
+            </div>
+          </header>
+
+          {/* Main Content Grid: Progress + Billing (kiri), Calendar (kanan) */}
+          <div className="grid grid-cols-3 gap-6 flex-1">
+            {/* Left Column: Progress + Billing */}
+            <div className="flex flex-col h-full">
+              {/* Progress Bar + Steps (atas) */}
+              <div className="bg-white rounded-xl shadow-sm border border-slate-200 px-6 py-3 flex flex-col justify-center mb-4">
+                <div className="flex items-center mb-1">
+                  <div className="w-7 h-7 bg-blue-100 rounded flex items-center justify-center mr-2">
+                    <CheckCircle className="w-4 h-4 text-blue-600" />
+          </div>
+                  <span className="text-base font-semibold text-slate-700">Progress</span>
+                  <span className="ml-auto text-base font-bold text-slate-900">{progressPercentage}%</span>
+                  <span className="ml-4 text-sm font-medium text-slate-500">
+                    {pendingSteps === 0 ? 'All done' : `${pendingSteps} more pending`}
+                  </span>
         </div>
-            </div>
-          </div>
-
-      {/* Content */}
-      <div className="max-w-4xl mx-auto p-4 lg:p-8">
-        {/* Welcome Section */}
-        <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-6 mb-6">
-            <div className="text-center">
-            <h2 className="text-2xl font-bold text-slate-900 mb-2">Welcome to Your Client Portal</h2>
-            <p className="text-slate-600">Manage your project progress, view packages, and stay connected with our team.</p>
-            </div>
-          </div>
-
-        {/* Quick Stats */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
-          <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-6">
-            <div className="flex items-center space-x-3 mb-4">
-              <div className="w-10 h-10 bg-blue-100 rounded-full flex items-center justify-center">
-                <CheckCircle className="w-5 h-5 text-blue-600" />
-              </div>
-              <div>
-                <h3 className="font-semibold text-slate-900">Progress</h3>
-                <p className="text-sm text-slate-600">{progressPercentage}% Complete</p>
-            </div>
-          </div>
-            <div className="w-full bg-slate-200 rounded-full h-2">
-              <div 
-                className="bg-blue-600 h-2 rounded-full transition-all duration-500"
-                style={{ width: `${progressPercentage}%` }}
-              ></div>
-            </div>
-          </div>
-
-          <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-6">
-            <div className="flex items-center space-x-3 mb-4">
-              <div className="w-10 h-10 bg-green-100 rounded-full flex items-center justify-center">
-                <Package className="w-5 h-5 text-green-600" />
-              </div>
-              <div>
-                <h3 className="font-semibold text-slate-900">Packages</h3>
-                <p className="text-sm text-slate-600">{activeComponents.length} Active</p>
-              </div>
-            </div>
-            <p className="text-lg font-semibold text-slate-900">{actualPackageName}</p>
-          </div>
-
-          <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-6">
-            <div className="flex items-center space-x-3 mb-4">
-              <div className="w-10 h-10 bg-purple-100 rounded-full flex items-center justify-center">
-                <DollarSign className="w-5 h-5 text-purple-600" />
-              </div>
-              <div>
-                <h3 className="font-semibold text-slate-900">Billing</h3>
-                <p className="text-sm text-slate-600">Outstanding</p>
-              </div>
-            </div>
-            <p className="text-lg font-semibold text-red-600">RM {dueAmount.toLocaleString()}</p>
-          </div>
-        </div>
-
-        {/* Support Section */}
-        <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-6 mb-6">
-          <h3 className="text-lg font-semibold text-slate-900 mb-4">Need Help?</h3>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div className="flex items-center space-x-3">
-              <div className="w-8 h-8 bg-red-100 rounded-full flex items-center justify-center">
-                <Phone className="w-4 h-4 text-red-600" />
-              </div>
-                <div>
-                <p className="font-medium text-slate-900">Phone Support</p>
-                <p className="text-sm text-slate-600">03 9388 0531</p>
+                <div className="w-full bg-slate-200 rounded-full h-2 mt-1 mb-2">
+                  <div className="bg-blue-600 h-2 rounded-full transition-all duration-500" style={{ width: `${progressPercentage}%` }}></div>
                 </div>
-              </div>
-            <div className="flex items-center space-x-3">
-              <div className="w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center">
-                <Mail className="w-4 h-4 text-blue-600" />
-              </div>
-                <div>
-                <p className="font-medium text-slate-900">Email Support</p>
-                <p className="text-sm text-slate-600">evodagang.malaysia@gmail.com</p>
-                </div>
-              </div>
-            </div>
-          </div>
-
-        {/* Chat Section */}
-        <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-6">
-          <div className="flex items-center justify-between mb-4">
-              <div className="flex items-center space-x-3">
-                <div className="w-10 h-10 bg-blue-500 rounded-full flex items-center justify-center text-white font-medium">
-                SA
-                </div>
-                <div>
-                <h3 className="font-semibold text-slate-900">Sambal King</h3>
-                <p className="text-sm text-green-600">Online</p>
-                </div>
-              </div>
-            </div>
-
-          <div className="bg-slate-50 rounded-lg p-4 mb-4 max-h-48 overflow-y-auto">
-              {clientChat && clientChat.messages && clientChat.messages.length > 0 ? (
-              <div className="space-y-3">
-                {clientChat.messages.slice(-3).map((message, index) => (
-                  <div key={index} className={`flex ${message.sender === 'client' ? 'justify-end' : 'justify-start'}`}>
-                    <div className={`max-w-xs px-3 py-2 rounded-lg ${
-                      message.sender === 'client' 
-                          ? 'bg-blue-500 text-white'
-                        : 'bg-white text-slate-900 border border-slate-200'
-                    }`}>
-                      <p className="text-sm">{message.content}</p>
-                      {message.attachment_url && (
-                        <div className="mt-2">
-                          {message.message_type === 'image' ? (
-                            <img 
-                              src={message.attachment_url} 
-                              alt="Attachment" 
-                              className="w-20 h-20 object-cover rounded"
-                            />
-                          ) : (
-                            <button
-                              onClick={() => handleFileDownload(message.attachment_url!, message.attachment_name || 'file')}
-                              className="text-xs underline hover:no-underline"
-                            >
-                              📎 {message.attachment_name || 'Download File'}
-                            </button>
-                          )}
-                        </div>
+                <ul className="mt-3 space-y-2">
+                  {visibleSteps.map((step, idx) => (
+                    <li key={step.id} className="flex items-center justify-between bg-slate-50 rounded-lg px-3 py-2 shadow-sm border border-slate-100">
+                      <div className="flex items-center gap-2">
+                        <span className={`text-xs font-bold text-slate-400 w-5 text-right`}>{idx + 1}.</span>
+                        <span className={`flex-1 text-sm ${step.completed ? 'line-through text-slate-400' : 'text-slate-700 font-medium'}`}>{step.title}</span>
+                        {step.description && (
+                          <span className="ml-2 text-xs text-slate-400 italic">{step.description}</span>
+                        )}
+                      </div>
+                      {step.completed ? (
+                        <span className="ml-3 flex items-center gap-1 text-green-600 font-semibold"><CheckCircle className="w-4 h-4" /> Done</span>
+                      ) : (
+                        <span className="ml-3 text-xs px-2 py-0.5 rounded bg-yellow-100 text-yellow-700 font-semibold">Pending</span>
                       )}
-                    </div>
+                    </li>
+                  ))}
+                </ul>
+                {showMore && (
+                  <div className="flex justify-end mt-2">
+                    <button onClick={() => navigate('/client/progress')} className="flex items-center text-blue-600 hover:underline text-sm font-medium">
+                      More details
+                      <svg className="w-4 h-4 ml-1" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" /></svg>
+                    </button>
                   </div>
-                ))}
+                )}
+              </div>
+              
+              {/* Billing Card (bawah) */}
+              <div className="bg-white rounded-xl shadow-sm border border-slate-200 px-6 py-4 flex flex-col justify-center">
+                <div className="flex items-center mb-3">
+                  <div className="w-8 h-8 bg-purple-100 rounded flex items-center justify-center mr-3">
+                    <DollarSign className="w-5 h-5 text-purple-600" />
                   </div>
-            ) : (
-              <p className="text-slate-500 text-sm">No messages yet. Start a conversation!</p>
-              )}
+                  <span className="text-lg font-semibold text-slate-700">Billing</span>
+              </div>
+                <div className="grid grid-cols-1 gap-2">
+                  <MiniCard label="Total Invoiced" value={`RM ${totalAmount.toLocaleString()}`} />
+                  <MiniCard label="Paid" value={`RM ${paidAmount.toLocaleString()}`} color="text-green-600" />
+                  <MiniCard label="Outstanding" value={`RM ${outstanding.toLocaleString()}`} color="text-red-600" />
+                </div>
+                <button onClick={() => navigate('/client/billing')} className="mt-4 px-4 py-2 bg-purple-600 text-white rounded-lg text-sm font-medium hover:bg-purple-700 transition">View Details</button>
             </div>
-
-              <div className="flex items-center space-x-2">
-                  <input
-                    type="text"
-                    value={message}
-                    onChange={(e) => setMessage(e.target.value)}
-                    onKeyPress={(e) => e.key === 'Enter' && handleSendMessage()}
-              placeholder="Type your message..."
-              className="flex-1 px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  />
-                <button
-                  onClick={handleSendMessage}
-              disabled={isSending || (!message.trim() && !selectedFile)}
-              className="px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 disabled:opacity-50 disabled:cursor-not-allowed"
-                >
-              {isSending ? 'Sending...' : 'Send'}
-                </button>
           </div>
-        </div>
-      </div>
 
-      {/* Admin Links Modal */}
+            {/* Calendar Main (kanan, besar) */}
+            <div className="col-span-2 flex flex-col">
+              <div className="flex items-center justify-between mb-2">
+                <div className="flex items-center space-x-2">
+                  <button onClick={() => handleNavigation('prev')} className="p-2 hover:bg-slate-100 rounded-lg"><ChevronLeft /></button>
+                  <h2 className="text-lg font-semibold">{monthNames[currentDate.getMonth()]} {currentDate.getFullYear()}</h2>
+                  <button onClick={() => handleNavigation('next')} className="p-2 hover:bg-slate-100 rounded-lg"><ChevronRight /></button>
+                </div>
+                <div className="flex items-center space-x-2">
+                  <button onClick={() => setCalendarView('month')} className={`px-3 py-1 rounded-lg text-sm ${calendarView === 'month' ? 'bg-blue-100 text-blue-700' : 'hover:bg-slate-100'}`}>Month</button>
+                  <button onClick={() => setCalendarView('week')} className={`px-3 py-1 rounded-lg text-sm ${calendarView === 'week' ? 'bg-blue-100 text-blue-700' : 'hover:bg-slate-100'}`}>Week</button>
+                  <button onClick={() => setCalendarView('day')} className={`px-3 py-1 rounded-lg text-sm ${calendarView === 'day' ? 'bg-blue-100 text-blue-700' : 'hover:bg-slate-100'}`}>Day</button>
+                </div>
+              </div>
+              <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden flex-1 flex flex-col">
+                {calendarView === 'month' && (
+                  <>
+                    <div className="grid grid-cols-7 text-center font-medium text-slate-600 border-b">
+                      {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map(day => <div key={day} className="p-2 text-xs">{day}</div>)}
+                    </div>
+                    <div className="grid grid-cols-7 border-l border-t border-slate-200 flex-1 min-h-[320px]">{renderCalendarDays()}</div>
+                  </>
+                )}
+                {(calendarView === 'week' || calendarView === 'day') && (
+                  <div className="flex flex-1 items-center justify-center text-slate-400">
+                    <CalendarIcon className="w-8 h-8 mx-auto mb-2" />
+                    <span className="ml-2">{calendarView.charAt(0).toUpperCase() + calendarView.slice(1)} view coming soon.</span>
+                  </div>
+                )}
+                  </div>
+            </div>
+          </div>
+        </>
+      )}
 
-
-      {/* Add-On Service Modal */}
-      {/* <AddOnServiceModal // This component was removed
-        isOpen={showAddOnModal}
-        onClose={() => setShowAddOnModal(false)}
-        onSubmit={handleAddOnServiceSubmit}
-        availableServices={availableAddOnServices}
-      /> */}
+      {/* Event Popup - outside conditional rendering */}
+      {showEventPopup && selectedEvent && (
+        <EventPopup event={selectedEvent} clients={clients} onClose={closeEventPopup} onEdit={() => {}} onDelete={() => {}} />
+      )}
     </div>
   );
 };

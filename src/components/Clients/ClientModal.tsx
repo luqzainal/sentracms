@@ -336,7 +336,6 @@ const ClientModal: React.FC<ClientModalProps> = ({ client, onClose, onSave }) =>
                   name="pic1"
                   value={formData.pic1}
                   onChange={handleChange}
-                  required
                   className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none"
                 >
                   <option value="">Select PIC 1</option>
@@ -370,7 +369,7 @@ const ClientModal: React.FC<ClientModalProps> = ({ client, onClose, onSave }) =>
                       </option>
                     ))
                   ) : (
-                    <option value="" disabled>Tiada Admin Team tersedia</option>
+                    <option value="" disabled>No Admin Team available</option>
                   )}
                 </select>
               </div>

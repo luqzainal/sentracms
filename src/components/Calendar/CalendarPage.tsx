@@ -571,17 +571,7 @@ const CalendarPage: React.FC<CalendarPageProps> = ({ onToggleSidebar }) => {
         {view === 'month' && <div className="grid grid-cols-7 border-l border-t border-slate-200">{renderCalendarDays()}</div>}
         {view === 'week' && renderWeekView()}
         {view === 'day' && renderDayView()}
-        
-        {/* Add Event Button */}
-        <div className="p-4 border-t border-slate-200">
-          <button
-            onClick={() => setShowEditEventModal(true)}
-            className="flex items-center space-x-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
-          >
-            <CalendarIcon className="w-4 h-4" />
-            <span>Add Event</span>
-          </button>
-        </div>
+
       </div>
 
 

@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Routes, Route, useNavigate, useLocation } from 'react-router-dom';
 import { ArrowLeft, Home, BarChart3, MessageSquare, FileText, Package, Clock, LogOut, DollarSign, Eye, Plus } from 'lucide-react';
 import { useAppStore } from '../../store/AppStore';
+import Logo from '../common/Logo';
 
 // Lazy load components
 const ClientPortalDashboard = React.lazy(() => import('./ClientPortalDashboard'));
@@ -80,7 +81,7 @@ const ClientPortalLayout: React.FC<ClientPortalLayoutProps> = ({ user, onLogout 
   };
 
   return (
-    <div className="min-h-screen bg-slate-50 flex">
+    <div className="min-h-screen bg-slate-100">
       {/* Mobile sidebar overlay */}
       {sidebarOpen && (
         <div 
@@ -90,31 +91,25 @@ const ClientPortalLayout: React.FC<ClientPortalLayoutProps> = ({ user, onLogout 
       )}
 
       {/* Sidebar */}
-      <div className={`fixed inset-y-0 left-0 z-50 w-64 bg-white shadow-lg transform transition-transform duration-300 ease-in-out lg:translate-x-0 lg:static lg:inset-0 ${
+      <div className={`fixed inset-y-0 left-0 z-50 w-64 bg-sidebar-bg shadow-lg transform transition-transform duration-300 ease-in-out ${
         sidebarOpen ? 'translate-x-0' : '-translate-x-full'
-      }`}>
+      } lg:translate-x-0`}>
         <div className="flex flex-col h-full">
           {/* Header */}
-          <div className="flex items-center justify-between p-4 border-b border-slate-200">
-            <div className="flex items-center space-x-3">
-              <div className="w-8 h-8 bg-blue-500 rounded-full flex items-center justify-center text-white font-medium">
-                {client?.name?.substring(0, 2).toUpperCase() || 'CL'}
-              </div>
-              <div>
-                <h1 className="font-semibold text-slate-900">Client Portal</h1>
-                <p className="text-xs text-slate-600">{client?.name || 'Loading...'}</p>
-              </div>
+          <div className="flex items-center justify-between p-4 border-b border-gray-700">
+            <div className="flex-1 flex items-center justify-center">
+              <Logo size="xlarge" />
             </div>
             <button
               onClick={() => setSidebarOpen(false)}
-              className="lg:hidden p-1 text-slate-600 hover:text-slate-900"
+              className="lg:hidden p-2 rounded-lg hover:bg-gray-700 transition-colors"
             >
-              <ArrowLeft className="w-5 h-5" />
+              <ArrowLeft className="w-5 h-5 text-sidebar-text" />
             </button>
           </div>
 
           {/* Navigation */}
-          <nav className="flex-1 p-4 space-y-2">
+          <nav className="mt-4 px-4 space-y-2 flex-1 overflow-y-auto">
             {navigation.map((item) => {
               const isActive = currentPath === item.href;
               return (
@@ -124,29 +119,31 @@ const ClientPortalLayout: React.FC<ClientPortalLayoutProps> = ({ user, onLogout 
                     navigate(item.href);
                     setSidebarOpen(false);
                   }}
-                  className={`w-full flex items-center space-x-3 px-3 py-2 rounded-lg text-left transition-colors ${
+                  className={`w-full flex items-center justify-between px-3 py-2 text-left rounded-lg transition-colors ${
                     isActive
-                      ? 'bg-blue-50 text-blue-700 border border-blue-200'
-                      : 'text-slate-700 hover:bg-slate-100'
+                      ? 'bg-sidebar-menu-active text-black'
+                      : 'text-sidebar-text hover:bg-gray-700'
                   }`}
                 >
-                  <item.icon className="w-5 h-5" />
-                  <span className="font-medium">{item.name}</span>
+                  <div className="flex items-center space-x-3">
+                    <item.icon className="w-5 h-5" />
+                    <span className="font-medium">{item.name}</span>
+                  </div>
                   {item.name === 'Chat' && clientChat && clientChat.client_unread_count > 0 && (
-                    <div className="ml-auto w-5 h-5 bg-red-500 rounded-full flex items-center justify-center">
-                      <span className="text-xs text-white font-medium">{clientChat.client_unread_count}</span>
-                    </div>
+                    <span className="bg-red-500 text-white text-xs px-2 py-1 rounded-full min-w-[20px] text-center">
+                      {clientChat.client_unread_count}
+                    </span>
                   )}
                 </button>
               );
             })}
           </nav>
 
-          {/* Footer */}
-          <div className="p-4 border-t border-slate-200">
+          {/* Footer - Fixed at bottom */}
+          <div className="absolute bottom-0 left-0 right-0 p-4 border-t border-gray-700">
             <button
               onClick={handleLogout}
-              className="w-full flex items-center space-x-3 px-3 py-2 rounded-lg text-left text-red-600 hover:bg-red-50 transition-colors"
+              className="w-full flex items-center space-x-3 px-3 py-2 text-red-500 hover:bg-red-50 hover:bg-opacity-20 rounded-lg transition-colors"
             >
               <LogOut className="w-5 h-5" />
               <span className="font-medium">Logout</span>
@@ -156,7 +153,7 @@ const ClientPortalLayout: React.FC<ClientPortalLayoutProps> = ({ user, onLogout 
       </div>
 
       {/* Main content */}
-      <div className="flex-1 flex flex-col min-h-screen">
+      <div className="lg:ml-64 flex flex-col min-h-screen">
         {/* Mobile header */}
         <div className="lg:hidden bg-white border-b border-slate-200 px-4 py-3">
           <div className="flex items-center justify-between">
@@ -174,24 +171,24 @@ const ClientPortalLayout: React.FC<ClientPortalLayoutProps> = ({ user, onLogout 
         </div>
 
         {/* Page content */}
-        <div className="flex-1">
+        <main className="bg-slate-50 px-0 pt-0 pb-4">
           <React.Suspense fallback={
-            <div className="flex items-center justify-center h-64">
+            <div className="flex items-center justify-center h-full">
               <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
             </div>
           }>
             <Routes>
-              <Route path="/client" element={<ClientPortalDashboard user={user} onBack={handleLogout} />} />
+              <Route path="/client" element={<ClientPortalDashboard user={user} />} />
               <Route path="/client/progress" element={<ClientPortalProgress user={user} onBack={() => navigate('/client')} />} />
               <Route path="/client/packages" element={<ClientPortalPackages user={user} onBack={() => navigate('/client')} />} />
               <Route path="/client/billing" element={<ClientPortalBilling user={user} onBack={() => navigate('/client')} />} />
               <Route path="/client/appointments" element={<ClientPortalAppointments user={user} onBack={() => navigate('/client')} />} />
               <Route path="/client/chat" element={<ClientPortalChat user={user} onBack={() => navigate('/client')} />} />
               <Route path="/client/add-ons" element={<ClientPortalAddOnServices user={user} onBack={() => navigate('/client')} />} />
-              <Route path="*" element={<ClientPortalDashboard user={user} onBack={handleLogout} />} />
+              <Route path="*" element={<ClientPortalDashboard user={user} />} />
             </Routes>
           </React.Suspense>
-        </div>
+        </main>
       </div>
     </div>
   );

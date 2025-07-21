@@ -8,7 +8,7 @@ interface ClientPortalProgressProps {
   onBack: () => void;
 }
 
-const ClientPortalProgress: React.FC<ClientPortalProgressProps> = ({ user, onBack }) => {
+const ClientPortalProgress: React.FC<ClientPortalProgressProps> = ({ onBack }) => {
   const { 
     clients, 
     getProgressStepsByClientId,
@@ -40,7 +40,7 @@ const ClientPortalProgress: React.FC<ClientPortalProgressProps> = ({ user, onBac
 
   if (isLoading) {
     return (
-      <div className="min-h-screen bg-slate-50 flex items-center justify-center p-4">
+      <div className="bg-slate-50 flex items-center justify-center p-4">
         <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
       </div>
     );
@@ -71,7 +71,7 @@ const ClientPortalProgress: React.FC<ClientPortalProgressProps> = ({ user, onBac
     <div className="bg-slate-50">
       {/* Header */}
       <div className="bg-white border-b border-slate-200 px-4 lg:px-8 py-4">
-        <div className="max-w-4xl mx-auto flex items-center justify-between">
+        <div className="flex items-center justify-between">
           <div className="flex items-center space-x-4">
             <button
               onClick={onBack}
@@ -88,7 +88,7 @@ const ClientPortalProgress: React.FC<ClientPortalProgressProps> = ({ user, onBac
       </div>
 
       {/* Content */}
-      <div className="max-w-4xl mx-auto p-4 lg:p-8">
+      <div className="p-4 lg:p-8">
         <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-6 mb-6">
           <div className="flex items-center space-x-3 mb-4">
             <div className="w-12 h-12 bg-blue-100 rounded-full flex items-center justify-center">

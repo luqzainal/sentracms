@@ -2845,10 +2845,39 @@ export const useAppStore = create<AppState>((set, get) => ({
     return salesByMonth;
   },
 
-  // Get monthly sales data for current year
+  // Get monthly sales data for current year (based on total sales, not collections)
   getMonthlySalesData: () => {
     const currentYear = new Date().getFullYear();
-    const salesByMonth = get().getSalesByPaymentDate();
+    const invoices = get().invoices;
+    const salesByMonth: { [key: string]: number } = {};
+    
+    console.log('🔍 getMonthlySalesData Debug:', {
+      currentYear,
+      invoicesCount: invoices.length,
+      invoicesData: invoices.map(inv => ({
+        id: inv.id,
+        amount: inv.amount,
+        createdAt: inv.createdAt,
+        year: new Date(inv.createdAt).getFullYear()
+      }))
+    });
+    
+    // Group sales by invoice creation month (not payment date)
+    invoices.forEach(invoice => {
+      const invoiceDate = new Date(invoice.createdAt);
+      if (invoiceDate.getFullYear() === currentYear) {
+        const monthKey = invoiceDate.toISOString().slice(0, 7); // YYYY-MM format
+        
+        if (!salesByMonth[monthKey]) {
+          salesByMonth[monthKey] = 0;
+        }
+        salesByMonth[monthKey] += Number(invoice.amount) || 0;
+        
+        console.log(`📊 Adding invoice ${invoice.id}: RM${invoice.amount} to ${monthKey}`);
+      }
+    });
+    
+    console.log('📊 Sales by month:', salesByMonth);
     
     return Array.from({ length: 12 }, (_, index) => {
       const month = (index + 1).toString().padStart(2, '0');
