@@ -377,7 +377,7 @@ const ClientModal: React.FC<ClientModalProps> = ({ client, onClose, onSave }) =>
 
               {/* Additional PICs */}
               {formData.additionalPics.map((pic, index) => (
-                <div key={index} className="flex items-end space-x-2">
+                <div key={index} className="flex items-end space-x-2 mb-3">
                   <div className="flex-1">
                     <label className="block text-sm font-medium text-slate-700 mb-2">
                       PIC {pic.position}
@@ -387,7 +387,7 @@ const ClientModal: React.FC<ClientModalProps> = ({ client, onClose, onSave }) =>
                       onChange={(e) => handleAdditionalPicChange(index, 'name', e.target.value)}
                       className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none"
                     >
-                      <option value="">Pilih PIC {pic.position}</option>
+                      <option value={''}>Select PIC {pic.position}</option>
                       {getAvailableUsersForPic(pic.name).map(user => (
                         <option key={user.id} value={user.name}>
                           {user.name} ({user.role})
