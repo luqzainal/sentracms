@@ -431,27 +431,10 @@ const ClientProfile: React.FC<ClientProfileProps> = ({ clientId, onBack, onEdit 
                 <label className="text-sm font-medium text-gray-500">Package Name:</label>
                 <p className="text-gray-900">{displayPackageName}</p>
               </div>
-              {/* Papar PIC dan Admin Team berasingan */}
-              {(() => {
-                let pic = '';
-                let adminTeam = '';
-                if (client.pic && client.pic.includes(' - ')) {
-                  [pic, adminTeam] = client.pic.split(' - ');
-                } else {
-                  pic = client.pic || '';
-                  adminTeam = '';
-                }
-                return <>
-                  <div>
-                    <label className="text-sm font-medium text-gray-500">PIC:</label>
-                    <p className="text-gray-900">{pic || 'Not assigned'}</p>
-                  </div>
-                  <div>
-                    <label className="text-sm font-medium text-gray-500">Admin Team:</label>
-                    <p className="text-gray-900">{adminTeam || 'Not assigned'}</p>
-                  </div>
-                </>;
-              })()}
+              <div>
+                <label className="text-sm font-medium text-gray-500">PIC:</label>
+                <p className="text-gray-900">{client.pic || 'Not assigned'}</p>
+              </div>
               <div>
                 <label className="text-sm font-medium text-gray-500">Tags:</label>
                 <div className="flex flex-wrap gap-1 mt-1">

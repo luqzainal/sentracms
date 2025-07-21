@@ -389,6 +389,9 @@ interface AppState {
   createTestUsers: () => Promise<void>;
   cleanOrphanedChats: () => Promise<number>;
   mergeDuplicateChats: () => Promise<number>;
+  refreshDashboardData: () => Promise<void>;
+  listAllInvoices: () => Promise<void>;
+  cleanOrphanedInvoices: () => Promise<number>;
 
   getClientRole: (clientId: number) => string;
   
@@ -1704,6 +1707,21 @@ export const useAppStore = create<AppState>((set, get) => ({
         await invoicesService.delete(invoiceId);
         console.log(`Invoice ${invoiceId} deleted from database successfully`);
         
+        // Update client totals in the database
+        const client = state.clients.find(c => c.id === invoice.clientId);
+        if (client) {
+          const newTotalSales = Math.max(0, client.totalSales - invoice.amount);
+          const newBalance = Math.max(0, client.balance - invoice.amount);
+          const newInvoiceCount = Math.max(0, client.invoiceCount - 1);
+          
+          await clientsService.update(client.id, {
+            total_sales: newTotalSales,
+            balance: newBalance,
+            invoice_count: newInvoiceCount,
+          });
+          console.log(`Client ${client.id} totals updated in database after invoice deletion`);
+        }
+        
         // Then update local state
         set((state) => ({
           invoices: state.invoices.filter((inv) => inv.id !== invoiceId),
@@ -1723,6 +1741,13 @@ export const useAppStore = create<AppState>((set, get) => ({
           ),
           // Keep progress steps - don't delete them when invoice is deleted
         }));
+        
+        // Refresh clients data to ensure dashboard and reports are updated
+        await get().fetchClients();
+        
+        // Auto-recalculate totals to fix any inconsistencies
+        console.log('🔄 Auto-recalculating totals after invoice deletion...');
+        await get().recalculateAllClientTotals();
       } catch (error) {
         console.error('Error deleting invoice:', error);
         throw error;
@@ -2025,6 +2050,13 @@ export const useAppStore = create<AppState>((set, get) => ({
               : invoice
           ),
         }));
+        
+        // Refresh clients data to ensure dashboard and reports are updated
+        await get().fetchClients();
+        
+        // Auto-recalculate totals to fix any inconsistencies
+        console.log('🔄 Auto-recalculating totals after payment deletion...');
+        await get().recalculateAllClientTotals();
       } catch (error) {
         console.error('Error deleting payment:', error);
         throw error;
@@ -2758,24 +2790,39 @@ export const useAppStore = create<AppState>((set, get) => ({
   },
 
   getTotalSales: () => {
-    return get().clients.reduce((total, client) => {
+    const total = get().clients.reduce((total, client) => {
       const clientSales = Number(client.totalSales) || 0;
       return total + clientSales;
     }, 0);
+    console.log('📊 getTotalSales called:', {
+      clients: get().clients.map(c => ({ id: c.id, name: c.name, totalSales: c.totalSales })),
+      total
+    });
+    return total;
   },
 
   getTotalCollection: () => {
-    return get().clients.reduce((total, client) => {
+    const total = get().clients.reduce((total, client) => {
       const clientCollection = Number(client.totalCollection) || 0;
       return total + clientCollection;
     }, 0);
+    console.log('📊 getTotalCollection called:', {
+      clients: get().clients.map(c => ({ id: c.id, name: c.name, totalCollection: c.totalCollection })),
+      total
+    });
+    return total;
   },
 
   getTotalBalance: () => {
-    return get().clients.reduce((total, client) => {
+    const total = get().clients.reduce((total, client) => {
       const clientBalance = Number(client.balance) || 0;
       return total + clientBalance;
     }, 0);
+    console.log('📊 getTotalBalance called:', {
+      clients: get().clients.map(c => ({ id: c.id, name: c.name, balance: c.balance })),
+      total
+    });
+    return total;
   },
 
   // Get sales data grouped by payment date (month/year)
@@ -2822,15 +2869,31 @@ export const useAppStore = create<AppState>((set, get) => ({
     console.log('=== Recalculating all client financial data ===');
     const state = get();
     
-    for (const client of state.clients) {
+    // First, refresh all data from database to ensure we have the latest
+    console.log('🔄 Refreshing data from database...');
+    await Promise.all([
+      get().fetchInvoices(),
+      get().fetchPayments(),
+      get().fetchClients()
+    ]);
+    
+    const updatedState = get();
+    console.log('📊 Current invoices in database:', updatedState.invoices.map(inv => ({
+      id: inv.id,
+      clientId: inv.clientId,
+      packageName: inv.packageName,
+      amount: inv.amount
+    })));
+    
+    for (const client of updatedState.clients) {
       console.log(`Recalculating for client ${client.id} (${client.name})`);
       
       // Get all invoices for this client
-      const clientInvoices = state.invoices.filter(inv => inv.clientId === client.id);
+      const clientInvoices = updatedState.invoices.filter(inv => inv.clientId === client.id);
       const totalSales = clientInvoices.reduce((sum, inv) => sum + Number(inv.amount), 0);
       
       // Get all payments for this client
-      const clientPayments = state.payments.filter(pay => pay.clientId === client.id);
+      const clientPayments = updatedState.payments.filter(pay => pay.clientId === client.id);
       const totalCollection = clientPayments.reduce((sum, pay) => sum + Number(pay.amount), 0);
       
       // Calculate balance
@@ -2842,7 +2905,9 @@ export const useAppStore = create<AppState>((set, get) => ({
         oldTotalCollection: client.totalCollection,
         newTotalCollection: totalCollection,
         oldBalance: client.balance,
-        newBalance: balance
+        newBalance: balance,
+        invoiceCount: clientInvoices.length,
+        invoices: clientInvoices.map(inv => ({ id: inv.id, amount: inv.amount }))
       });
       
       // Update in database
@@ -2947,6 +3012,29 @@ export const useAppStore = create<AppState>((set, get) => ({
       return mergedCount;
     } catch (error) {
       console.error('Error merging duplicate chats:', error);
+      throw error;
+    }
+  },
+
+  refreshDashboardData: async () => {
+    try {
+      console.log('🔄 Refreshing dashboard data...');
+      await Promise.all([
+        get().fetchClients(),
+        get().fetchInvoices(),
+        get().fetchPayments(),
+        get().fetchComponents(),
+        get().fetchProgressSteps(),
+        get().fetchCalendarEvents(),
+        get().fetchChats(),
+        get().fetchTags(),
+        get().fetchUsers(),
+        get().fetchAddOnServices(),
+        get().fetchClientServiceRequests()
+      ]);
+      console.log('✅ Dashboard data refreshed successfully');
+    } catch (error) {
+      console.error('Error refreshing dashboard data:', error);
       throw error;
     }
   },
@@ -3635,6 +3723,32 @@ export const useAppStore = create<AppState>((set, get) => ({
       console.log(`Client pics reordered successfully for client ${clientId}`);
     } catch (error) {
       console.error('Error reordering client pics:', error);
+      throw error;
+    }
+  },
+
+  listAllInvoices: async () => {
+    try {
+      const allInvoices = await invoicesService.getAll();
+      set({ invoices: allInvoices });
+      console.log('All invoices listed successfully');
+    } catch (error) {
+      console.error('Error listing all invoices:', error);
+      throw error;
+    }
+  },
+
+  cleanOrphanedInvoices: async () => {
+    try {
+      const deletedCount = await invoicesService.cleanOrphanedInvoices();
+      console.log(`Cleaned ${deletedCount} orphaned invoices`);
+      
+      // Refresh invoices after cleaning
+      await get().fetchInvoices();
+      
+      return deletedCount;
+    } catch (error) {
+      console.error('Error cleaning orphaned invoices:', error);
       throw error;
     }
   }

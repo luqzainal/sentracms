@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Download, Filter, TrendingUp, DollarSign, Users, Database, CreditCard, UserX, CheckCircle, Clock, Menu } from 'lucide-react';
+import { Download, Filter, TrendingUp, DollarSign, Users, Database, CreditCard, UserX, CheckCircle, Clock, Menu, RefreshCw } from 'lucide-react';
 import { useAppStore } from '../../store/AppStore';
 import logoImage from '../../assets/AiChatbot (15).png';
 
@@ -276,7 +276,8 @@ const ReportsPage: React.FC<ReportsPageProps> = ({ onToggleSidebar }) => {
     fetchPayments,
     fetchProgressSteps,
     getMonthlySalesData,
-    calculateClientProgressStatus
+    calculateClientProgressStatus,
+    refreshDashboardData
     // getTotalSales, 
     // getTotalCollection, 
     // getTotalBalance 
@@ -379,6 +380,15 @@ const ReportsPage: React.FC<ReportsPageProps> = ({ onToggleSidebar }) => {
         </div>
         </div>
         <div className="flex items-center space-x-2 lg:space-x-3 flex-wrap gap-2">
+          {/* Refresh Button */}
+          <button
+            onClick={refreshDashboardData}
+            className="flex items-center space-x-2 bg-green-600 hover:bg-green-700 text-white rounded-lg px-3 lg:px-4 py-2 transition-colors"
+          >
+            <RefreshCw className="w-4 h-4" />
+            <span className="text-xs lg:text-sm font-medium">Refresh</span>
+          </button>
+          
           {/* Date Filter */}
           <div className="flex items-center space-x-1 lg:space-x-2">
             <Filter className="w-4 h-4 text-slate-500" />

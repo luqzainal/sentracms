@@ -34,6 +34,7 @@ const ClientPortalDashboard: React.FC<ClientPortalDashboardProps> = ({ user, onB
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [isSending, setIsSending] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
+  const [isLoading, setIsLoading] = useState(true); // Tambah loading state ringan
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const { addOnServices, fetchAddOnServices, addClientServiceRequest, getClientServiceRequestsByClientId, fetchClientServiceRequests } = useAppStore();
@@ -51,10 +52,13 @@ const ClientPortalDashboard: React.FC<ClientPortalDashboardProps> = ({ user, onB
       available: service.status === 'Available'
     }));
 
-  // Fetch add-on services and client service requests on component mount
+  // Fetch add-on services and client service requests on component mount (background)
   useEffect(() => {
-    fetchAddOnServices();
-    fetchClientServiceRequests();
+    // Tunda fetch supaya tidak block paparan utama
+    setTimeout(() => {
+      fetchAddOnServices();
+      fetchClientServiceRequests();
+    }, 500);
   }, [fetchAddOnServices, fetchClientServiceRequests]);
 
   const { 
@@ -101,40 +105,33 @@ const ClientPortalDashboard: React.FC<ClientPortalDashboardProps> = ({ user, onB
         await Promise.all([
           fetchClients(),
           fetchProgressSteps(),
-          fetchComponents()
-        ]);
-        
-        // Set loading to false after essential data is loaded
-        // setIsLoading(false); // This state was removed
-        
-        // Load non-critical data in background
-        Promise.all([
+          fetchComponents(),
           fetchInvoices(),
-          fetchPayments(),
-          fetchChats(),
-          fetchCalendarEvents()
-        ]).catch(error => {
-          console.error("Failed to fetch non-critical data:", error);
-        });
-        
+          fetchPayments()
+        ]);
+        setIsLoading(false); // Paparan utama boleh render
+        // Load non-critical data in background
+        setTimeout(() => {
+          fetchChats();
+          fetchCalendarEvents();
+        }, 500);
       } catch (error) {
+        setIsLoading(false);
         console.error("Failed to fetch essential client portal data:", error);
-        // setIsLoading(false); // This state was removed
       }
     };
-
     fetchData();
   }, [fetchClients, fetchProgressSteps, fetchComponents, fetchInvoices, fetchPayments, fetchChats, fetchCalendarEvents]);
 
   // If a client is logged in, the clients array should contain exactly one client.
   
-  // if (isLoading) { // This state was removed
-  //   return (
-  //     <div className="min-h-screen bg-slate-50 flex items-center justify-center p-4">
-  //       <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
-  //     </div>
-  //   );
-  // }
+  if (isLoading) {
+    return (
+      <div className="min-h-screen bg-slate-50 flex items-center justify-center p-4">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
+      </div>
+    );
+  }
   
   if (!client) {
     return (

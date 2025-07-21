@@ -14,7 +14,7 @@
     "db:setup": "node scripts/setup-database.js",
     "db:test": "node scripts/test-db-connection.js",
     "db:monitor": "node scripts/monitor-database-performance.js",
-    "db:reset": "node scripts/reset-database.js",
+    "db:reset": "node scripts/reset-database.mjs",
     "db:create-links": "node scripts/create-client-links-table.js",
     "db:create-files": "node scripts/create-client-files-table.js",
     "db:setup-tags": "node scripts/setup-tags-table.js",

@@ -188,9 +188,17 @@ const CalendarPage: React.FC<CalendarPageProps> = ({ onToggleSidebar }) => {
   const handleNavigation = useCallback((direction: 'prev' | 'next') => {
     const newDate = new Date(currentDate);
     const offset = direction === 'next' ? 1 : -1;
-    if (view === 'month') newDate.setMonth(currentDate.getMonth() + offset);
-    else if (view === 'week') newDate.setDate(currentDate.getDate() + (offset * 7));
-    else newDate.setDate(currentDate.getDate() + offset);
+    
+    if (view === 'month') {
+      newDate.setMonth(currentDate.getMonth() + offset);
+    } else if (view === 'week') {
+      // Navigate by weeks (7 days)
+      newDate.setDate(currentDate.getDate() + (offset * 7));
+    } else {
+      // Day view - navigate by days
+      newDate.setDate(currentDate.getDate() + offset);
+    }
+    
     setCurrentDate(newDate);
   }, [currentDate, view]);
 
@@ -395,8 +403,87 @@ const CalendarPage: React.FC<CalendarPageProps> = ({ onToggleSidebar }) => {
   };
 
   const renderWeekView = () => {
-      // Logic for week view can be re-implemented here if needed
-      return <div className="p-4 text-center">Week view is under construction.</div>;
+    // Get the start of the week (Sunday)
+    const startOfWeek = new Date(currentDate);
+    const dayOfWeek = startOfWeek.getDay();
+    startOfWeek.setDate(startOfWeek.getDate() - dayOfWeek);
+    
+    // Generate array of 7 days starting from Sunday
+    const weekDays = [];
+    for (let i = 0; i < 7; i++) {
+      const date = new Date(startOfWeek);
+      date.setDate(startOfWeek.getDate() + i);
+      weekDays.push(date);
+    }
+    
+    // Get events for each day of the week
+    const getEventsForWeekDay = (date: Date) => {
+      const dateStr = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
+      
+      return events.filter(event => {
+        // Direct match
+        if (event.date === dateStr) return true;
+        
+        // Try to parse and compare dates if formats don't match
+        try {
+          const eventDate = new Date(event.date);
+          const targetDate = new Date(dateStr);
+          return eventDate.getFullYear() === targetDate.getFullYear() &&
+                 eventDate.getMonth() === targetDate.getMonth() &&
+                 eventDate.getDate() === targetDate.getDate();
+        } catch (e) {
+          return false;
+        }
+      });
+    };
+    
+    const today = new Date();
+    const isToday = (date: Date) => {
+      return date.getDate() === today.getDate() && 
+             date.getMonth() === today.getMonth() && 
+             date.getFullYear() === today.getFullYear();
+    };
+    
+    return (
+      <div className="grid grid-cols-7 border-l border-t border-slate-200">
+        {weekDays.map((date, index) => {
+          const dayEvents = getEventsForWeekDay(date);
+          const isCurrentDay = isToday(date);
+          
+          return (
+            <div 
+              key={index} 
+              className={`min-h-[200px] p-2 border-b border-r border-slate-200 ${isCurrentDay ? 'bg-blue-50' : ''}`}
+            >
+              <div className={`text-sm font-medium mb-2 ${isCurrentDay ? 'text-blue-600' : 'text-slate-700'}`}>
+                {date.toLocaleDateString('en-US', { weekday: 'short' })}
+              </div>
+              <div className={`text-lg font-bold mb-2 ${isCurrentDay ? 'text-blue-600' : 'text-slate-900'}`}>
+                {date.getDate()}
+              </div>
+              <div className="space-y-1">
+                {dayEvents.slice(0, 4).map(event => (
+                  <div 
+                    key={event.id} 
+                    onClick={() => handleEventClick(event)} 
+                    className={`text-xs p-1 rounded border ${getEventTypeColor(event.type)} truncate cursor-pointer hover:opacity-80`}
+                    title={`${event.title} - ${event.time}`}
+                  >
+                    <div className="font-medium truncate">{event.title}</div>
+                    <div className="text-xs opacity-75">{event.time}</div>
+                  </div>
+                ))}
+                {dayEvents.length > 4 && (
+                  <div className="text-xs text-slate-500 mt-1">
+                    +{dayEvents.length - 4} more
+                  </div>
+                )}
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    );
   };
 
   const renderDayView = () => {
@@ -421,8 +508,30 @@ const CalendarPage: React.FC<CalendarPageProps> = ({ onToggleSidebar }) => {
   };
 
   const getViewTitle = () => {
-      if (view === 'month') return `${monthNames[currentDate.getMonth()]} ${currentDate.getFullYear()}`;
+    if (view === 'month') {
+      return `${monthNames[currentDate.getMonth()]} ${currentDate.getFullYear()}`;
+    } else if (view === 'week') {
+      // Get the start of the week (Sunday)
+      const startOfWeek = new Date(currentDate);
+      const dayOfWeek = startOfWeek.getDay();
+      startOfWeek.setDate(startOfWeek.getDate() - dayOfWeek);
+      
+      // Get the end of the week (Saturday)
+      const endOfWeek = new Date(startOfWeek);
+      endOfWeek.setDate(startOfWeek.getDate() + 6);
+      
+      const startMonth = startOfWeek.getMonth();
+      const endMonth = endOfWeek.getMonth();
+      const year = startOfWeek.getFullYear();
+      
+      if (startMonth === endMonth) {
+        return `${monthNames[startMonth]} ${startOfWeek.getDate()} - ${endOfWeek.getDate()}, ${year}`;
+      } else {
+        return `${monthNames[startMonth]} ${startOfWeek.getDate()} - ${monthNames[endMonth]} ${endOfWeek.getDate()}, ${year}`;
+      }
+    } else {
       return currentDate.toLocaleDateString('en-US', { dateStyle: 'full' });
+    }
   };
   
   const Modal = ({ children, onClose }: { children: React.ReactNode, onClose: () => void }) => (
@@ -454,14 +563,25 @@ const CalendarPage: React.FC<CalendarPageProps> = ({ onToggleSidebar }) => {
       </div>
 
       <div className="bg-white rounded-xl shadow-sm border border-slate-200">
-          {(view === 'month' || view === 'week') && (
+        {(view === 'month' || view === 'week') && (
           <div className="grid grid-cols-7 text-center font-medium text-slate-600 border-b">
             {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map(day => <div key={day} className="p-3">{day}</div>)}
           </div>
-          )}
+        )}
         {view === 'month' && <div className="grid grid-cols-7 border-l border-t border-slate-200">{renderCalendarDays()}</div>}
-          {view === 'week' && renderWeekView()}
-          {view === 'day' && renderDayView()}
+        {view === 'week' && renderWeekView()}
+        {view === 'day' && renderDayView()}
+        
+        {/* Add Event Button */}
+        <div className="p-4 border-t border-slate-200">
+          <button
+            onClick={() => setShowEditEventModal(true)}
+            className="flex items-center space-x-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+          >
+            <CalendarIcon className="w-4 h-4" />
+            <span>Add Event</span>
+          </button>
+        </div>
       </div>
 
 

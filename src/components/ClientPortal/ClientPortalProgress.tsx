@@ -12,10 +12,39 @@ const ClientPortalProgress: React.FC<ClientPortalProgressProps> = ({ user, onBac
   const { 
     clients, 
     getProgressStepsByClientId,
+    fetchClients,
+    fetchProgressSteps,
     calculateClientProgressStatus
   } = useAppStore();
 
+  const [isLoading, setIsLoading] = useState(true);
+
+  useEffect(() => {
+    // Fetch hanya data penting untuk progress
+    const fetchData = async () => {
+      try {
+        await Promise.all([
+          fetchClients(),
+          fetchProgressSteps()
+        ]);
+      } catch (err) {
+        // Biar error log sahaja
+      } finally {
+        setIsLoading(false);
+      }
+    };
+    fetchData();
+  }, [fetchClients, fetchProgressSteps]);
+
   const client = clients.length > 0 ? clients[0] : null;
+
+  if (isLoading) {
+    return (
+      <div className="min-h-screen bg-slate-50 flex items-center justify-center p-4">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
+      </div>
+    );
+  }
 
   if (!client) {
     return (

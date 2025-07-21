@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useEffect } from 'react';
-import { Users, DollarSign, TrendingUp, Calendar, MessageSquare, UserPlus, Filter, Database, CreditCard, Clock, BarChart3, Activity, Menu } from 'lucide-react';
+import { Users, DollarSign, TrendingUp, Calendar, MessageSquare, UserPlus, Filter, Database, CreditCard, Clock, BarChart3, Activity, Menu, RefreshCw } from 'lucide-react';
 import { useAppStore } from '../../store/AppStore';
 import { dbConnectionStatus } from '../../context/SupabaseContext';
 
@@ -18,6 +18,7 @@ const Dashboard: React.FC<DashboardProps> = ({ setActiveTab, onToggleSidebar }) 
     clients,
     chats,
     invoices,
+    payments,
     calendarEvents,
     loading,
     fetchClients,
@@ -31,7 +32,9 @@ const Dashboard: React.FC<DashboardProps> = ({ setActiveTab, onToggleSidebar }) 
     getTotalBalance,
     getUnreadMessagesCount,
     getMonthlySalesData,
-    calculateClientProgressStatus
+    calculateClientProgressStatus,
+    refreshDashboardData,
+    recalculateAllClientTotals
   } = useAppStore();
 
   useEffect(() => {
@@ -44,6 +47,42 @@ const Dashboard: React.FC<DashboardProps> = ({ setActiveTab, onToggleSidebar }) 
     fetchCalendarEvents();
     fetchProgressSteps();
   }, [fetchClients, fetchChats, fetchTags, fetchPayments, fetchCalendarEvents, fetchProgressSteps]);
+
+  // Add a refresh effect when clients data changes
+  useEffect(() => {
+    console.log('🔄 Dashboard: Clients data changed, recalculating metrics...');
+    console.log('Current clients data:', clients.map(c => ({
+      id: c.id,
+      name: c.name,
+      totalSales: c.totalSales,
+      totalCollection: c.totalCollection,
+      balance: c.balance
+    })));
+  }, [clients]);
+
+  // Auto-recalculate totals when invoices or payments change
+  useEffect(() => {
+    const checkAndRecalculate = async () => {
+      // Check if totals are correct
+      const expectedTotalSales = invoices.reduce((sum, inv) => sum + Number(inv.amount), 0);
+      const currentTotalSales = getTotalSales();
+      
+      if (Math.abs(expectedTotalSales - currentTotalSales) > 0.01) {
+        console.log('⚠️ Total Sales mismatch detected:', {
+          expected: expectedTotalSales,
+          current: currentTotalSales,
+          difference: expectedTotalSales - currentTotalSales
+        });
+        console.log('🔄 Auto-recalculating totals...');
+        await recalculateAllClientTotals();
+      }
+    };
+
+    // Only run if we have data
+    if (clients.length > 0 && invoices.length > 0) {
+      checkAndRecalculate();
+    }
+  }, [invoices, payments, clients.length, recalculateAllClientTotals]);
 
   // Calculate metrics
   const totalSales = getTotalSales();
@@ -224,6 +263,24 @@ const Dashboard: React.FC<DashboardProps> = ({ setActiveTab, onToggleSidebar }) 
         </div>
         
         <div className="flex items-center space-x-3 lg:space-x-6 flex-wrap gap-2">
+          {/* Refresh Button */}
+          <button
+            onClick={refreshDashboardData}
+            className="flex items-center space-x-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg px-3 lg:px-4 py-2 transition-colors"
+          >
+            <RefreshCw className="w-4 h-4" />
+            <span className="text-xs lg:text-sm font-medium">Refresh</span>
+          </button>
+          
+          {/* Force Recalculate Button */}
+          <button
+            onClick={recalculateAllClientTotals}
+            className="flex items-center space-x-2 bg-red-600 hover:bg-red-700 text-white rounded-lg px-3 lg:px-4 py-2 transition-colors"
+          >
+            <Database className="w-4 h-4" />
+            <span className="text-xs lg:text-sm font-medium">Fix Totals</span>
+          </button>
+          
           {/* Date Filter */}
           <div className="flex items-center space-x-2 lg:space-x-3 bg-white rounded-lg border border-slate-200 px-3 lg:px-4 py-2">
             <Filter className="w-4 h-4 text-slate-500" />

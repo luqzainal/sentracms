@@ -339,7 +339,7 @@ const ClientModal: React.FC<ClientModalProps> = ({ client, onClose, onSave }) =>
                   required
                   className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none"
                 >
-                  <option value="">Pilih PIC 1</option>
+                  <option value="">Select PIC 1</option>
                   {adminTeamUsers.length > 0 ? (
                     adminTeamUsers.map(user => (
                       <option key={user.id} value={user.name}>
@@ -347,7 +347,7 @@ const ClientModal: React.FC<ClientModalProps> = ({ client, onClose, onSave }) =>
                       </option>
                     ))
                   ) : (
-                    <option value="" disabled>Tiada Admin Team tersedia</option>
+                    <option value="" disabled>No Admin Team available</option>
                   )}
                 </select>
               </div>
@@ -362,7 +362,7 @@ const ClientModal: React.FC<ClientModalProps> = ({ client, onClose, onSave }) =>
                   onChange={handleChange}
                   className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none"
                 >
-                  <option value="">Pilih PIC 2</option>
+                  <option value="">Select PIC 2</option>
                   {adminTeamUsers.length > 0 ? (
                     adminTeamUsers.map(user => (
                       <option key={user.id} value={user.name}>
@@ -414,7 +414,7 @@ const ClientModal: React.FC<ClientModalProps> = ({ client, onClose, onSave }) =>
                     className="flex items-center space-x-2 px-4 py-2 text-blue-600 border border-blue-300 rounded-lg hover:bg-blue-50 transition-colors"
                   >
                     <Plus className="w-4 h-4" />
-                    <span>Tambah PIC</span>
+                    <span>Add PIC</span>
                   </button>
                 </div>
               )}
