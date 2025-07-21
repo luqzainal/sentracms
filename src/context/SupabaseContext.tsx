@@ -39,7 +39,7 @@ interface DatabaseContextType {
   loading: boolean;
   isAuthenticated: boolean;
   isDatabaseConnected: boolean;
-  signIn: (email: string, password: string) => Promise<{ data: any; error: any }>;
+  signIn: (email: string, password: string, rememberMe?: boolean) => Promise<{ data: any; error: any }>;
   signOut: () => Promise<{ error: any }>;
   signUp: (email: string, password: string, userData: {
     name: string;
@@ -73,16 +73,18 @@ export const DatabaseProvider: React.FC<DatabaseProviderProps> = ({ children }) 
         if (parsedUser && parsedUser.id && parsedUser.email && parsedUser.role) {
           console.log('🔄 Session restored for user:', parsedUser.email);
           
-          // Check if session is still valid (optional: add expiration check)
+          // Check if session is still valid with dynamic duration based on rememberMe
           const sessionTimestamp = localStorage.getItem('demoUserTimestamp');
+          const rememberMeFlag = localStorage.getItem('demoUserRememberMe') === 'true';
           const now = Date.now();
           const sessionAge = sessionTimestamp ? now - parseInt(sessionTimestamp) : 0;
-          const maxSessionAge = 24 * 60 * 60 * 1000; // 24 hours
+          const maxSessionAge = rememberMeFlag ? 30 * 24 * 60 * 60 * 1000 : 24 * 60 * 60 * 1000; // 30 days or 24 hours
           
           if (sessionAge > maxSessionAge) {
-            console.log('⚠️ Session expired, clearing...');
+            console.log('⚠️ Session expired, clearing...', rememberMeFlag ? '(30 days exceeded)' : '(24 hours exceeded)');
             localStorage.removeItem('demoUser');
             localStorage.removeItem('demoUserTimestamp');
+            localStorage.removeItem('demoUserRememberMe');
           } else {
             console.log('✅ Session is valid, restoring user');
             if (mounted) {
@@ -93,11 +95,13 @@ export const DatabaseProvider: React.FC<DatabaseProviderProps> = ({ children }) 
           console.log('❌ Invalid session data, clearing...');
           localStorage.removeItem('demoUser');
           localStorage.removeItem('demoUserTimestamp');
+          localStorage.removeItem('demoUserRememberMe');
         }
       } catch (error) {
         console.error('❌ Error parsing session data:', error);
         localStorage.removeItem('demoUser');
         localStorage.removeItem('demoUserTimestamp');
+        localStorage.removeItem('demoUserRememberMe');
       }
     }
     if (mounted) {
@@ -108,7 +112,7 @@ export const DatabaseProvider: React.FC<DatabaseProviderProps> = ({ children }) 
     };
   }, []);
 
-  const signIn = async (email: string, password: string) => {
+  const signIn = async (email: string, password: string, rememberMe: boolean = false) => {
     setLoading(true);
     
     try {
@@ -129,7 +133,8 @@ export const DatabaseProvider: React.FC<DatabaseProviderProps> = ({ children }) 
         setUser(mockUser);
         localStorage.setItem('demoUser', JSON.stringify(mockUser));
         localStorage.setItem('demoUserTimestamp', Date.now().toString());
-        console.log('✅ Session created for Super Admin');
+        localStorage.setItem('demoUserRememberMe', rememberMe.toString());
+        console.log('✅ Session created for Super Admin', rememberMe ? '(30 days)' : '(24 hours)');
         setLoading(false);
         return { data: { user: mockUser }, error: null };
       }
@@ -152,7 +157,8 @@ export const DatabaseProvider: React.FC<DatabaseProviderProps> = ({ children }) 
         setUser(mockUser);
         localStorage.setItem('demoUser', JSON.stringify(mockUser));
         localStorage.setItem('demoUserTimestamp', Date.now().toString());
-        console.log('✅ Session created for Demo Client');
+        localStorage.setItem('demoUserRememberMe', rememberMe.toString());
+        console.log('✅ Session created for Demo Client', rememberMe ? '(30 days)' : '(24 hours)');
         setLoading(false);
         return { data: { user: mockUser }, error: null };
       }
@@ -217,7 +223,8 @@ export const DatabaseProvider: React.FC<DatabaseProviderProps> = ({ children }) 
             setUser(authUser);
             localStorage.setItem('demoUser', JSON.stringify(authUser));
             localStorage.setItem('demoUserTimestamp', Date.now().toString());
-            console.log('✅ Session created for user:', authUser.email);
+            localStorage.setItem('demoUserRememberMe', rememberMe.toString());
+            console.log('✅ Session created for user:', authUser.email, rememberMe ? '(30 days)' : '(24 hours)');
             setLoading(false);
             return { data: { user: authUser }, error: null };
           } else {
@@ -250,6 +257,7 @@ export const DatabaseProvider: React.FC<DatabaseProviderProps> = ({ children }) 
     setUser(null);
     localStorage.removeItem('demoUser');
     localStorage.removeItem('demoUserTimestamp');
+    localStorage.removeItem('demoUserRememberMe');
     console.log('✅ Session cleared successfully');
     return { error: null };
   };
@@ -305,41 +313,46 @@ export const DatabaseProvider: React.FC<DatabaseProviderProps> = ({ children }) 
     return { data: { user: userData }, error: null };
   };
 
-  const setDemoUser = (demoUser: AuthUser) => {
+  const setDemoUser = (demoUser: AuthUser, rememberMe: boolean = false) => {
     setUser(demoUser);
     localStorage.setItem('demoUser', JSON.stringify(demoUser));
     localStorage.setItem('demoUserTimestamp', Date.now().toString());
-    console.log('✅ Demo user session created:', demoUser.email);
+    localStorage.setItem('demoUserRememberMe', rememberMe.toString());
+    console.log('✅ Demo user session created:', demoUser.email, rememberMe ? '(30 days)' : '(24 hours)');
   };
 
-  // Utility function to check session validity
+  // Utility function to check session validity with dynamic duration
   const isSessionValid = () => {
     const sessionTimestamp = localStorage.getItem('demoUserTimestamp');
+    const rememberMeFlag = localStorage.getItem('demoUserRememberMe') === 'true';
     if (!sessionTimestamp) return false;
     
     const now = Date.now();
     const sessionAge = now - parseInt(sessionTimestamp);
-    const maxSessionAge = 24 * 60 * 60 * 1000; // 24 hours
+    const maxSessionAge = rememberMeFlag ? 30 * 24 * 60 * 60 * 1000 : 24 * 60 * 60 * 1000; // 30 days or 24 hours
     
     return sessionAge <= maxSessionAge;
   };
 
-  // Utility function to get session info
+  // Utility function to get session info with dynamic duration
   const getSessionInfo = () => {
     const sessionTimestamp = localStorage.getItem('demoUserTimestamp');
+    const rememberMeFlag = localStorage.getItem('demoUserRememberMe') === 'true';
     const demoUser = localStorage.getItem('demoUser');
     
     if (!sessionTimestamp || !demoUser) return null;
     
     const now = Date.now();
     const sessionAge = now - parseInt(sessionTimestamp);
-    const maxSessionAge = 24 * 60 * 60 * 1000; // 24 hours
+    const maxSessionAge = rememberMeFlag ? 30 * 24 * 60 * 60 * 1000 : 24 * 60 * 60 * 1000; // 30 days or 24 hours
     const remainingTime = maxSessionAge - sessionAge;
     
     return {
       isValid: remainingTime > 0,
       sessionAge: sessionAge,
       remainingTime: remainingTime,
+      rememberMe: rememberMeFlag,
+      maxSessionAge: maxSessionAge,
       user: JSON.parse(demoUser)
     };
   };

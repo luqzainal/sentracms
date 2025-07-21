@@ -94,6 +94,7 @@ function App() {
     setUser(null);
     localStorage.removeItem('demoUser');
     localStorage.removeItem('demoUserTimestamp');
+    localStorage.removeItem('demoUserRememberMe');
     navigate('/login');
   };
 

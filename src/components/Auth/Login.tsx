@@ -42,7 +42,7 @@ const Login: React.FC = () => {
       return;
     }
 
-    const result = await signIn(email, password);
+    const result = await signIn(email, password, rememberMe);
     
     if (result.error) {
       setError(result.error.message);
@@ -188,42 +188,9 @@ const Login: React.FC = () => {
               {isLoading ? 'Signing in...' : 'Sign in'}
             </button>
             
-            {/* Login Tips */}
-            <div className="bg-slate-800/50 border border-slate-700 rounded-lg p-3 text-xs text-slate-400">
-              <p className="font-medium text-slate-300 mb-2">💡 Login Tips:</p>
-              <ul className="space-y-1 text-slate-400">
-                <li>• Use your registered email address</li>
-                <li>• Password is case-sensitive</li>
-                <li>• Contact admin if you forgot your password</li>
-              </ul>
-            </div>
 
-            {/* Database Status & Demo Login */}
-            <div className="flex items-center justify-between text-xs pt-4">
-              <span className="text-slate-500">
-                Database: {isDatabaseConnected ? 
-                  <span className="text-green-400">Connected</span> : 
-                  <span className="text-yellow-400">Mock Mode</span>
-                }
-              </span>
-              <div className="flex items-center space-x-2">
-                <button
-                  type="button"
-                  onClick={handleDemoAdminLogin}
-                  className="text-slate-400 hover:text-[#eded21] transition-colors font-medium"
-                >
-                  Demo Admin
-                </button>
-                <span className="text-slate-600">|</span>
-              <button
-                type="button"
-                  onClick={handleDemoClientLogin}
-                className="text-slate-400 hover:text-[#eded21] transition-colors font-medium"
-              >
-                  Demo Client
-              </button>
-              </div>
-            </div>
+
+
           </form>
         </div>
       </div>
