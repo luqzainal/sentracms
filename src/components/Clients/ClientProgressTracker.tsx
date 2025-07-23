@@ -58,12 +58,15 @@ interface ProgressStepWithHierarchy extends ProgressStep {
   onboardingDeadline?: string;
   firstDraftDeadline?: string;
   secondDraftDeadline?: string;
+  handoverDeadline?: string;
   onboardingCompleted?: boolean;
   firstDraftCompleted?: boolean;
   secondDraftCompleted?: boolean;
+  handoverCompleted?: boolean;
   onboardingCompletedDate?: string;
   firstDraftCompletedDate?: string;
   secondDraftCompletedDate?: string;
+  handoverCompletedDate?: string;
 }
 
 interface AttachedFile {
@@ -104,7 +107,7 @@ const ClientProgressTracker: React.FC<ClientProgressTrackerProps> = ({ clientId,
   // Deadline editing state
   const [showDeadlineModal, setShowDeadlineModal] = useState(false);
   const [editingDeadlineStepId, setEditingDeadlineStepId] = useState<string | null>(null);
-  const [editingDeadlineType, setEditingDeadlineType] = useState<'onboarding' | 'firstDraft' | 'secondDraft' | null>(null);
+  const [editingDeadlineType, setEditingDeadlineType] = useState<'onboarding' | 'firstDraft' | 'secondDraft' | 'handover' | null>(null);
   const [newDeadlineDate, setNewDeadlineDate] = useState('');
   const [isUpdatingDeadline, setIsUpdatingDeadline] = useState(false);
   
@@ -262,12 +265,15 @@ const ClientProgressTracker: React.FC<ClientProgressTrackerProps> = ({ clientId,
           onboardingDeadline: packageStep.onboardingDeadline,
           firstDraftDeadline: packageStep.firstDraftDeadline,
           secondDraftDeadline: packageStep.secondDraftDeadline,
+          handoverDeadline: packageStep.handoverDeadline,
           onboardingCompleted: packageStep.onboardingCompleted,
           firstDraftCompleted: packageStep.firstDraftCompleted,
           secondDraftCompleted: packageStep.secondDraftCompleted,
+          handoverCompleted: packageStep.handoverCompleted,
           onboardingCompletedDate: packageStep.onboardingCompletedDate,
           firstDraftCompletedDate: packageStep.firstDraftCompletedDate,
           secondDraftCompletedDate: packageStep.secondDraftCompletedDate,
+          handoverCompletedDate: packageStep.handoverCompletedDate,
           children: sortedComponentSteps.map(step => ({
             ...step,
             isPackage: false,
@@ -330,9 +336,11 @@ const ClientProgressTracker: React.FC<ClientProgressTrackerProps> = ({ clientId,
             onboardingDeadline: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(),
             firstDraftDeadline: new Date(Date.now() + 14 * 24 * 60 * 60 * 1000).toISOString(),
             secondDraftDeadline: new Date(Date.now() + 21 * 24 * 60 * 60 * 1000).toISOString(),
+            handoverDeadline: new Date(Date.now() + 28 * 24 * 60 * 60 * 1000).toISOString(),
             onboardingCompleted: false,
             firstDraftCompleted: false,
             secondDraftCompleted: false,
+            handoverCompleted: false,
             children: sortedComponentSteps.map(step => ({
               ...step,
               isPackage: false,
@@ -969,7 +977,7 @@ const ClientProgressTracker: React.FC<ClientProgressTrackerProps> = ({ clientId,
   };
 
   // Helper function to handle deadline editing
-  const handleEditDeadline = (stepId: string, deadlineType: 'onboarding' | 'firstDraft' | 'secondDraft') => {
+  const handleEditDeadline = (stepId: string, deadlineType: 'onboarding' | 'firstDraft' | 'secondDraft' | 'handover') => {
     const step = progressSteps.find(s => s.id === stepId);
     if (!step) return;
     
@@ -987,6 +995,9 @@ const ClientProgressTracker: React.FC<ClientProgressTrackerProps> = ({ clientId,
         break;
       case 'secondDraft':
         currentDeadline = step.secondDraftDeadline || '';
+        break;
+      case 'handover':
+        currentDeadline = step.handoverDeadline || '';
         break;
     }
     
@@ -1026,6 +1037,9 @@ const ClientProgressTracker: React.FC<ClientProgressTrackerProps> = ({ clientId,
         case 'secondDraft':
           updates.secondDraftDeadline = isoDeadline;
           break;
+        case 'handover':
+          updates.handoverDeadline = isoDeadline;
+          break;
       }
       
       await updateProgressStep(editingDeadlineStepId, updates);
@@ -1035,8 +1049,8 @@ const ClientProgressTracker: React.FC<ClientProgressTrackerProps> = ({ clientId,
       setEditingDeadlineStepId(null);
       setEditingDeadlineType(null);
       setNewDeadlineDate('');
-    } catch (error: any) {
-      console.error('Error updating deadline:', error);
+    } catch (err: any) {
+      console.error('Error updating deadline:', err);
       error('Failed to update deadline');
     } finally {
       setIsUpdatingDeadline(false);
@@ -1247,6 +1261,40 @@ const ClientProgressTracker: React.FC<ClientProgressTrackerProps> = ({ clientId,
                       {user && user.role !== 'Client Admin' && user.role !== 'Client Team' && (
                         <button
                           onClick={() => handleEditDeadline(step.id, 'secondDraft')}
+                          className="text-xs hover:underline font-medium"
+                        >
+                          Edit
+                        </button>
+                      )}
+                    </div>
+
+                    {/* Handover Deadline */}
+                    <div className={`flex items-center justify-between p-2 rounded-lg border ${
+                      step.handoverCompleted 
+                        ? 'bg-green-50 border-green-200 text-green-700' 
+                        : isDeadlineOverdue(step.handoverDeadline, step.handoverCompleted || false)
+                        ? 'bg-red-50 border-red-200 text-red-700'
+                        : 'bg-blue-50 border-blue-200 text-blue-700'
+                    }`}>
+                      <div className="flex items-center space-x-2">
+                        <Calendar className="w-3 h-3 sm:w-4 sm:h-4" />
+                        <span className="font-medium">Handover:</span>
+                        <span className="whitespace-nowrap">
+                          {step.handoverDeadline ? 
+                            new Date(step.handoverDeadline).toLocaleDateString('en-MY', {
+                              day: '2-digit',
+                              month: 'short',
+                              year: '2-digit'
+                            }) : 'Not set'
+                          }
+                        </span>
+                        {step.handoverCompleted && (
+                          <Check className="w-3 h-3 sm:w-4 sm:h-4 text-green-600" />
+                        )}
+                      </div>
+                      {user && user.role !== 'Client Admin' && user.role !== 'Client Team' && (
+                        <button
+                          onClick={() => handleEditDeadline(step.id, 'handover')}
                           className="text-xs hover:underline font-medium"
                         >
                           Edit
@@ -2208,7 +2256,8 @@ const ClientProgressTracker: React.FC<ClientProgressTrackerProps> = ({ clientId,
                 <h3 className="text-xl font-semibold text-slate-900">
                   Edit {editingDeadlineType === 'onboarding' ? 'Onboarding' : 
                          editingDeadlineType === 'firstDraft' ? 'First Draft' : 
-                         editingDeadlineType === 'secondDraft' ? 'Second Draft' : ''} Deadline
+                         editingDeadlineType === 'secondDraft' ? 'Second Draft' : 
+                         editingDeadlineType === 'handover' ? 'Handover' : ''} Deadline
                 </h3>
                 <button
                   onClick={() => {

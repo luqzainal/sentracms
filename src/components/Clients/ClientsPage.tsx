@@ -80,9 +80,11 @@ const ClientsPage: React.FC<ClientsPageProps> = ({ setActiveTab, onToggleSidebar
         onboarding: null,
         firstDraft: null,
         secondDraft: null,
+        handover: null,
         onboardingCompleted: false,
         firstDraftCompleted: false,
-        secondDraftCompleted: false
+        secondDraftCompleted: false,
+        handoverCompleted: false
       };
     }
 
@@ -90,9 +92,11 @@ const ClientsPage: React.FC<ClientsPageProps> = ({ setActiveTab, onToggleSidebar
       onboarding: packageStep.onboardingDeadline,
       firstDraft: packageStep.firstDraftDeadline,
       secondDraft: packageStep.secondDraftDeadline,
+      handover: packageStep.handoverDeadline,
       onboardingCompleted: packageStep.onboardingCompleted || false,
       firstDraftCompleted: packageStep.firstDraftCompleted || false,
-      secondDraftCompleted: packageStep.secondDraftCompleted || false
+      secondDraftCompleted: packageStep.secondDraftCompleted || false,
+      handoverCompleted: packageStep.handoverCompleted || false
     };
   };
 
@@ -452,6 +456,7 @@ const ClientsPage: React.FC<ClientsPageProps> = ({ setActiveTab, onToggleSidebar
                 <th className="text-center py-3 lg:py-4 px-2 lg:px-3 font-semibold text-slate-900 text-xs lg:text-sm w-[100px]">Onboarding</th>
                 <th className="text-center py-3 lg:py-4 px-2 lg:px-3 font-semibold text-slate-900 text-xs lg:text-sm w-[100px]">First Draft</th>
                 <th className="text-center py-3 lg:py-4 px-2 lg:px-3 font-semibold text-slate-900 text-xs lg:text-sm w-[100px]">Second Draft</th>
+                <th className="text-center py-3 lg:py-4 px-2 lg:px-3 font-semibold text-slate-900 text-xs lg:text-sm w-[100px]">Handover</th>
                 <th className="text-center py-3 lg:py-4 px-2 lg:px-3 font-semibold text-slate-900 text-xs lg:text-sm w-[100px]">Tags</th>
                 <th className="text-center py-3 lg:py-4 px-2 lg:px-3 font-semibold text-slate-900 text-xs lg:text-sm w-[100px]">Actions</th>
               </tr>
@@ -544,6 +549,11 @@ const ClientsPage: React.FC<ClientsPageProps> = ({ setActiveTab, onToggleSidebar
                     <td className="py-3 lg:py-4 px-2 lg:px-3 text-center">
                       <span className={`text-xs lg:text-sm font-medium ${getDeadlineStatusColor(deadlines.secondDraft, deadlines.secondDraftCompleted)}`}>
                         {formatDeadline(deadlines.secondDraft)}
+                      </span>
+                    </td>
+                    <td className="py-3 lg:py-4 px-2 lg:px-3 text-center">
+                      <span className={`text-xs lg:text-sm font-medium ${getDeadlineStatusColor(deadlines.handover, deadlines.handoverCompleted)}`}>
+                        {formatDeadline(deadlines.handover)}
                       </span>
                     </td>
                     <td className="py-3 lg:py-4 px-2 lg:px-3 text-center">

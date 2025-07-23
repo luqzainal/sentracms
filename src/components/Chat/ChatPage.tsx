@@ -56,7 +56,7 @@ function formatFileSize(bytes: number) {
 // MessageList komponen memoized
 const MessageList = memo(({ messages, isAdmin, clientName, clientId }: { messages: any[]; isAdmin: boolean; clientName?: string; clientId?: number }) => {
   const scrollRef = useRef<HTMLDivElement>(null);
-  const { user, getClientRole } = useAppStore();
+  const { user, getClientRole, users } = useAppStore();
   
   useEffect(() => {
     if (scrollRef.current) {
@@ -72,6 +72,47 @@ const MessageList = memo(({ messages, isAdmin, clientName, clientId }: { message
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
+  };
+
+  // Helper function untuk dapatkan admin user yang active
+  const getAdminUserInfo = () => {
+    // Untuk admin messages, guna current user yang login
+    if (user && (user.role === 'Super Admin' || user.role === 'Team')) {
+      return {
+        role: 'Admin Team', // Always use "Admin Team" untuk consistency
+        name: user.name
+      };
+    }
+    return {
+      role: 'Admin Team',
+      name: 'Support'
+    };
+  };
+
+  // Helper function untuk dapatkan client user info
+  const getClientUserInfo = (clientId?: number) => {
+    if (!clientId) {
+      return {
+        role: 'Client',
+        name: clientName || 'Unknown Client'
+      };
+    }
+
+    // Cari user yang ada clientId sama dengan chat
+    const clientUser = users.find(u => u.clientId === clientId);
+    if (clientUser) {
+      return {
+        role: clientUser.role, // Client Admin atau Client Team
+        name: clientUser.name
+      };
+    }
+
+    // Fallback kepada old method
+    const role = getClientRole(clientId);
+    return {
+      role: role,
+      name: clientName || 'Unknown Client'
+    };
   };
 
   return (
@@ -93,14 +134,20 @@ const MessageList = memo(({ messages, isAdmin, clientName, clientId }: { message
               <div className={`text-xs font-medium mb-1 ${
                 msg.sender === (isAdmin ? 'admin' : 'client') ? 'text-blue-100' : 'text-slate-600'
               }`}>
-                {user?.role} - {user?.name}
+                {(() => {
+                  const adminInfo = getAdminUserInfo();
+                  return `${adminInfo.role} - ${adminInfo.name}`;
+                })()}
               </div>
             )}
             {msg.sender === 'client' && (
               <div className={`text-xs font-medium mb-1 ${
                 msg.sender === (isAdmin ? 'admin' : 'client') ? 'text-blue-100' : 'text-slate-600'
               }`}>
-                {clientId ? getClientRole(clientId) : 'Client'} - {clientName || 'Unknown Client'}
+                {(() => {
+                  const clientUserInfo = getClientUserInfo(clientId);
+                  return `${clientUserInfo.role} - ${clientUserInfo.name}`;
+                })()}
               </div>
             )}
             

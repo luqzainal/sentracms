@@ -99,12 +99,15 @@ export interface DatabaseProgressStep {
   onboarding_deadline?: string;
   first_draft_deadline?: string;
   second_draft_deadline?: string;
+  handover_deadline?: string;
   onboarding_completed?: boolean;
   first_draft_completed?: boolean;
   second_draft_completed?: boolean;
+  handover_completed?: boolean;
   onboarding_completed_date?: string;
   first_draft_completed_date?: string;
   second_draft_completed_date?: string;
+  handover_completed_date?: string;
   created_at: string;
   updated_at: string;
 }

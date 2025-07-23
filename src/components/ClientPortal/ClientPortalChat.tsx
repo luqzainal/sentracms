@@ -76,7 +76,8 @@ const ClientPortalChat: React.FC<ClientPortalChatProps> = ({ user, onBack }) => 
     startPolling,
     stopPolling,
     isPolling,
-    getClientRole
+    getClientRole,
+    users
   } = useAppStore();
 
   // Find the client data based on the user email
@@ -87,6 +88,43 @@ const ClientPortalChat: React.FC<ClientPortalChatProps> = ({ user, onBack }) => 
   const memoizedMessages = useMemo(() => {
     return clientChat?.messages || [];
   }, [clientChat?.messages]);
+
+  // Helper function untuk dapatkan admin user info yang sebenar
+  const getAdminUserInfo = () => {
+    // Untuk admin messages, cuba dapatkan admin user yang sebenar dari users store
+    const adminUsers = users.filter(u => u.role === 'Super Admin' || u.role === 'Team');
+    
+    // Untuk sementara, ambil admin user pertama yang active
+    const activeAdmin = adminUsers.find(u => u.status === 'Active');
+    if (activeAdmin) {
+      return {
+        role: 'Admin Team', // Always use "Admin Team" untuk consistency
+        name: activeAdmin.name
+      };
+    }
+
+    // Fallback kepada generic admin info
+    return {
+      role: 'Admin Team',
+      name: 'Support'
+    };
+  };
+
+  // Helper function untuk dapatkan client user info
+  const getClientUserInfo = () => {
+    if (!client) {
+      return {
+        role: 'Client',
+        name: 'Unknown Client'
+      };
+    }
+
+    // Guna current user role dan nama
+    return {
+      role: getClientRole(client.id),
+      name: client.name
+    };
+  };
 
   // Load chats on component mount and start polling
   useEffect(() => {
@@ -391,12 +429,18 @@ const ClientPortalChat: React.FC<ClientPortalChatProps> = ({ user, onBack }) => 
                       {/* Show sender info for all messages */}
                       {msg.sender === 'admin' && (
                         <div className="text-xs font-medium mb-1 text-slate-600">
-                          Admin Team - Support
+                          {(() => {
+                            const adminInfo = getAdminUserInfo();
+                            return `${adminInfo.role} - ${adminInfo.name}`;
+                          })()}
                         </div>
                       )}
                       {msg.sender === 'client' && (
                         <div className="text-xs font-medium mb-1 text-blue-100">
-                          {getClientRole(client.id)} - {client.name}
+                          {(() => {
+                            const clientUserInfo = getClientUserInfo();
+                            return `${clientUserInfo.role} - ${clientUserInfo.name}`;
+                          })()}
                         </div>
                       )}
                       

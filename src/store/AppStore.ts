@@ -107,12 +107,15 @@ export interface ProgressStep {
   onboardingDeadline?: string;
   firstDraftDeadline?: string;
   secondDraftDeadline?: string;
+  handoverDeadline?: string;
   onboardingCompleted?: boolean;
   firstDraftCompleted?: boolean;
   secondDraftCompleted?: boolean;
+  handoverCompleted?: boolean;
   onboardingCompletedDate?: string;
   firstDraftCompletedDate?: string;
   secondDraftCompletedDate?: string;
+  handoverCompletedDate?: string;
   comments: DatabaseProgressStepComment[];
   createdAt: string;
   updatedAt: string;
@@ -847,12 +850,15 @@ export const useAppStore = create<AppState>((set, get) => ({
         onboardingDeadline: dbStep.onboarding_deadline,
         firstDraftDeadline: dbStep.first_draft_deadline,
         secondDraftDeadline: dbStep.second_draft_deadline,
+        handoverDeadline: dbStep.handover_deadline,
         onboardingCompleted: dbStep.onboarding_completed,
         firstDraftCompleted: dbStep.first_draft_completed,
         secondDraftCompleted: dbStep.second_draft_completed,
+        handoverCompleted: dbStep.handover_completed,
         onboardingCompletedDate: dbStep.onboarding_completed_date,
         firstDraftCompletedDate: dbStep.first_draft_completed_date,
         secondDraftCompletedDate: dbStep.second_draft_completed_date,
+        handoverCompletedDate: dbStep.handover_completed_date,
         comments: dbStep.comments || [],
         createdAt: dbStep.created_at,
         updatedAt: dbStep.updated_at,
@@ -2246,12 +2252,15 @@ export const useAppStore = create<AppState>((set, get) => ({
       if (updates.onboardingDeadline !== undefined) dbUpdates.onboarding_deadline = updates.onboardingDeadline;
       if (updates.firstDraftDeadline !== undefined) dbUpdates.first_draft_deadline = updates.firstDraftDeadline;
       if (updates.secondDraftDeadline !== undefined) dbUpdates.second_draft_deadline = updates.secondDraftDeadline;
+      if (updates.handoverDeadline !== undefined) dbUpdates.handover_deadline = updates.handoverDeadline;
       if (updates.onboardingCompleted !== undefined) dbUpdates.onboarding_completed = updates.onboardingCompleted;
       if (updates.firstDraftCompleted !== undefined) dbUpdates.first_draft_completed = updates.firstDraftCompleted;
       if (updates.secondDraftCompleted !== undefined) dbUpdates.second_draft_completed = updates.secondDraftCompleted;
+      if (updates.handoverCompleted !== undefined) dbUpdates.handover_completed = updates.handoverCompleted;
       if (updates.onboardingCompletedDate !== undefined) dbUpdates.onboarding_completed_date = updates.onboardingCompletedDate;
       if (updates.firstDraftCompletedDate !== undefined) dbUpdates.first_draft_completed_date = updates.firstDraftCompletedDate;
       if (updates.secondDraftCompletedDate !== undefined) dbUpdates.second_draft_completed_date = updates.secondDraftCompletedDate;
+      if (updates.handoverCompletedDate !== undefined) dbUpdates.handover_completed_date = updates.handoverCompletedDate;
       
       // Update in database
       const updatedDbStep = await progressService.update(id, dbUpdates);
