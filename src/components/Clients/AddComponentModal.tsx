@@ -1,9 +1,15 @@
 import React, { useState, useEffect } from 'react';
 import { X, Plus, Trash2, Package, Copy } from 'lucide-react';
 
+interface ComponentData {
+  name: string;
+  price: number;
+  description?: string;
+}
+
 interface AddComponentModalProps {
   onClose: () => void;
-  onSave: (componentData: any) => void;
+  onSave: (componentData: ComponentData) => void;
   clientId?: number;
   packageName?: string;
   invoiceId?: string;
@@ -27,7 +33,7 @@ const AddComponentModal: React.FC<AddComponentModalProps> = ({ onClose, onSave, 
         name: packageName
       }]);
     }
-  }, [packageName]);
+  }, [packageName, components.length]);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();

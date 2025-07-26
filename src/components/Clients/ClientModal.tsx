@@ -1,11 +1,12 @@
 import React, { useState, useEffect } from 'react';
-import { X, User, Mail, Phone, Building, DollarSign, Lock, RefreshCw, Eye, EyeOff, Plus, Trash2, Palette } from 'lucide-react';
+import { X, User, Mail, Phone, Building, Plus, Trash2, Palette } from 'lucide-react';
 import { useAppStore } from '../../store/AppStore';
+import type { Client } from '../../store/AppStore';
 
 interface ClientModalProps {
-  client?: any;
+  client?: Client;
   onClose: () => void;
-  onSave: (clientData: any) => void;
+  onSave: (clientData: Partial<Client>) => void;
 }
 
 const ClientModal: React.FC<ClientModalProps> = ({ client, onClose, onSave }) => {
@@ -23,6 +24,7 @@ const ClientModal: React.FC<ClientModalProps> = ({ client, onClose, onSave }) =>
     additionalPics: [] as Array<{ id: string; name: string; position: number }>,
     tags: [] as string[],
     newTag: '',
+    chatEnabled: true,
   });
   
   const [showTagManager, setShowTagManager] = useState(false);
@@ -85,7 +87,7 @@ const ClientModal: React.FC<ClientModalProps> = ({ client, onClose, onSave }) =>
         pic1,
         pic2,
             additionalPics: [],
-        tags: client.tags || [],
+                tags: client.tags || [],
         newTag: '',
           }));
         }
@@ -103,7 +105,7 @@ const ClientModal: React.FC<ClientModalProps> = ({ client, onClose, onSave }) =>
       ...formData,
       pic: picValue,
       additionalPics: formData.additionalPics
-    });
+    } as Partial<Client>);
   };
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
@@ -144,7 +146,7 @@ const ClientModal: React.FC<ClientModalProps> = ({ client, onClose, onSave }) =>
         setNewTagColor('#3B82F6');
         // Refresh tags from database
         await fetchTags();
-      } catch (error) {
+      } catch {
         alert('Error creating tag. It might already exist.');
       }
     }
@@ -156,7 +158,7 @@ const ClientModal: React.FC<ClientModalProps> = ({ client, onClose, onSave }) =>
         await deleteTag(tagId);
         // Refresh tags from database
         await fetchTags();
-      } catch (error) {
+      } catch {
         alert('Error deleting tag.');
       }
     }
@@ -327,6 +329,8 @@ const ClientModal: React.FC<ClientModalProps> = ({ client, onClose, onSave }) =>
                   <option value="Inactive">Inactive</option>
                 </select>
               </div>
+
+
 
               <div>
                 <label className="block text-sm font-medium text-slate-700 mb-2">

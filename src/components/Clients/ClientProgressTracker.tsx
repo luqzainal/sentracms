@@ -1,25 +1,16 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useAppStore } from '../../store/AppStore';
-import { Client, Invoice, Component, ProgressStep as StoreProgressStep } from '../../store/AppStore';
 import { 
-  ArrowLeft, 
   Plus, 
   Edit, 
   Trash2, 
   Check, 
   X, 
   Calendar, 
-  MessageSquare, 
   Upload, 
-  Download, 
   Link as LinkIcon,
-  RefreshCw,
-  AlertTriangle,
   FileText,
-  Eye,
-  EyeOff,
   Clock,
-  AlertCircle,
   Star,
   MessageCircle,
   User,
@@ -44,7 +35,7 @@ interface ProgressStep {
   completed: boolean;
   completedDate?: string;
   important: boolean;
-  comments: any[]; 
+  comments: any[]; // TODO: Define proper Comment interface
 }
 
 interface ProgressStepWithHierarchy extends ProgressStep {
@@ -102,7 +93,7 @@ const ClientProgressTracker: React.FC<ClientProgressTrackerProps> = ({ clientId,
   const [isDeletingLink, setIsDeletingLink] = useState(false);
   const [isUploadingFile, setIsUploadingFile] = useState(false);
   const [commentAttachment, setCommentAttachment] = useState<File | null>(null);
-  const [isUploadingCommentAttachment, setIsUploadingCommentAttachment] = useState(false);
+  const [_isUploadingCommentAttachment, setIsUploadingCommentAttachment] = useState(false);
   
   // Deadline editing state
   const [showDeadlineModal, setShowDeadlineModal] = useState(false);

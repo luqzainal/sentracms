@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useAppStore } from '../../store/AppStore';
-import { User, Trash2, Edit, Eye, Crown, Briefcase, Users, Plus, Search, Filter, RefreshCw, MessageSquare, ArrowRightLeft, Menu, Database } from 'lucide-react';
+import { User, Trash2, Edit, Eye, Crown, Briefcase, Users, Plus, Search, Menu, Database } from 'lucide-react';
 import { useToast } from '../../hooks/useToast';
 import ConfirmationModal from '../common/ConfirmationModal';
 import { useConfirmation } from '../../hooks/useConfirmation';
@@ -12,10 +12,10 @@ interface SettingsPageProps {
 }
 
 const SettingsPage: React.FC<SettingsPageProps> = ({ onToggleSidebar }) => {
-  const [activeTab, setActiveTab] = useState('users');
+  const [_activeTab, _setActiveTab] = useState('users');
   const [searchTerm, setSearchTerm] = useState('');
   const [roleFilter, setRoleFilter] = useState('all');
-  const [statusFilter, setStatusFilter] = useState('all');
+  const [_statusFilter, _setStatusFilter] = useState('all');
   const [showUserModal, setShowUserModal] = useState(false);
   const [selectedUser, setSelectedUser] = useState<any>(null);
   const [showUserProfile, setShowUserProfile] = useState(false);

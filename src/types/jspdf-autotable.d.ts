@@ -13,7 +13,7 @@ declare module 'jspdf' {
         getHeight: () => number;
       };
       scaleFactor: number;
-      events: any;
+      events: unknown;
       pages: number[];
       getEncryptor(objectId: number): (data: string) => string;
       getNumberOfPages(): number;
@@ -23,8 +23,8 @@ declare module 'jspdf' {
 
 declare module 'jspdf-autotable' {
   interface UserOptions {
-    head?: any[][];
-    body?: any[][];
+    head?: (string | number | boolean)[][];
+    body?: (string | number | boolean)[][];
     startY?: number;
     theme?: 'striped' | 'grid' | 'plain';
     styles?: {

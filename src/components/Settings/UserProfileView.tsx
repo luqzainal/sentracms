@@ -1,5 +1,5 @@
 import React from 'react';
-import { ArrowLeft, User, Mail, Shield, Building, Calendar, Phone, MapPin, Crown, Briefcase, UserCheck } from 'lucide-react';
+import { ArrowLeft, User, Mail, Shield, Building, Calendar, Crown, Briefcase, UserCheck } from 'lucide-react';
 import { useAppStore } from '../../store/AppStore';
 import { getInitials } from '../../utils/avatarUtils';
 

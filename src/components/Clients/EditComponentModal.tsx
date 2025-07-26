@@ -2,9 +2,9 @@ import React, { useState, useEffect } from 'react';
 import { X, Package } from 'lucide-react';
 
 interface EditComponentModalProps {
-  component: any;
+  component: any; // TODO: Define proper Component interface
   onClose: () => void;
-  onSave: (componentData: any) => void;
+  onSave: (componentData: any) => void; // TODO: Define proper ComponentData interface
 }
 
 const EditComponentModal: React.FC<EditComponentModalProps> = ({ component, onClose, onSave }) => {

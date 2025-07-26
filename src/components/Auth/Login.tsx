@@ -2,8 +2,8 @@ import React, { useState } from 'react';
 import { Eye, EyeOff } from 'lucide-react';
 import { useDatabase } from '../../context/SupabaseContext';
 import { useAppStore } from '../../store/AppStore';
-import loginBgImage from '../../assets/Picture1.png'; // Import the new image
-import Logo from '../common/Logo'; // Import the Logo component
+import loginBgImage from '../../assets/Picture1.png';
+import Logo from '../common/Logo';
 
 const Login: React.FC = () => {
   const [email, setEmail] = useState('');
@@ -13,7 +13,7 @@ const Login: React.FC = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
   
-  const { signIn, isDatabaseConnected } = useDatabase();
+  const { signIn } = useDatabase();
   const { setUser } = useAppStore();
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -65,19 +65,6 @@ const Login: React.FC = () => {
     setIsLoading(false);
   };
 
-  const handleDemoAdminLogin = () => {
-    const demoEmail = import.meta.env.VITE_DEMO_ADMIN_EMAIL || 'superadmin@sentra.com';
-    const demoPassword = import.meta.env.VITE_DEMO_ADMIN_PASSWORD || 'password123';
-    setEmail(demoEmail);
-    setPassword(demoPassword);
-  };
-
-  const handleDemoClientLogin = () => {
-    const demoEmail = import.meta.env.VITE_DEMO_CLIENT_EMAIL || 'client@demo.com';
-    const demoPassword = import.meta.env.VITE_DEMO_CLIENT_PASSWORD || 'client123';
-    setEmail(demoEmail);
-    setPassword(demoPassword);
-  };
 
   return (
     <div className="min-h-screen flex font-sans">

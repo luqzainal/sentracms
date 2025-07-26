@@ -4,7 +4,7 @@ import { useAppStore } from '../../store/AppStore';
 import ClientProgressTracker from '../Clients/ClientProgressTracker';
 
 interface ClientPortalProgressProps {
-  user: any;
+  user: { email: string };
   onBack: () => void;
 }
 
@@ -27,7 +27,7 @@ const ClientPortalProgress: React.FC<ClientPortalProgressProps> = ({ onBack }) =
           fetchClients(),
           fetchProgressSteps()
         ]);
-      } catch (err) {
+      } catch {
         // Biar error log sahaja
       } finally {
         setIsLoading(false);

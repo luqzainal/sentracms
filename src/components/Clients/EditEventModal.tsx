@@ -2,9 +2,9 @@ import React, { useState, useEffect } from 'react';
 import { X, Calendar, Clock } from 'lucide-react';
 
 interface EditEventModalProps {
-  event: any;
+  event: any; // TODO: Define proper Event interface 
   onClose: () => void;
-  onSave: (eventData: any) => void;
+  onSave: (eventData: any) => void; // TODO: Define proper EventData interface
 }
 
 const EditEventModal: React.FC<EditEventModalProps> = ({ event, onClose, onSave }) => {

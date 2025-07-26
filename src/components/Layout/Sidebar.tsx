@@ -7,7 +7,6 @@ import {
   BarChart3, 
   Settings,
   LogOut,
-  Menu,
   X,
   Package
 } from 'lucide-react';

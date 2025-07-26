@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Eye, CheckCircle, XCircle, Clock, Package, User, Calendar, Menu, X } from 'lucide-react';
 import { useAppStore } from '../../store/AppStore';
 import { useToast } from '../../hooks/useToast';
+import { ClientServiceRequest } from '../../types/database';
 
 interface ClientRequestsPageProps {
   onToggleSidebar?: () => void;
@@ -10,7 +11,7 @@ interface ClientRequestsPageProps {
 const ClientRequestsPage: React.FC<ClientRequestsPageProps> = ({ onToggleSidebar }) => {
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
-  const [selectedRequest, setSelectedRequest] = useState<any>(null);
+  const [selectedRequest, setSelectedRequest] = useState<ClientServiceRequest | null>(null);
   const [showRequestModal, setShowRequestModal] = useState(false);
   const [adminNotes, setAdminNotes] = useState('');
   const [rejectionReason, setRejectionReason] = useState('');
@@ -65,7 +66,7 @@ const ClientRequestsPage: React.FC<ClientRequestsPageProps> = ({ onToggleSidebar
     return matchesSearch && matchesStatus;
   });
 
-  const handleViewRequest = (request: any) => {
+  const handleViewRequest = (request: ClientServiceRequest) => {
     setSelectedRequest(request);
     setAdminNotes(request.admin_notes || '');
     setRejectionReason(request.rejection_reason || '');
@@ -74,7 +75,7 @@ const ClientRequestsPage: React.FC<ClientRequestsPageProps> = ({ onToggleSidebar
 
   const handleUpdateStatus = async (requestId: number, status: string) => {
     try {
-      const updates: any = { status };
+      const updates: Record<string, unknown> = { status };
       
       if (status === 'Approved') {
         updates.approved_date = new Date().toISOString();

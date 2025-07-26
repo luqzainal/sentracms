@@ -1,14 +1,14 @@
-import React, { useState, useEffect } from 'react';
+import React from 'react';
 import { ArrowLeft, Eye, Calendar, Clock } from 'lucide-react';
 import { useAppStore } from '../../store/AppStore';
 import { CalendarEvent } from '../../store/AppStore';
 
 interface ClientPortalAppointmentsProps {
-  user: any;
+  user: { email: string };
   onBack: () => void;
 }
 
-const ClientPortalAppointments: React.FC<ClientPortalAppointmentsProps> = ({ user, onBack }) => {
+const ClientPortalAppointments: React.FC<ClientPortalAppointmentsProps> = ({ onBack }) => {
   const { 
     clients, 
     calendarEvents

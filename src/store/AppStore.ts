@@ -13,25 +13,16 @@ import {
   tagsService,
   addOnServicesService,
   clientServiceRequestsService,
-  clientPicsService
+  clientPicsService,
+  clientAssignmentsService
 } from '../services/database';
 import { generateAvatarUrl } from '../utils/avatarUtils';
-import type { Client as DatabaseClient, ClientLink as TClientLink, DatabaseProgressStepComment, AddOnService, ClientServiceRequest } from '../types/database';
+import type { Client as DatabaseClient, ClientLink as TClientLink, DatabaseProgressStepComment, AddOnService, ClientServiceRequest, ClientAssignment } from '../types/database';
 import { 
-  DatabaseInvoice, 
-  DatabasePayment, 
-  DatabaseComponent, 
   DatabaseProgressStep, 
   DatabaseCalendarEvent,
   DatabaseChat,
-  DatabaseChatMessage,
-  DatabaseClientLink,
-  DatabaseAddOnService,
-  DatabaseClientServiceRequest,
-  Chat as DatabaseChatType,
-  ChatMessage as DatabaseChatMessageType,
-  ClientServiceRequest as DatabaseClientServiceRequestType,
-  AddOnService as DatabaseAddOnServiceType
+  DatabaseChatMessage
 } from '../types/database';
 
 export interface Client {
@@ -237,6 +228,7 @@ interface AppState {
   addOnServices: AddOnService[];
   clientServiceRequests: ClientServiceRequest[];
   clientPics: ClientPic[];
+  clientAssignments: ClientAssignment[];
 
   // Navigation & User state
   user: User | null;
@@ -264,6 +256,7 @@ interface AppState {
     addOnServices: boolean;
     clientServiceRequests: boolean;
     clientPics: boolean;
+    clientAssignments: boolean;
   };
 
   // Actions
@@ -408,6 +401,18 @@ interface AppState {
   deleteClientPic: (id: number) => Promise<void>;
   getClientPicsByClientId: (clientId: number) => ClientPic[];
   reorderClientPics: (clientId: number) => Promise<void>;
+
+  // Client Assignments actions
+  fetchClientAssignments: () => Promise<void>;
+  createClientAssignment: (assignment: { admin_id: string; client_id: number; assigned_by: string }) => Promise<void>;
+  deleteClientAssignment: (assignmentId: number) => Promise<void>;
+  getClientAssignmentsByClientId: (clientId: number) => ClientAssignment[];
+  getAssignedClientIds: (adminId: string) => number[];
+
+  // Chat Status actions
+  toggleUserChatStatus: (userId: string, chatEnabled: boolean) => Promise<void>;
+  getUserChatStatus: (userId: string) => Promise<boolean>;
+  getClientChatStatus: (clientId: number) => Promise<boolean>;
 }
 
 export const useAppStore = create<AppState>((set, get) => ({
@@ -439,6 +444,7 @@ export const useAppStore = create<AppState>((set, get) => ({
   addOnServices: [],
   clientServiceRequests: [],
   clientPics: [],
+  clientAssignments: [],
 
   loading: {
     clients: false,
@@ -455,6 +461,7 @@ export const useAppStore = create<AppState>((set, get) => ({
     addOnServices: false,
     clientServiceRequests: false,
     clientPics: false,
+    clientAssignments: false,
   },
 
   // Navigation & User state - Initialize user from localStorage
@@ -538,10 +545,59 @@ export const useAppStore = create<AppState>((set, get) => ({
           }
         }
         console.log(`Fetching specific client data for clientId: ${user.clientId}`, dbClients);
-      } else {
-        // For admins, fetch all clients
+      } else if (user && user.role === 'Super Admin') {
+        // For superadmin, fetch all clients
         dbClients = await clientsService.getAll();
-        console.log('Raw clients from database (admin):', dbClients);
+        console.log('Raw clients from database (superadmin):', dbClients);
+      } else if (user && user.role === 'Team') {
+        // For admin team, fetch only clients where they are PIC
+        try {
+          const allClients = await clientsService.getAll();
+          const userName = user.name;
+          const userId = user.id;
+          
+          // Filter clients where user is PIC 1, PIC 2, or additional PIC
+          const eligibleClients = [];
+          
+          for (const client of allClients) {
+            let isAssigned = false;
+            
+            // Check PIC 1 and PIC 2 (stored as "PIC1 - PIC2" format)
+            if (client.pic) {
+              const picParts = client.pic.split(' - ');
+              const pic1 = picParts[0]?.trim();
+              const pic2 = picParts[1]?.trim();
+              
+              if (pic1 === userName || pic2 === userName) {
+                isAssigned = true;
+              }
+            }
+            
+            // Check additional PICs from client_pics table
+            if (!isAssigned) {
+              try {
+                const additionalPics = await clientPicsService.getByClientId(client.id);
+                isAssigned = additionalPics.some(pic => pic.pic_id === userId);
+              } catch (error) {
+                console.error(`Error fetching additional PICs for client ${client.id}:`, error);
+              }
+            }
+            
+            if (isAssigned) {
+              eligibleClients.push(client);
+            }
+          }
+          
+          dbClients = eligibleClients;
+          console.log(`Admin team ${user.email} (${userName}) assigned to clients:`, dbClients.map(c => c.name));
+        } catch (error) {
+          console.error('Error fetching clients for admin team based on PIC:', error);
+          dbClients = [];
+        }
+      } else {
+        // Fallback for unknown roles
+        dbClients = [];
+        console.log('Unknown user role or no user, returning empty clients');
       }
       
       // Convert database Client type to store Client type
@@ -842,7 +898,7 @@ export const useAppStore = create<AppState>((set, get) => ({
         dbSteps = [...dbSteps, ...demoSteps];
       }
       
-      const steps: ProgressStep[] = dbSteps.map((dbStep: any) => ({
+      const steps: ProgressStep[] = dbSteps.map((dbStep: DatabaseProgressStep) => ({
         ...dbStep,
         clientId: dbStep.client_id,
         completedDate: dbStep.completed_date,
@@ -886,7 +942,7 @@ export const useAppStore = create<AppState>((set, get) => ({
       console.log('🔄 fetchCalendarEvents: Raw DB events:', dbEvents);
       
       // Map DatabaseCalendarEvent to store CalendarEvent format
-      const events: CalendarEvent[] = dbEvents.map((dbEvent: any) => ({
+      const events: CalendarEvent[] = dbEvents.map((dbEvent: DatabaseCalendarEvent) => ({
         id: dbEvent.id,
         clientId: dbEvent.client_id,
         title: dbEvent.title,
@@ -936,7 +992,7 @@ export const useAppStore = create<AppState>((set, get) => ({
       }
       
       const dbChats = await chatService.getAll();
-      const chats: Chat[] = dbChats.map((dbChat: any) => {
+      const chats: Chat[] = dbChats.map((dbChat: DatabaseChat) => {
         // Find existing chat to preserve messages
         const existingChat = get().chats.find(chat => chat.id === dbChat.id);
         // Use business_name (company name) instead of client_name (user name)
@@ -1120,7 +1176,7 @@ export const useAppStore = create<AppState>((set, get) => ({
               sender: message.sender,
               content: message.content,
               message_type: message.message_type
-            }).then((newMessage: any) => {
+            }).then((newMessage: DatabaseChatMessage) => {
               // Update optimistic message with real ID
               set((state) => ({
                 chats: state.chats.map((chat) =>
@@ -1240,13 +1296,55 @@ export const useAppStore = create<AppState>((set, get) => ({
 
   // Chat actions
   sendMessage: async (chatId, content, sender, attachmentData) => {
+    // Check if chat is enabled for client messages (admin can always send)
+    if (sender === 'client') {
+      const chat = get().chats.find(c => c.id === chatId);
+      console.log('🔍 SendMessage Debug:', { 
+        sender, 
+        chatId, 
+        chat: chat ? { id: chat.id, clientId: chat.clientId, client: chat.client } : null 
+      });
+      
+      if (chat?.clientId) {
+        try {
+          console.log(`🔍 Checking chat status for client ID: ${chat.clientId}`);
+          const isEnabled = await get().getClientChatStatus(chat.clientId);
+          console.log(`📊 Chat status result: ${isEnabled}`);
+          
+          if (!isEnabled) {
+            console.log('❌ Message blocked: Chat is disabled for this client');
+            throw new Error('Chat is disabled. You cannot send messages at this time.');
+          }
+          console.log('✅ Chat is enabled, allowing message');
+        } catch (error) {
+          console.log('⚠️ Error checking chat status:', error);
+          if (error.message && error.message.includes('Chat is disabled')) {
+            console.log('🚫 Rethrowing chat disabled error');
+            throw error; // Re-throw the chat disabled error
+          }
+          // For other errors, default to allowing the message (fail open)
+          console.warn('⚠️ Could not check chat status, allowing message due to error:', error);
+        }
+      } else {
+        console.log('⚠️ No chat or clientId found, allowing message');
+      }
+    } else {
+      console.log('✅ Admin message, skipping chat status check');
+    }
+    
     const messageType = attachmentData?.messageType || 'text';
     
+    // Get current user info for sender details
+    const currentUser = get().user;
+    
     // Create optimistic message immediately for instant UI response
-    const optimisticMessage: DatabaseChatMessageType = {
+    const optimisticMessage: DatabaseChatMessage = {
       id: Date.now(),
       chat_id: chatId,
       sender: sender,
+      sender_id: currentUser?.id,
+      sender_name: currentUser?.name,
+      sender_role: currentUser?.role,
       content: content,
       message_type: messageType,
       attachment_url: attachmentData?.attachmentUrl,
@@ -1281,13 +1379,16 @@ export const useAppStore = create<AppState>((set, get) => ({
     chatService.sendMessage({
       chat_id: chatId,
       sender: sender,
+      sender_id: currentUser?.id,
+      sender_name: currentUser?.name,
+      sender_role: currentUser?.role,
       content: content,
       message_type: messageType,
       attachment_url: attachmentData?.attachmentUrl,
       attachment_name: attachmentData?.attachmentName,
       attachment_type: attachmentData?.attachmentType,
       attachment_size: attachmentData?.attachmentSize
-    }).then((newMessage: any) => {
+    }).then((newMessage: DatabaseChatMessage) => {
       // Only update ID if server responds successfully
       set((state) => ({
         chats: state.chats.map((chat) =>
@@ -1541,7 +1642,7 @@ export const useAppStore = create<AppState>((set, get) => ({
   updateClient: async (id, updates) => {
     try {
       // Update client in database first (only database fields)
-      const dbUpdates: any = {};
+      const dbUpdates: Partial<DatabaseClient> = {};
       if (updates.name) dbUpdates.name = updates.name;
       if (updates.businessName) dbUpdates.business_name = updates.businessName;
       if (updates.email) dbUpdates.email = updates.email;
@@ -2240,7 +2341,7 @@ export const useAppStore = create<AppState>((set, get) => ({
   updateProgressStep: async (id, updates) => {
     try {
       // Map store format to database format
-      const dbUpdates: any = {};
+      const dbUpdates: Partial<DatabaseProgressStep> = {};
       if (updates.title !== undefined) dbUpdates.title = updates.title;
       if (updates.description !== undefined) dbUpdates.description = updates.description;
       if (updates.deadline !== undefined) dbUpdates.deadline = updates.deadline;
@@ -2439,7 +2540,7 @@ export const useAppStore = create<AppState>((set, get) => ({
       console.log('  Updates received:', updates);
       
       // Map store format to database format
-      const dbUpdates: any = {};
+      const dbUpdates: Partial<DatabaseCalendarEvent> = {};
       if (updates.clientId !== undefined) dbUpdates.client_id = updates.clientId;
       if (updates.title !== undefined) dbUpdates.title = updates.title;
       if (updates.startDate !== undefined) dbUpdates.start_date = updates.startDate;
@@ -2551,11 +2652,16 @@ export const useAppStore = create<AppState>((set, get) => ({
       
       // Extract password from appropriate access type
       let password = 'defaultpass123';
-      if ((userData as any).dashboardAccess?.password) {
-        password = (userData as any).dashboardAccess.password;
+      const userDataWithAccess = userData as Omit<User, 'id' | 'createdAt' | 'updatedAt'> & {
+        dashboardAccess?: { password: string };
+        portalAccess?: { password: string };
+      };
+      
+      if (userDataWithAccess.dashboardAccess?.password) {
+        password = userDataWithAccess.dashboardAccess.password;
         console.log('🔑 Using dashboard password');
-      } else if ((userData as any).portalAccess?.password) {
-        password = (userData as any).portalAccess.password;
+      } else if (userDataWithAccess.portalAccess?.password) {
+        password = userDataWithAccess.portalAccess.password;
         console.log('🔑 Using portal password');
       } else {
         console.log('⚠️ No password provided, using default');
@@ -2605,11 +2711,16 @@ export const useAppStore = create<AppState>((set, get) => ({
       
       // Extract password from appropriate access type
       let password = undefined;
-      if ((updates as any).dashboardAccess?.password) {
-        password = (updates as any).dashboardAccess.password;
+      const updatesWithAccess = updates as Partial<User> & {
+        dashboardAccess?: { password: string };
+        portalAccess?: { password: string };
+      };
+      
+      if (updatesWithAccess.dashboardAccess?.password) {
+        password = updatesWithAccess.dashboardAccess.password;
         console.log('🔑 Using dashboard password for update');
-      } else if ((updates as any).portalAccess?.password) {
-        password = (updates as any).portalAccess.password;
+      } else if (updatesWithAccess.portalAccess?.password) {
+        password = updatesWithAccess.portalAccess.password;
         console.log('🔑 Using portal password for update');
       } else {
         console.log('⚠️ No password provided for update');
@@ -2905,7 +3016,6 @@ export const useAppStore = create<AppState>((set, get) => ({
   // Add this new function to recalculate all client financial data
   recalculateAllClientTotals: async () => {
     console.log('=== Recalculating all client financial data ===');
-    const state = get();
     
     // First, refresh all data from database to ensure we have the latest
     console.log('🔄 Refreshing data from database...');
@@ -3304,7 +3414,7 @@ export const useAppStore = create<AppState>((set, get) => ({
           id: dbRequest.service_id,
           name: dbRequest.service_name,
           description: dbRequest.service_description || '',
-          category: dbRequest.service_category as any,
+          category: dbRequest.service_category as string,
           price: Number(dbRequest.service_price) || 0,
           status: 'Available' as const,
           features: [],
@@ -3762,6 +3872,124 @@ export const useAppStore = create<AppState>((set, get) => ({
     } catch (error) {
       console.error('Error reordering client pics:', error);
       throw error;
+    }
+  },
+
+  // Client Assignments actions
+  fetchClientAssignments: async () => {
+    set((state) => ({ loading: { ...state.loading, clientAssignments: true } }));
+    try {
+      const dbAssignments = await clientAssignmentsService.getAll();
+      // Map DatabaseClientAssignment to store ClientAssignment format
+      const assignments: ClientAssignment[] = dbAssignments.map(dbAssignment => ({
+        id: dbAssignment.id,
+        admin_id: dbAssignment.admin_id,
+        client_id: dbAssignment.client_id,
+        assigned_date: dbAssignment.assigned_date,
+        assigned_by: dbAssignment.assigned_by,
+        created_at: dbAssignment.created_at,
+        updated_at: dbAssignment.updated_at
+      }));
+      set({ clientAssignments: assignments });
+      console.log('Client assignments fetched successfully:', assignments.length);
+    } catch (error) {
+      console.error('Error fetching client assignments:', error);
+    } finally {
+      set((state) => ({ loading: { ...state.loading, clientAssignments: false } }));
+    }
+  },
+
+  createClientAssignment: async (assignment) => {
+    try {
+      const newAssignment = await clientAssignmentsService.create(assignment);
+      const mappedAssignment: ClientAssignment = {
+        id: newAssignment.id,
+        admin_id: newAssignment.admin_id,
+        client_id: newAssignment.client_id,
+        assigned_date: newAssignment.assigned_date,
+        assigned_by: newAssignment.assigned_by,
+        created_at: newAssignment.created_at,
+        updated_at: newAssignment.updated_at
+      };
+      
+      set((state) => ({
+        clientAssignments: [...state.clientAssignments, mappedAssignment]
+      }));
+      
+      console.log('Client assignment created successfully:', mappedAssignment);
+    } catch (error) {
+      console.error('Error creating client assignment:', error);
+      throw error;
+    }
+  },
+
+  deleteClientAssignment: async (assignmentId) => {
+    try {
+      await clientAssignmentsService.delete(assignmentId);
+      
+      set((state) => ({
+        clientAssignments: state.clientAssignments.filter(assignment => assignment.id !== assignmentId)
+      }));
+      
+      console.log('Client assignment deleted successfully:', assignmentId);
+    } catch (error) {
+      console.error('Error deleting client assignment:', error);
+      throw error;
+    }
+  },
+
+  getClientAssignmentsByClientId: (clientId) => {
+    return get().clientAssignments.filter(assignment => assignment.client_id === clientId);
+  },
+
+  getAssignedClientIds: (adminId) => {
+    return get().clientAssignments
+      .filter(assignment => assignment.admin_id === adminId)
+      .map(assignment => assignment.client_id);
+  },
+
+  // Chat Status actions
+  toggleUserChatStatus: async (userId, chatEnabled) => {
+    try {
+      console.log(`🔍 AppStore: toggleUserChatStatus called - User ID: ${userId}, Chat Enabled: ${chatEnabled}`);
+      await usersService.toggleChatStatus(userId, chatEnabled);
+      
+      // Update local user state if user exists in store
+      set((state) => ({
+        users: state.users.map(user => 
+          user.id === userId 
+            ? { ...user, chat_enabled: chatEnabled }
+            : user
+        )
+      }));
+      
+      console.log(`✅ AppStore: Chat status toggled for user ${userId}: ${chatEnabled ? 'enabled' : 'disabled'}`);
+    } catch (error) {
+      console.error('❌ AppStore: Error toggling chat status:', error);
+      throw error;
+    }
+  },
+
+  getUserChatStatus: async (userId) => {
+    try {
+      return await usersService.getChatStatus(userId);
+    } catch (error) {
+      console.error('Error getting user chat status:', error);
+      // Default to enabled on error
+      return true;
+    }
+  },
+
+  getClientChatStatus: async (clientId) => {
+    try {
+      console.log(`🔍 AppStore getClientChatStatus called for client ID: ${clientId}`);
+      const result = await usersService.getChatStatusByClientId(clientId);
+      console.log(`📊 AppStore getClientChatStatus result: ${result}`);
+      return result;
+    } catch (error) {
+      console.error('❌ Error in AppStore getClientChatStatus:', error);
+      // Default to enabled on error
+      return true;
     }
   },
 

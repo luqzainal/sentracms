@@ -1,12 +1,12 @@
 import React, { useState, useEffect } from 'react';
 import { X, Save, Package } from 'lucide-react';
-import { useAppStore } from '../../store/AppStore';
+import type { AddOnService, DatabaseAddOnService } from '../../types/database';
 
 interface ServiceModalProps {
   isOpen: boolean;
   onClose: () => void;
-  service?: any;
-  onSave: (serviceData: any) => void;
+  service?: AddOnService | DatabaseAddOnService;
+  onSave: (serviceData: Partial<AddOnService>) => void;
 }
 
 const ServiceModal: React.FC<ServiceModalProps> = ({ isOpen, onClose, service, onSave }) => {
@@ -70,7 +70,7 @@ const ServiceModal: React.FC<ServiceModalProps> = ({ isOpen, onClose, service, o
       onSave({
         ...formData,
         price: parseFloat(formData.price)
-      });
+      } as Partial<AddOnService>);
     }
   };
 

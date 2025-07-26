@@ -1,7 +1,24 @@
-import React, { useState, useEffect, useRef, memo } from 'react';
-import { Search, Send, MessageSquare, Users, Clock, Menu, ArrowLeft, RefreshCw, Paperclip, X, Download, FileText, Image, File } from 'lucide-react';
+import React, { useState, useEffect, useRef, memo, useCallback } from 'react';
+import { Search, Send, MessageSquare, Menu, ArrowLeft, RefreshCw, Paperclip, X, Download, FileText, Image, File, MessageCircleOff, MessageCircle } from 'lucide-react';
 import { useAppStore } from '../../store/AppStore';
 import { getInitials } from '../../utils/avatarUtils';
+import { DatabaseChatMessage } from '../../types/database';
+
+interface MessageData {
+  id: number;
+  chat_id: number;
+  sender: 'client' | 'admin';
+  sender_id?: string;
+  sender_name?: string;
+  sender_role?: string;
+  content: string;
+  message_type: 'text' | 'file' | 'image';
+  attachment_url?: string;
+  attachment_name?: string;
+  attachment_type?: string;
+  attachment_size?: number;
+  created_at: string;
+}
 
 interface ChatPageProps {
   onToggleSidebar?: () => void;
@@ -54,7 +71,7 @@ function formatFileSize(bytes: number) {
 }
 
 // MessageList komponen memoized
-const MessageList = memo(({ messages, isAdmin, clientName, clientId }: { messages: any[]; isAdmin: boolean; clientName?: string; clientId?: number }) => {
+const MessageList = memo(({ messages, isAdmin, clientName, clientId }: { messages: MessageData[]; isAdmin: boolean; clientName?: string; clientId?: number }) => {
   const scrollRef = useRef<HTMLDivElement>(null);
   const { user, getClientRole, users } = useAppStore();
   
@@ -62,7 +79,7 @@ const MessageList = memo(({ messages, isAdmin, clientName, clientId }: { message
     if (scrollRef.current) {
       scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
     }
-  }, [messages.length > 0 ? messages[messages.length - 1]?.id : null]);
+  }, [messages]);
 
   const handleFileDownload = (attachmentUrl: string, fileName: string) => {
     const link = document.createElement('a');
@@ -75,40 +92,82 @@ const MessageList = memo(({ messages, isAdmin, clientName, clientId }: { message
   };
 
   // Helper function untuk dapatkan admin user yang active
-  const getAdminUserInfo = () => {
-    // Untuk admin messages, guna current user yang login
+  const getAdminUserInfo = (message: DatabaseChatMessage) => {
+    // Use actual sender info from message if available
+    if (message.sender_name && message.sender_role) {
+      return {
+        role: message.sender_role,
+        name: message.sender_name
+      };
+    }
+    
+    // Fallback to current user info
     if (user && (user.role === 'Super Admin' || user.role === 'Team')) {
       return {
-        role: 'Admin Team', // Always use "Admin Team" untuk consistency
+        role: user.role, // Show actual role: Super Admin or Team
         name: user.name
       };
     }
     return {
-      role: 'Admin Team',
+      role: 'Team',
       name: 'Support'
     };
   };
 
   // Helper function untuk dapatkan client user info
-  const getClientUserInfo = (clientId?: number) => {
+  const getClientUserInfo = (message: DatabaseChatMessage, clientId?: number) => {
+    // Use actual sender info from message if available
+    if (message.sender_name && message.sender_role) {
+      return {
+        role: message.sender_role,
+        name: message.sender_name
+      };
+    }
+    
     if (!clientId) {
       return {
-        role: 'Client',
+        role: 'Client Team',
         name: clientName || 'Unknown Client'
       };
     }
 
+    // Debug: Log untuk understand data matching
+    console.log('🔍 getClientUserInfo Debug:', {
+      clientId,
+      clientName,
+      usersCount: users.length,
+      clientUsers: users.filter(u => u.clientId === clientId),
+      allClientIds: users.map(u => ({ id: u.id, name: u.name, clientId: u.clientId, role: u.role }))
+    });
+
     // Cari user yang ada clientId sama dengan chat
     const clientUser = users.find(u => u.clientId === clientId);
     if (clientUser) {
+      console.log('✅ Found client user:', { name: clientUser.name, role: clientUser.role });
       return {
         role: clientUser.role, // Client Admin atau Client Team
         name: clientUser.name
       };
     }
 
+    // Fallback - Cuba cari berdasarkan nama jika clientId matching gagal
+    if (clientName) {
+      const userByName = users.find(u => 
+        u.name.toLowerCase() === clientName.toLowerCase() && 
+        (u.role === 'Client Admin' || u.role === 'Client Team')
+      );
+      if (userByName) {
+        console.log('✅ Found client user by name:', { name: userByName.name, role: userByName.role });
+        return {
+          role: userByName.role,
+          name: userByName.name
+        };
+      }
+    }
+
     // Fallback kepada old method
     const role = getClientRole(clientId);
+    console.log('⚠️ Using fallback role:', role, 'for client:', clientName);
     return {
       role: role,
       name: clientName || 'Unknown Client'
@@ -135,7 +194,7 @@ const MessageList = memo(({ messages, isAdmin, clientName, clientId }: { message
                 msg.sender === (isAdmin ? 'admin' : 'client') ? 'text-blue-100' : 'text-slate-600'
               }`}>
                 {(() => {
-                  const adminInfo = getAdminUserInfo();
+                  const adminInfo = getAdminUserInfo(msg);
                   return `${adminInfo.role} - ${adminInfo.name}`;
                 })()}
               </div>
@@ -145,7 +204,7 @@ const MessageList = memo(({ messages, isAdmin, clientName, clientId }: { message
                 msg.sender === (isAdmin ? 'admin' : 'client') ? 'text-blue-100' : 'text-slate-600'
               }`}>
                 {(() => {
-                  const clientUserInfo = getClientUserInfo(clientId);
+                  const clientUserInfo = getClientUserInfo(msg, clientId);
                   return `${clientUserInfo.role} - ${clientUserInfo.name}`;
                 })()}
               </div>
@@ -168,8 +227,8 @@ const MessageList = memo(({ messages, isAdmin, clientName, clientId }: { message
                     )}
                   </div>
                   <button
-                    onClick={() => handleFileDownload(msg.attachment_url, msg.attachment_name || 'file')}
-                    className="p-1 hover:bg-white hover:bg-opacity-20 rounded transition-colors"
+                    onClick={() => handleFileDownload(msg.attachment_url!, msg.attachment_name || 'file')}
+                    className="p-1 hover:bg-white hover:bg-opacity-20 rounded transition-colors" 
                     title="Download file"
                   >
                     <Download className="w-4 h-4" />
@@ -190,7 +249,7 @@ const MessageList = memo(({ messages, isAdmin, clientName, clientId }: { message
                     onClick={() => window.open(msg.attachment_url, '_blank')}
                   />
                   <button
-                    onClick={() => handleFileDownload(msg.attachment_url, msg.attachment_name || 'image')}
+                    onClick={() => msg.attachment_url && handleFileDownload(msg.attachment_url, msg.attachment_name || 'image')}
                     className="absolute top-2 right-2 p-1 bg-black bg-opacity-50 text-white rounded hover:bg-opacity-70 transition-colors"
                     title="Download image"
                   >
@@ -219,6 +278,8 @@ const ChatPage: React.FC<ChatPageProps> = ({ onToggleSidebar }) => {
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [isUploading, setIsUploading] = useState(false);
   const [showChatView, setShowChatView] = useState(false);
+  const [currentChatEnabled, setCurrentChatEnabled] = useState<boolean>(true);
+  const [isChatToggling, setIsChatToggling] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const pollingInitialized = useRef(false);
 
@@ -231,11 +292,28 @@ const ChatPage: React.FC<ChatPageProps> = ({ onToggleSidebar }) => {
     markChatAsRead, 
     getChatById,
     startPolling,
-    stopPolling
+    stopPolling,
+    toggleUserChatStatus,
+    getClientChatStatus,
+    users,
+    user
   } = useAppStore();
 
   const activeClient = activeChat ? getChatById(activeChat) : null;
   const messages = activeClient?.messages || [];
+
+  // Chat Status Functions
+  const fetchCurrentChatStatus = useCallback(async () => {
+    if (activeClient?.clientId) {
+      try {
+        const chatEnabled = await getClientChatStatus(activeClient.clientId);
+        setCurrentChatEnabled(chatEnabled);
+      } catch (error) {
+        console.error('Error fetching chat status:', error);
+        setCurrentChatEnabled(true); // Default to enabled on error
+      }
+    }
+  }, [activeClient?.clientId, getClientChatStatus]);
 
   // Load chats on component mount and start polling (once only)
   useEffect(() => {
@@ -254,7 +332,7 @@ const ChatPage: React.FC<ChatPageProps> = ({ onToggleSidebar }) => {
         pollingInitialized.current = false;
       }
     };
-  }, []); // Empty dependencies to run only once
+  }, [fetchChats, startPolling, stopPolling]); // Include dependencies
 
   // Load messages when active chat changes
   useEffect(() => {
@@ -262,7 +340,14 @@ const ChatPage: React.FC<ChatPageProps> = ({ onToggleSidebar }) => {
       loadChatMessages(activeChat);
       markChatAsRead(activeChat, 'admin'); // Mark as read when opened (admin user type)
     }
-  }, [activeChat]); // Only depend on activeChat
+  }, [activeChat, loadChatMessages, markChatAsRead]); // Include all dependencies
+
+  // Fetch chat status when active client changes
+  useEffect(() => {
+    if (activeClient?.clientId) {
+      fetchCurrentChatStatus();
+    }
+  }, [activeClient?.clientId, fetchCurrentChatStatus]);
 
   const handleFileSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
@@ -336,7 +421,7 @@ const ChatPage: React.FC<ChatPageProps> = ({ onToggleSidebar }) => {
         console.log('❌ S3 upload failed, trying local storage...');
         throw new Error('S3 upload failed');
       }
-    } catch (error) {
+    } catch {
       console.log('🔄 Falling back to local file storage...');
       
       // Fallback: Convert file to data URL for local storage
@@ -395,15 +480,17 @@ const ChatPage: React.FC<ChatPageProps> = ({ onToggleSidebar }) => {
       if (fileInputRef.current) {
         fileInputRef.current.value = '';
       }
-    } catch (error: any) {
+    } catch (error: unknown) {
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      // Error has been logged, errorMessage is used above
       console.error('Error sending message:', error);
       
       // Show more specific error message
-      if (error?.message?.includes('API server not available')) {
+      if (errorMessage.includes('API server not available')) {
         alert('S3 upload server not available. File saved locally. Message sent with local file.');
-      } else if (error?.message?.includes('S3 upload failed')) {
+      } else if (errorMessage.includes('S3 upload failed')) {
         alert('S3 upload failed, but file was saved locally. Message sent with local file.');
-      } else if (error?.message?.includes('Failed to read file')) {
+      } else if (errorMessage.includes('Failed to read file')) {
         alert('Failed to process file. Please try again.');
       } else {
         alert('Failed to send message. Please try again.');
@@ -435,6 +522,43 @@ const ChatPage: React.FC<ChatPageProps> = ({ onToggleSidebar }) => {
       await loadChatMessages(activeChat);
     }
     await fetchChats();
+  };
+
+
+
+  const handleToggleChatStatus = async () => {
+    if (!activeClient?.clientId || !user) {
+      console.error('No active client or user for chat toggle');
+      return;
+    }
+
+    // Only Super Admin and Admin Team can toggle chat
+    if (user.role !== 'Super Admin' && user.role !== 'Team') {
+      console.error('Unauthorized: Only admin can toggle chat status');
+      return;
+    }
+
+    setIsChatToggling(true);
+    try {
+      // Find the client user in the users array
+      const clientUser = users.find(u => u.clientId === activeClient.clientId);
+      if (!clientUser) {
+        console.error('Client user not found');
+        return;
+      }
+
+      const newChatStatus = !currentChatEnabled;
+      console.log(`🔍 Admin: Toggling chat status - User ID: ${clientUser.id}, New Status: ${newChatStatus}`);
+      
+      await toggleUserChatStatus(clientUser.id, newChatStatus);
+      setCurrentChatEnabled(newChatStatus);
+      
+      console.log(`✅ Admin: Chat ${newChatStatus ? 'enabled' : 'disabled'} for client: ${activeClient.client}`);
+    } catch (error) {
+      console.error('Error toggling chat status:', error);
+    } finally {
+      setIsChatToggling(false);
+    }
   };
 
   const formatTime = (timestamp: string) => {
@@ -553,6 +677,45 @@ const ChatPage: React.FC<ChatPageProps> = ({ onToggleSidebar }) => {
                     </div>
                   </div>
                   <div className="flex items-center space-x-2">
+                    {/* Chat Disable/Enable Button - Only for Admin users */}
+                    {user && (user.role === 'Super Admin' || user.role === 'Team') && (
+                      <button
+                        onClick={handleToggleChatStatus}
+                        disabled={isChatToggling}
+                        className={`flex items-center space-x-2 px-3 py-2 rounded-lg transition-colors ${
+                          currentChatEnabled
+                            ? 'text-green-600 hover:text-green-700 hover:bg-green-50 border border-green-200'
+                            : 'text-red-600 hover:text-red-700 hover:bg-red-50 border border-red-200'
+                        } ${
+                          isChatToggling ? 'opacity-50 cursor-not-allowed' : ''
+                        }`}
+                        title={
+                          isChatToggling
+                            ? 'Updating chat status...'
+                            : currentChatEnabled
+                            ? 'Disable chat for this client'
+                            : 'Enable chat for this client'
+                        }
+                      >
+                        {isChatToggling ? (
+                          <>
+                            <RefreshCw className="w-4 h-4 animate-spin" />
+                            <span className="text-sm font-medium">Updating...</span>
+                          </>
+                        ) : currentChatEnabled ? (
+                          <>
+                            <MessageCircleOff className="w-4 h-4" />
+                            <span className="text-sm font-medium">Disable Chat</span>
+                          </>
+                        ) : (
+                          <>
+                            <MessageCircle className="w-4 h-4" />
+                            <span className="text-sm font-medium">Enable Chat</span>
+                          </>
+                        )}
+                      </button>
+                    )}
+
                     <button
                       onClick={handleRefresh}
                       className="p-2 text-slate-600 hover:text-slate-900 hover:bg-slate-100 rounded-lg transition-colors"
@@ -568,6 +731,17 @@ const ChatPage: React.FC<ChatPageProps> = ({ onToggleSidebar }) => {
 
                 {/* Message Input */}
                 <div className="p-4 border-t border-slate-200">
+                  {/* Chat Status Indicator */}
+                  {!currentChatEnabled && (
+                    <div className="mb-3 p-3 bg-red-50 border border-red-200 rounded-lg flex items-center space-x-2">
+                      <MessageCircleOff className="w-5 h-5 text-red-600" />
+                      <div>
+                        <p className="text-sm font-medium text-red-800">Chat Disabled</p>
+                        <p className="text-xs text-red-600">Client cannot send messages, but can view chat history. Admin can still send messages.</p>
+                      </div>
+                    </div>
+                  )}
+
                   {/* Selected File Preview */}
                   {selectedFile && (
                     <div className="mb-3 p-3 bg-blue-50 border border-blue-200 rounded-lg">

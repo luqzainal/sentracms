@@ -1,7 +1,6 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Plus, Search, Filter, Trash2, Menu, Eye, TrendingUp, Edit } from 'lucide-react';
 import ClientModal from './ClientModal';
-import ClientProfile from './ClientProfile';
 import ClientProgressTracker from './ClientProgressTracker';
 import { useAppStore } from '../../store/AppStore';
 import { useNavigate } from 'react-router-dom';
@@ -14,7 +13,14 @@ interface ClientsPageProps {
   onToggleSidebar?: () => void;
 }
 
-const ClientsPage: React.FC<ClientsPageProps> = ({ setActiveTab, onToggleSidebar }) => {
+interface Client {
+  id: string;
+  name: string;
+  email: string;
+  status: string;
+}
+
+const ClientsPage: React.FC<ClientsPageProps> = ({ onToggleSidebar }) => {
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
   const [tagFilter, setTagFilter] = useState('all');

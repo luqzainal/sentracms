@@ -3,7 +3,7 @@ import react from '@vitejs/plugin-react';
 import { ServerResponse, IncomingMessage } from 'http';
 
 interface RequestWithBody extends IncomingMessage {
-  body?: any;
+  body?: unknown;
 }
 
 // https://vitejs.dev/config/
@@ -13,9 +13,9 @@ export default defineConfig({
     {
       name: 'api-middleware',
       configureServer(server) {
-        server.middlewares.use('/api/generate-upload-url', async (req, res, next) => {
+        server.middlewares.use('/api/generate-upload-url', async (req, res) => {
           const apiReq = req as RequestWithBody;
-          const apiRes = res as ServerResponse & { status: (code: number) => any, json: (data: any) => void };
+          const apiRes = res as ServerResponse & { status: (code: number) => ServerResponse, json: (data: unknown) => void };
 
           try {
             const module = await server.ssrLoadModule('./api/generate-upload-url.mjs');
@@ -36,7 +36,7 @@ export default defineConfig({
                 apiRes.statusCode = statusCode;
                 return apiRes;
               };
-              apiRes.json = (data: any) => {
+              apiRes.json = (data: unknown) => {
                 apiRes.setHeader('Content-Type', 'application/json');
                 apiRes.end(JSON.stringify(data));
               };
@@ -58,14 +58,14 @@ export default defineConfig({
       '/api': {
         target: 'http://localhost:3001',
         changeOrigin: true,
-        configure: (proxy, options) => {
-          proxy.on('error', (err, req, res) => {
+        configure: (proxy) => {
+          proxy.on('error', (err) => {
             console.log('proxy error', err);
           });
-          proxy.on('proxyReq', (proxyReq, req, res) => {
+          proxy.on('proxyReq', (proxyReq, req) => {
             console.log('Sending Request to the Target:', req.method, req.url);
           });
-          proxy.on('proxyRes', (proxyRes, req, res) => {
+          proxy.on('proxyRes', (proxyRes, req) => {
             console.log('Received Response from the Target:', proxyRes.statusCode, req.url);
           });
         },

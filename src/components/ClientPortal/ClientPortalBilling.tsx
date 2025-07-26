@@ -1,13 +1,13 @@
-import React, { useState, useEffect } from 'react';
+import React from 'react';
 import { ArrowLeft, DollarSign, Receipt, Download } from 'lucide-react';
 import { useAppStore } from '../../store/AppStore';
 
 interface ClientPortalBillingProps {
-  user: any;
+  user: { email: string };
   onBack: () => void;
 }
 
-const ClientPortalBilling: React.FC<ClientPortalBillingProps> = ({ user, onBack }) => {
+const ClientPortalBilling: React.FC<ClientPortalBillingProps> = ({ onBack }) => {
   const { 
     clients, 
     getInvoicesByClientId,

@@ -1,14 +1,14 @@
 import React, { useState, useMemo, useCallback } from 'react';
-import { CheckCircle, Package, DollarSign, Phone, Mail, Calendar as CalendarIcon, ChevronLeft, ChevronRight } from 'lucide-react';
+import { CheckCircle, DollarSign, Phone, Mail, Calendar as CalendarIcon, ChevronLeft, ChevronRight } from 'lucide-react';
 import { useAppStore, CalendarEvent } from '../../store/AppStore';
 import EventPopup from '../common/EventPopup';
 import { useNavigate } from 'react-router-dom';
 
 interface ClientPortalDashboardProps {
-  user: any;
+  user: { email: string };
 }
 
-const ClientPortalDashboard: React.FC<ClientPortalDashboardProps> = ({ user }) => {
+const ClientPortalDashboard: React.FC<ClientPortalDashboardProps> = () => {
   // All hooks at the top - ALWAYS called in same order
   const navigate = useNavigate();
   const [selectedEvent, setSelectedEvent] = useState<CalendarEvent | null>(null);
@@ -29,7 +29,7 @@ const ClientPortalDashboard: React.FC<ClientPortalDashboardProps> = ({ user }) =
   const client = clients.length > 0 ? clients[0] : null;
   
   // Only process data if client exists
-  const components = client ? getComponentsByClientId(client.id) : [];
+  if (client) getComponentsByClientId(client.id);
   const invoices = client ? getInvoicesByClientId(client.id) : [];
   const progressStatus = client ? calculateClientProgressStatus(client.id) : { percentage: 0 };
   const { percentage: progressPercentage } = progressStatus;
@@ -116,21 +116,6 @@ const ClientPortalDashboard: React.FC<ClientPortalDashboardProps> = ({ user }) =
   };
 
   // Component definitions - ALWAYS defined
-  const StatCard = ({ icon, title, value, onClick, colorClass }: { icon: React.ReactNode, title: string, value: string, onClick?: () => void, colorClass: string }) => (
-    <div
-      onClick={onClick}
-      className={`bg-white rounded-lg border border-slate-200 px-4 md:px-6 py-4 flex flex-col items-start justify-center ${onClick ? 'cursor-pointer hover:shadow-md hover:-translate-y-0.5 transition-all duration-200' : ''} min-w-[160px] md:min-w-[180px] min-h-[70px] md:min-h-[80px] group`}
-      style={{ boxShadow: '0 2px 8px 0 rgba(30,41,59,0.04)' }}
-    >
-      <div className="flex items-center mb-2">
-        <div className={`w-6 h-6 md:w-8 md:h-8 ${colorClass} rounded flex items-center justify-center mr-2 md:mr-3 group-hover:scale-105 transition-transform`}>
-          {icon}
-        </div>
-        <span className="text-sm md:text-base font-semibold text-slate-700 tracking-tight">{title}</span>
-      </div>
-      <div className="text-xl md:text-2xl font-bold text-slate-900 tracking-tight">{value}</div>
-    </div>
-  );
 
   const MiniCard = ({ label, value, color }: { label: string, value: string, color?: string }) => (
     <div className="flex flex-col items-center justify-center bg-slate-50 rounded-lg border border-slate-200 px-3 md:px-4 py-2 min-w-[100px] md:min-w-[120px]">

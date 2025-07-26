@@ -7,7 +7,7 @@
     "dev": "vite",
     "build": "vite build",
     "start": "serve -s dist -l 8080 -n",
-    "lint": "eslint . --ext ts,tsx --report-unused-disable-directives --max-warnings 0",
+    "lint": "eslint . --report-unused-disable-directives --max-warnings 0",
     "preview": "vite preview",
     "start-api": "node api/server.mjs",
     "start-production": "node api/production-server.mjs",

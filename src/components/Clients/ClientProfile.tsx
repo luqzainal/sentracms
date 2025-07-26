@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { useAppStore } from '../../store/AppStore';
 import { Client, Invoice, Payment, Component, CalendarEvent } from '../../store/AppStore';
-import { Edit, Calendar, FileText, Package, Plus, Trash2, ArrowLeft, Eye, Download, X } from 'lucide-react';
+import { Edit, Calendar, FileText, Package, Plus, Trash2, ArrowLeft, Download, X } from 'lucide-react';
 import AddInvoiceModal from './AddInvoiceModal';
 import AddPaymentModal from './AddPaymentModal';
 import AddComponentModal from './AddComponentModal';
@@ -17,16 +17,15 @@ import { useConfirmation } from '../../hooks/useConfirmation';
 interface ClientProfileProps {
   clientId: string;
   onBack: () => void;
-  onEdit?: (client: Client) => void;
 }
 
-const ClientProfile: React.FC<ClientProfileProps> = ({ clientId, onBack, onEdit }) => {
+const ClientProfile: React.FC<ClientProfileProps> = ({ clientId, onBack }) => {
   const { 
     invoices, 
     payments, 
-    components, 
     calendarEvents, 
-    clients,
+    users,
+    user,
     addInvoice, 
     addPayment, 
     addComponent, 
@@ -49,7 +48,7 @@ const ClientProfile: React.FC<ClientProfileProps> = ({ clientId, onBack, onEdit 
     fetchCalendarEvents,
     fetchProgressSteps,
     fetchTags,
-
+    fetchUsers
 
   } = useAppStore();
 
@@ -88,7 +87,7 @@ const ClientProfile: React.FC<ClientProfileProps> = ({ clientId, onBack, onEdit 
       result[invoice.id] = getComponentsByInvoiceId(invoice.id);
     });
     return result;
-  }, [client, invoices, components, getComponentsByInvoiceId]);
+  }, [client, invoices, getComponentsByInvoiceId]);
 
   // Fetch data on component mount
   useEffect(() => {
@@ -107,6 +106,8 @@ const ClientProfile: React.FC<ClientProfileProps> = ({ clientId, onBack, onEdit 
       await fetchCalendarEvents();
         console.log("Fetching progress steps...");
       await fetchProgressSteps();
+        console.log("Fetching users...");
+      await fetchUsers();
         console.log("All data fetched.");
 
         // After all data is fetched, find the client
@@ -122,7 +123,7 @@ const ClientProfile: React.FC<ClientProfileProps> = ({ clientId, onBack, onEdit 
     if (clientId) {
     loadData();
     }
-  }, [clientId, fetchClients, fetchInvoices, fetchPayments, fetchComponents, fetchCalendarEvents, fetchProgressSteps]);
+  }, [clientId, fetchClients, fetchInvoices, fetchPayments, fetchComponents, fetchCalendarEvents, fetchProgressSteps, fetchUsers]);
 
 
   // Handle loading state
@@ -356,6 +357,7 @@ const ClientProfile: React.FC<ClientProfileProps> = ({ clientId, onBack, onEdit 
     link.download = `receipt-${paymentId}.pdf`;
     link.click();
   };
+
 
 
   return (
@@ -735,9 +737,9 @@ const ClientProfile: React.FC<ClientProfileProps> = ({ clientId, onBack, onEdit 
       {showComponentModal && (
         <AddComponentModal
           onClose={() => setShowComponentModal(null)}
-          onSave={handleSaveComponent}
+          onSave={(componentData: ComponentData) => handleSaveComponent(componentData)}
           clientId={client.id}
-          invoiceId={showComponentModal}
+          invoiceId={showComponentModal} 
         />
       )}
 
@@ -801,6 +803,8 @@ const ClientProfile: React.FC<ClientProfileProps> = ({ clientId, onBack, onEdit 
           icon={confirmation.icon}
         />
       )}
+
+
 
       {/* Receipt Viewer Modal */}
       {showReceiptViewer && selectedReceiptUrl && (

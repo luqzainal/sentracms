@@ -1,10 +1,19 @@
 import React, { useState, useEffect, useCallback, useMemo, memo, useRef } from 'react';
-import { ArrowLeft, Send, RefreshCw, Paperclip, X, Download } from 'lucide-react';
+import { ArrowLeft, Send, RefreshCw, Paperclip, X, Download, MessageCircleOff } from 'lucide-react';
 import { useAppStore } from '../../store/AppStore';
 import { getInitials } from '../../utils/avatarUtils';
+import { DatabaseChatMessage } from '../../types/database';
+
+interface UserData {
+  id: string;
+  name: string;
+  email: string;
+  role: string;
+  clientId?: number;
+}
 
 interface ClientPortalChatProps {
-  user: any;
+  user: UserData;
   onBack: () => void;
 }
 
@@ -60,6 +69,7 @@ const ClientPortalChat: React.FC<ClientPortalChatProps> = ({ user, onBack }) => 
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [isSending, setIsSending] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
+  const [chatEnabled, setChatEnabled] = useState<boolean>(true);
   const messagesEndRef = React.useRef<HTMLDivElement>(null);
   const inputRef = React.useRef<HTMLInputElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -77,7 +87,8 @@ const ClientPortalChat: React.FC<ClientPortalChatProps> = ({ user, onBack }) => 
     stopPolling,
     isPolling,
     getClientRole,
-    users
+    users,
+    getClientChatStatus
   } = useAppStore();
 
   // Find the client data based on the user email
@@ -90,38 +101,100 @@ const ClientPortalChat: React.FC<ClientPortalChatProps> = ({ user, onBack }) => 
   }, [clientChat?.messages]);
 
   // Helper function untuk dapatkan admin user info yang sebenar
-  const getAdminUserInfo = () => {
-    // Untuk admin messages, cuba dapatkan admin user yang sebenar dari users store
-    const adminUsers = users.filter(u => u.role === 'Super Admin' || u.role === 'Team');
-    
-    // Untuk sementara, ambil admin user pertama yang active
-    const activeAdmin = adminUsers.find(u => u.status === 'Active');
-    if (activeAdmin) {
+  const getAdminUserInfo = (message: DatabaseChatMessage) => {
+    // Use actual sender info from message if available
+    if (message.sender_name && message.sender_role) {
       return {
-        role: 'Admin Team', // Always use "Admin Team" untuk consistency
-        name: activeAdmin.name
+        role: message.sender_role,
+        name: message.sender_name
+      };
+    }
+    
+    // Fallback: Untuk admin messages, cuba dapatkan admin user yang sebenar dari users store
+    const adminUsers = users.filter(u => (u.role === 'Super Admin' || u.role === 'Team') && u.status === 'Active');
+    
+    // Prefer Super Admin first, then Team
+    const superAdmin = adminUsers.find(u => u.role === 'Super Admin');
+    const teamAdmin = adminUsers.find(u => u.role === 'Team');
+    
+    if (superAdmin) {
+      return {
+        role: 'Super Admin',
+        name: superAdmin.name
+      };
+    }
+    
+    if (teamAdmin) {
+      return {
+        role: 'Team',
+        name: teamAdmin.name
       };
     }
 
     // Fallback kepada generic admin info
     return {
-      role: 'Admin Team',
+      role: 'Team',
       name: 'Support'
     };
   };
 
   // Helper function untuk dapatkan client user info
-  const getClientUserInfo = () => {
+  const getClientUserInfo = (message: DatabaseChatMessage) => {
+    // Use actual sender info from message if available
+    if (message.sender_name && message.sender_role) {
+      return {
+        role: message.sender_role,
+        name: message.sender_name
+      };
+    }
+    
     if (!client) {
       return {
-        role: 'Client',
+        role: 'Client Team',
         name: 'Unknown Client'
       };
     }
 
-    // Guna current user role dan nama
+    // Priority 1: Use current logged-in user if they're a client
+    if (user && (user.role === 'Client Admin' || user.role === 'Client Team')) {
+      return {
+        role: user.role,
+        name: user.name
+      };
+    }
+
+    // Priority 2: Find client user in users array by client_id
+    const clientUser = users.find(u => 
+      u.clientId === client.id && 
+      (u.role === 'Client Admin' || u.role === 'Client Team') &&
+      u.status === 'Active'
+    );
+    
+    if (clientUser) {
+      return {
+        role: clientUser.role,
+        name: clientUser.name
+      };
+    }
+
+    // Priority 3: Find by name matching (fallback)
+    const userByName = users.find(u =>
+      u.name.toLowerCase() === client.name.toLowerCase() &&
+      (u.role === 'Client Admin' || u.role === 'Client Team') &&
+      u.status === 'Active'
+    );
+    
+    if (userByName) {
+      return {
+        role: userByName.role,
+        name: userByName.name
+      };
+    }
+
+    // Final fallback: Use getClientRole and client data
+    const role = getClientRole(client.id);
     return {
-      role: getClientRole(client.id),
+      role: role || 'Client Team',
       name: client.name
     };
   };
@@ -152,7 +225,7 @@ const ClientPortalChat: React.FC<ClientPortalChatProps> = ({ user, onBack }) => 
       loadChatMessages(clientChat.id);
       markChatAsRead(clientChat.id, 'client'); // Mark as read when opened (client user type)
     }
-  }, [clientChat?.id, loadChatMessages, markChatAsRead]); // Include clientChat.id in dependency
+  }, [clientChat?.id, loadChatMessages, markChatAsRead, clientChat]); // Include clientChat.id in dependency
 
   // Auto scroll to bottom when new messages arrive
   useEffect(() => {
@@ -162,6 +235,41 @@ const ClientPortalChat: React.FC<ClientPortalChatProps> = ({ user, onBack }) => 
       }, 100);
     }
   }, [memoizedMessages]);
+
+  // Check chat status when client is available
+  useEffect(() => {
+    const checkChatStatus = async () => {
+      if (client?.id) {
+        try {
+          const isEnabled = await getClientChatStatus(client.id);
+          setChatEnabled(isEnabled);
+        } catch (error) {
+          console.error('Error checking chat status:', error);
+          setChatEnabled(true); // Default to enabled on error
+        }
+      }
+    };
+
+    checkChatStatus();
+  }, [client?.id, getClientChatStatus]);
+
+  // Periodically check chat status for real-time updates
+  useEffect(() => {
+    if (!client?.id) return;
+
+    const interval = setInterval(async () => {
+      try {
+        const isEnabled = await getClientChatStatus(client.id);
+        if (isEnabled !== chatEnabled) {
+          setChatEnabled(isEnabled);
+        }
+      } catch (error) {
+        console.error('Error checking chat status periodically:', error);
+      }
+    }, 5000); // Check every 5 seconds
+
+    return () => clearInterval(interval);
+  }, [client?.id, chatEnabled, getClientChatStatus]);
 
   const handleFileSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
@@ -233,7 +341,28 @@ const ClientPortalChat: React.FC<ClientPortalChatProps> = ({ user, onBack }) => 
   };
 
   const handleSendMessage = async () => {
-    if ((!message.trim() && !selectedFile) || !clientChat || isSending) return;
+    console.log('🔍 ClientPortal handleSendMessage called:', {
+      chatEnabled,
+      hasMessage: !!message.trim(),
+      hasFile: !!selectedFile,
+      hasClientChat: !!clientChat,
+      isSending,
+      clientId: client?.id,
+      clientName: client?.name
+    });
+    
+    // Check if chat is disabled
+    if (!chatEnabled) {
+      console.log('❌ ClientPortal: Message blocked by chatEnabled check');
+      return;
+    }
+
+    if ((!message.trim() && !selectedFile) || !clientChat || isSending) {
+      console.log('❌ ClientPortal: Message blocked by empty message/chat/sending check');
+      return;
+    }
+    
+    console.log('✅ ClientPortal: Proceeding to send message');
 
     setIsSending(true);
     setIsUploading(true);
@@ -286,11 +415,20 @@ const ClientPortalChat: React.FC<ClientPortalChatProps> = ({ user, onBack }) => 
         messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
       }, 200);
       
-    } catch (error) {
-          console.error('Error sending message:', error);
-      alert('Failed to send message. Please try again.');
+    } catch (error: unknown) {
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      console.error('Error sending message:', error);
+      
+      // Handle specific chat disabled error
+      if (errorMessage.includes('Chat is disabled')) {
+        // Update local chat status to reflect server state
+        setChatEnabled(false);
+        // No need to show alert as the UI will show the disabled state
+      } else {
+        alert('Failed to send message. Please try again.');
+      }
     } finally {
-          setIsSending(false);
+      setIsSending(false);
       setIsUploading(false);
     }
   };
@@ -313,9 +451,6 @@ const ClientPortalChat: React.FC<ClientPortalChatProps> = ({ user, onBack }) => 
     return new Date(timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
   }, []);
 
-  const formatDate = useCallback((timestamp: string) => {
-    return new Date(timestamp).toLocaleDateString();
-  }, []);
 
   if (!client) {
     return (
@@ -430,7 +565,7 @@ const ClientPortalChat: React.FC<ClientPortalChatProps> = ({ user, onBack }) => 
                       {msg.sender === 'admin' && (
                         <div className="text-xs font-medium mb-1 text-slate-600">
                           {(() => {
-                            const adminInfo = getAdminUserInfo();
+                            const adminInfo = getAdminUserInfo(msg);
                             return `${adminInfo.role} - ${adminInfo.name}`;
                           })()}
                         </div>
@@ -438,7 +573,7 @@ const ClientPortalChat: React.FC<ClientPortalChatProps> = ({ user, onBack }) => 
                       {msg.sender === 'client' && (
                         <div className="text-xs font-medium mb-1 text-blue-100">
                           {(() => {
-                            const clientUserInfo = getClientUserInfo();
+                            const clientUserInfo = getClientUserInfo(msg);
                             return `${clientUserInfo.role} - ${clientUserInfo.name}`;
                           })()}
                         </div>
@@ -527,6 +662,17 @@ const ClientPortalChat: React.FC<ClientPortalChatProps> = ({ user, onBack }) => 
 
         {/* Message Input - Fixed at Bottom */}
         <div className="bg-white border-t border-slate-200 p-4 flex-shrink-0">
+          {/* Chat Disabled Indicator */}
+          {!chatEnabled && (
+            <div className="mb-3 p-3 bg-red-50 border border-red-200 rounded-lg flex items-center space-x-2">
+              <MessageCircleOff className="w-5 h-5 text-red-600" />
+              <div>
+                <p className="text-sm font-medium text-red-800">Chat Disabled</p>
+                <p className="text-xs text-red-600">You cannot send messages at this time, but you can still view your chat history.</p>
+              </div>
+            </div>
+          )}
+
           {/* File Preview */}
           {selectedFile && (
             <div className="mb-3 p-2 bg-blue-50 border border-blue-200 rounded-lg">
@@ -552,9 +698,9 @@ const ClientPortalChat: React.FC<ClientPortalChatProps> = ({ user, onBack }) => 
             {/* File Upload Button */}
             <button
               onClick={() => fileInputRef.current?.click()}
-              disabled={isSending || isUploading}
+              disabled={isSending || isUploading || !chatEnabled}
               className="p-2 text-slate-600 hover:text-slate-900 hover:bg-slate-100 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-              title="Attach file"
+              title={chatEnabled ? "Attach file" : "Chat is disabled"}
             >
               <Paperclip className="w-5 h-5" />
             </button>
@@ -573,16 +719,55 @@ const ClientPortalChat: React.FC<ClientPortalChatProps> = ({ user, onBack }) => 
                 ref={inputRef}
                 type="text"
                 value={message}
-                onChange={e => setMessage(e.target.value)}
-                onKeyPress={handleKeyPress}
-                placeholder="Type your message..."
-                disabled={isSending || isUploading}
-                className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none text-sm bg-white disabled:opacity-50 disabled:cursor-not-allowed"
+                onChange={e => {
+                  if (!chatEnabled) {
+                    return;
+                  }
+                  setMessage(e.target.value);
+                }}
+                onKeyPress={(e) => {
+                  if (!chatEnabled) {
+                    e.preventDefault();
+                    return;
+                  }
+                  handleKeyPress(e);
+                }}
+                onFocus={() => {
+                  if (!chatEnabled) {
+                    inputRef.current?.blur();
+                  }
+                }}
+                onPaste={(e) => {
+                  if (!chatEnabled) {
+                    e.preventDefault();
+                    return false;
+                  }
+                }}
+                onCut={(e) => {
+                  if (!chatEnabled) {
+                    e.preventDefault();
+                    return false;
+                  }
+                }}
+                onInput={(e) => {
+                  if (!chatEnabled) {
+                    e.preventDefault();
+                    return false;
+                  }
+                }}
+                placeholder={chatEnabled ? "Type your message..." : "Chat is disabled"}
+                disabled={isSending || isUploading || !chatEnabled}
+                readOnly={!chatEnabled}
+                className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:border-transparent outline-none text-sm ${
+                  !chatEnabled 
+                    ? 'border-red-300 bg-red-50 text-red-700 placeholder-red-500 cursor-not-allowed'
+                    : 'border-slate-300 bg-white focus:ring-blue-500'
+                } disabled:opacity-50 disabled:cursor-not-allowed`}
               />
             </div>
             <button
               onClick={handleSendMessage}
-              disabled={(!message.trim() && !selectedFile) || isSending || isUploading}
+              disabled={(!message.trim() && !selectedFile) || isSending || isUploading || !chatEnabled}
               className="px-3 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center space-x-2"
             >
               {isSending || isUploading ? (

@@ -1,13 +1,13 @@
-import React, { useState, useEffect } from 'react';
+import React from 'react';
 import { ArrowLeft, Package, CheckCircle } from 'lucide-react';
 import { useAppStore } from '../../store/AppStore';
 
 interface ClientPortalPackagesProps {
-  user: any;
+  user: { email: string };
   onBack: () => void;
 }
 
-const ClientPortalPackages: React.FC<ClientPortalPackagesProps> = ({ user, onBack }) => {
+const ClientPortalPackages: React.FC<ClientPortalPackagesProps> = ({ onBack }) => {
   const { 
     clients, 
     getComponentsByClientId,

@@ -3,11 +3,11 @@ import { ArrowLeft, Plus, CheckCircle, Clock, AlertCircle } from 'lucide-react';
 import { useAppStore } from '../../store/AppStore';
 
 interface ClientPortalAddOnServicesProps {
-  user: any;
+  user: { email: string };
   onBack: () => void;
 }
 
-const ClientPortalAddOnServices: React.FC<ClientPortalAddOnServicesProps> = ({ user, onBack }) => {
+const ClientPortalAddOnServices: React.FC<ClientPortalAddOnServicesProps> = ({ onBack }) => {
   const [selectedServices, setSelectedServices] = useState<string[]>([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
 

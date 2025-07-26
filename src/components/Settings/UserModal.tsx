@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { X, User, Mail, Shield, Eye, EyeOff, Crown, Briefcase, UserCheck } from 'lucide-react';
+import { X, User, Mail, Shield, Eye, EyeOff, Crown, Briefcase } from 'lucide-react';
 import { useAppStore } from '../../store/AppStore';
 
 interface User {

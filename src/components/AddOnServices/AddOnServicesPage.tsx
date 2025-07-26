@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useAppStore } from '../../store/AppStore';
-import { Plus, Edit, Trash2, Package, DollarSign, Clock, Star, Search, Filter, Menu, Eye } from 'lucide-react';
+import { AddOnService } from '../../types/database';
+import { Plus, Edit, Trash2, Package, Search, Filter, Menu, Eye } from 'lucide-react';
 import { useToast } from '../../hooks/useToast';
 import ConfirmationModal from '../common/ConfirmationModal';
 import { useConfirmation } from '../../hooks/useConfirmation';
@@ -15,8 +16,7 @@ const AddOnServicesPage: React.FC<AddOnServicesPageProps> = ({ onToggleSidebar }
   const [categoryFilter, setCategoryFilter] = useState('all');
   const [statusFilter, setStatusFilter] = useState('all');
   const [showServiceModal, setShowServiceModal] = useState(false);
-  const [selectedService, setSelectedService] = useState<any>(null);
-  const [showRequestsModal, setShowRequestsModal] = useState(false);
+  const [selectedService, setSelectedService] = useState<AddOnService | null>(null);
 
   const { 
     addOnServices, 
@@ -73,7 +73,7 @@ const AddOnServicesPage: React.FC<AddOnServicesPageProps> = ({ onToggleSidebar }
     setShowServiceModal(true);
   };
 
-  const handleEditService = (service: any) => {
+  const handleEditService = (service: AddOnService) => {
     setSelectedService(service);
     setShowServiceModal(true);
   };
@@ -100,7 +100,7 @@ const AddOnServicesPage: React.FC<AddOnServicesPageProps> = ({ onToggleSidebar }
     );
   };
 
-  const handleSaveService = async (serviceData: any) => {
+  const handleSaveService = async (serviceData: Omit<AddOnService, 'id' | 'created_at'>) => {
     try {
       if (selectedService) {
         await updateAddOnService(selectedService.id, serviceData);

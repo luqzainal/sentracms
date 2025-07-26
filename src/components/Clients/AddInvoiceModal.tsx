@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { X, FileText, DollarSign, Calendar, AlertTriangle } from 'lucide-react';
+import { X, DollarSign, Calendar, AlertTriangle } from 'lucide-react';
 
 interface Invoice {
   id: string;
@@ -8,14 +8,19 @@ interface Invoice {
   clientId: number;
 }
 
-interface AddInvoiceModalProps {
-  onClose: () => void;
-  onSave: (invoiceData: any) => void;
-  existingInvoices?: Invoice[];
-  clientId?: number;
+interface InvoiceData {
+  packageName: string;
+  amount: number;
+  invoiceDate: string;
 }
 
-const AddInvoiceModal: React.FC<AddInvoiceModalProps> = ({ onClose, onSave, existingInvoices = [], clientId }) => {
+interface AddInvoiceModalProps {
+  onClose: () => void;
+  onSave: (invoiceData: InvoiceData) => void;
+  existingInvoices?: Invoice[];
+}
+
+const AddInvoiceModal: React.FC<AddInvoiceModalProps> = ({ onClose, onSave, existingInvoices = [] }) => {
   const [formData, setFormData] = useState({
     packageName: '',
     amount: '',

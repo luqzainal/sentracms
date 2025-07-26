@@ -6,7 +6,7 @@ import EventPopup from '../common/EventPopup';
 import { useAppStore, CalendarEvent } from '../../store/AppStore';
 
 interface ClientDashboardProps {
-  user: any;
+  user: { email: string };
   onBack: () => void;
 }
 
@@ -57,8 +57,7 @@ const ClientDashboard: React.FC<ClientDashboardProps> = ({ user, onBack }) => {
     startPolling,
     stopPolling,
     isPolling,
-    calculateClientProgressStatus,
-    getClientRole
+    calculateClientProgressStatus
   } = useAppStore();
 
   // Fetch data when component mounts to ensure sync with admin
@@ -82,7 +81,7 @@ const ClientDashboard: React.FC<ClientDashboardProps> = ({ user, onBack }) => {
   }, [fetchClients, fetchProgressSteps, fetchComponents, fetchInvoices, fetchPayments, fetchCalendarEvents, startPolling, stopPolling, isPolling]);
 
   // Find the client data based on the user email or create demo client for demo users
-  let client = clients.find(c => c.email === user.email);
+  const client = clients.find(c => c.email === user.email);
   
   if (!client) {
     return (
@@ -101,7 +100,7 @@ const ClientDashboard: React.FC<ClientDashboardProps> = ({ user, onBack }) => {
     );
   }
 
-  const progressSteps = getProgressStepsByClientId(client.id);
+  getProgressStepsByClientId(client.id);
   const components = getComponentsByClientId(client.id);
   const invoices = getInvoicesByClientId(client.id);
   const payments = getPaymentsByClientId(client.id);

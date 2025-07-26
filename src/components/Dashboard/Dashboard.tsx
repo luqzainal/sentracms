@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { useEffect } from 'react';
 import { Users, DollarSign, TrendingUp, Calendar, MessageSquare, UserPlus, Filter, Database, CreditCard, Clock, BarChart3, Activity, Menu, RefreshCw } from 'lucide-react';
 import { useAppStore } from '../../store/AppStore';
-import { dbConnectionStatus } from '../../context/SupabaseContext';
+// import { dbConnectionStatus } from '../../context/SupabaseContext'; // Unused import removed
 
 interface DashboardProps {
   setActiveTab?: (tab: string) => void;
@@ -85,7 +85,7 @@ const Dashboard: React.FC<DashboardProps> = ({ setActiveTab, onToggleSidebar }) 
     if (clients.length > 0 && invoices.length > 0) {
       checkAndRecalculate();
     }
-  }, [invoices, payments, clients.length, recalculateAllClientTotals]);
+  }, [invoices, payments, clients.length, recalculateAllClientTotals, getTotalSales]);
 
   // Calculate metrics
   const totalSales = getTotalSales();

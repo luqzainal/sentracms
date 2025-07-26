@@ -32,6 +32,7 @@ export interface DatabaseUser {
   last_login?: string;
   client_id?: number;
   permissions: string[];
+  chat_enabled: boolean;
   created_at: string;
   updated_at: string;
 }
@@ -141,6 +142,9 @@ export interface DatabaseChatMessage {
   id: number;
   chat_id: number;
   sender: 'client' | 'admin';
+  sender_id?: string; // UUID reference to users.id for admin messages
+  sender_name?: string; // Name of the sender
+  sender_role?: string; // Role of the sender (for admin messages)
   content: string;
   message_type: 'text' | 'file' | 'image';
   attachment_url?: string;
@@ -165,6 +169,7 @@ export interface DatabaseClientLink {
 // Combined types for frontend use
 export interface Client extends DatabaseClient {
   // Additional computed fields can be added here
+  computed?: unknown;
 }
 
 export interface Invoice extends DatabaseInvoice {
@@ -241,6 +246,7 @@ export interface DatabaseClientPic {
 
 export interface AddOnService extends DatabaseAddOnService {
   // Additional computed fields can be added here
+  computed?: unknown;
 }
 
 export interface ClientServiceRequest extends DatabaseClientServiceRequest {
@@ -254,6 +260,36 @@ export interface ClientServiceRequest extends DatabaseClientServiceRequest {
 
 export interface ClientPic extends DatabaseClientPic {
   user?: {
+    id: string;
+    name: string;
+    email: string;
+    role: string;
+  };
+}
+
+export interface DatabaseClientAssignment {
+  id: number;
+  admin_id: string; // UUID reference to users.id
+  client_id: number; // Reference to clients.id
+  assigned_date: string;
+  assigned_by: string; // UUID reference to users.id
+  created_at: string;
+  updated_at: string;
+}
+
+export interface ClientAssignment extends DatabaseClientAssignment {
+  admin?: {
+    id: string;
+    name: string;
+    email: string;
+    role: string;
+  };
+  client?: {
+    id: number;
+    name: string;
+    email: string;
+  };
+  assignedBy?: {
     id: string;
     name: string;
     email: string;

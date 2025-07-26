@@ -49,7 +49,7 @@ const EventPopup: React.FC<EventPopupProps> = ({ event, clients, onClose, onEdit
         month: 'long',
         day: 'numeric'
       });
-    } catch (error) {
+    } catch {
       return dateStr;
     }
   };
@@ -64,7 +64,7 @@ const EventPopup: React.FC<EventPopupProps> = ({ event, clients, onClose, onEdit
         minute: '2-digit',
         hour12: true
       });
-    } catch (error) {
+    } catch {
       return timeStr;
     }
   };

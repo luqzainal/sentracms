@@ -12,7 +12,8 @@ import type {
   ClientLink,
   AddOnService as DatabaseAddOnService,
   ClientServiceRequest as DatabaseClientServiceRequest,
-  DatabaseClientPic
+  DatabaseClientPic,
+  DatabaseClientAssignment
 } from '../types/database';
 
 // Helper function to check if database is available
@@ -96,10 +97,13 @@ export const clientsService = {
         RETURNING *
       `;
       return data[0] as Client;
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Detailed error creating client:', JSON.stringify(error, null, 2));
-      if (error.body && error.body.message) {
-        console.error('Error message from database:', error.body.message);
+      if (error && typeof error === 'object' && 'body' in error) {
+        const errorWithBody = error as { body?: { message?: string } };
+        if (errorWithBody.body && errorWithBody.body.message) {
+          console.error('Error message from database:', errorWithBody.body.message);
+        }
       }
       throw error;
     }
@@ -175,6 +179,7 @@ export const usersService = {
           last_login: new Date().toISOString(),
           client_id: undefined,
           permissions: ['all'],
+          chat_enabled: true,
           created_at: new Date().toISOString(),
           updated_at: new Date().toISOString()
         };
@@ -195,6 +200,7 @@ export const usersService = {
           last_login: new Date().toISOString(),
           client_id: 1, // Demo client ID
           permissions: ['client_portal'],
+          chat_enabled: true,
           created_at: new Date().toISOString(),
           updated_at: new Date().toISOString()
         };
@@ -218,7 +224,7 @@ export const usersService = {
               return user as DatabaseUser;
             }
           }
-        } catch (dbError) {
+        } catch (_dbError) {
           console.log('Database not available, using demo mode');
         }
       }
@@ -408,6 +414,110 @@ export const usersService = {
     } catch (error) {
       console.error('Error assigning user to client:', error);
       throw error;
+    }
+  },
+
+  // Chat Status Functions
+  async toggleChatStatus(userId: string, chatEnabled: boolean): Promise<DatabaseUser> {
+    console.log(`🔍 Database: toggleChatStatus called - User ID: ${userId}, Chat Enabled: ${chatEnabled}`);
+    
+    if (!isDatabaseAvailable()) {
+      console.log('❌ Database: Database not available for toggling chat status');
+      throw new Error('Database not available for toggling chat status');
+    }
+    try {
+      console.log(`🔍 Database: Updating user ${userId} with chat_enabled = ${chatEnabled}`);
+      const data = await sql!`
+        UPDATE users
+        SET 
+          chat_enabled = ${chatEnabled},
+          updated_at = NOW()
+        WHERE id = ${userId}
+        RETURNING *
+      `;
+      console.log(`📊 Database: Update result:`, data);
+      
+      if (data.length === 0) {
+        console.log(`❌ Database: User with ID ${userId} not found`);
+        throw new Error(`User with ID ${userId} not found`);
+      }
+      
+      console.log(`✅ Database: Successfully updated user ${userId} chat status to ${chatEnabled}`);
+      return data[0] as DatabaseUser;
+    } catch (error) {
+      console.error('Error toggling chat status:', error);
+      throw error;
+    }
+  },
+
+  async getChatStatus(userId: string): Promise<boolean> {
+    if (!isDatabaseAvailable()) {
+      // Default to enabled if database not available
+      return true;
+    }
+    try {
+      const data = await sql!`
+        SELECT chat_enabled FROM users WHERE id = ${userId} LIMIT 1
+      `;
+      if (data.length === 0) {
+        throw new Error(`User with ID ${userId} not found`);
+      }
+      return data[0].chat_enabled as boolean;
+    } catch (error) {
+      console.error('Error getting chat status:', error);
+      // Default to enabled on error
+      return true;
+    }
+  },
+
+  async getChatStatusByClientId(clientId: number): Promise<boolean> {
+    console.log(`🔍 Database getChatStatusByClientId called for client ID: ${clientId}`);
+    
+    if (!isDatabaseAvailable()) {
+      console.log('❌ Database not available, defaulting chat to enabled');
+      return true;
+    }
+    try {
+      // First check if chat_enabled column exists
+      console.log('🔍 Checking if chat_enabled column exists...');
+      const columnCheck = await sql!`
+        SELECT column_name 
+        FROM information_schema.columns 
+        WHERE table_name = 'users' AND column_name = 'chat_enabled'
+      `;
+      
+      console.log(`📊 Column check result:`, columnCheck);
+      
+      if (columnCheck.length === 0) {
+        console.log('⚠️ chat_enabled column not found, defaulting to enabled. Run database migration first!');
+        return true;
+      }
+
+      console.log(`🔍 Querying chat_enabled status for client ID: ${clientId}`);
+      const data = await sql!`
+        SELECT chat_enabled FROM users 
+        WHERE client_id = ${clientId} 
+          AND (role = 'Client Admin' OR role = 'Client Team')
+          AND status = 'Active'
+        LIMIT 1
+      `;
+      
+      if (data.length === 0) {
+        console.log(`🔍 No client user found for clientId ${clientId}, defaulting to enabled`);
+        return true;
+      }
+      
+      const chatEnabled = data[0].chat_enabled as boolean;
+      console.log(`📊 Database result - Chat status for client ${clientId}: ${chatEnabled}`);
+      return chatEnabled;
+    } catch (error) {
+      console.error('Error getting chat status by client ID:', error);
+      // Check if it's a column not found error
+      if (error instanceof Error && error.message?.includes('chat_enabled') && error.message?.includes('does not exist')) {
+        console.log('❌ chat_enabled column missing! Please run database migration.');
+      }
+      // Default to enabled on error
+      return true;
     }
   }
 };
@@ -1111,7 +1221,7 @@ export const progressService = {
     }
   },
 
-  async create(step: any): Promise<ProgressStep> {
+  async create(step: Partial<ProgressStep>): Promise<ProgressStep> {
     try {
       const data = await sql!`
         INSERT INTO progress_steps (
@@ -1312,6 +1422,9 @@ export const chatService = {
   async sendMessage(message: {
     chat_id: number;
     sender: 'client' | 'admin';
+    sender_id?: string;
+    sender_name?: string;
+    sender_role?: string;
     content: string;
     message_type?: 'text' | 'file' | 'image';
     attachment_url?: string;
@@ -1325,6 +1438,9 @@ export const chatService = {
         id: Date.now(),
         chat_id: message.chat_id,
         sender: message.sender,
+        sender_id: message.sender_id,
+        sender_name: message.sender_name,
+        sender_role: message.sender_role,
         content: message.content,
         message_type: message.message_type || 'text',
         attachment_url: message.attachment_url,
@@ -1342,11 +1458,12 @@ export const chatService = {
       // Insert the message without timeout - let it run in background
       const insertResult = await sql!`
         INSERT INTO chat_messages (
-          chat_id, sender, content, message_type, 
+          chat_id, sender, sender_id, sender_name, sender_role, content, message_type, 
           attachment_url, attachment_name, attachment_type, attachment_size,
           created_at
         ) VALUES (
           ${message.chat_id}, ${message.sender}, 
+          ${message.sender_id || null}, ${message.sender_name || null}, ${message.sender_role || null},
           ${message.content}, ${message.message_type || 'text'},
           ${message.attachment_url || null}, ${message.attachment_name || null},
           ${message.attachment_type || null}, ${message.attachment_size || null},
@@ -1385,6 +1502,9 @@ export const chatService = {
         id: Date.now(),
         chat_id: message.chat_id,
         sender: message.sender,
+        sender_id: message.sender_id,
+        sender_name: message.sender_name,
+        sender_role: message.sender_role,
         content: message.content,
         message_type: message.message_type || 'text',
         attachment_url: message.attachment_url,
@@ -2390,6 +2510,167 @@ export const clientPicsService = {
     } catch (error) {
       console.error('Error reordering client PICs:', error);
       throw error;
+    }
+  }
+};
+
+// Client Assignments Services
+export const clientAssignmentsService = {
+  async getAll(): Promise<DatabaseClientAssignment[]> {
+    if (!isDatabaseAvailable()) {
+      return handleDatabaseUnavailable('getAll clientAssignments') as DatabaseClientAssignment[];
+    }
+
+    try {
+      const data = await sql!`
+        SELECT ca.*, 
+               u_admin.name as admin_name, u_admin.email as admin_email, u_admin.role as admin_role,
+               c.name as client_name, c.email as client_email,
+               u_assigned.name as assigned_by_name, u_assigned.email as assigned_by_email
+        FROM client_assignments ca
+        LEFT JOIN users u_admin ON ca.admin_id = u_admin.id
+        LEFT JOIN clients c ON ca.client_id = c.id
+        LEFT JOIN users u_assigned ON ca.assigned_by = u_assigned.id
+        ORDER BY ca.assigned_date DESC
+      `;
+      return data as DatabaseClientAssignment[];
+    } catch (error) {
+      console.error('Error fetching client assignments:', error);
+      throw error;
+    }
+  },
+
+  async getByAdminId(adminId: string): Promise<DatabaseClientAssignment[]> {
+    if (!isDatabaseAvailable()) {
+      return handleDatabaseUnavailable('getByAdminId clientAssignments') as DatabaseClientAssignment[];
+    }
+
+    try {
+      const data = await sql!`
+        SELECT ca.*, 
+               c.name as client_name, c.email as client_email
+        FROM client_assignments ca
+        LEFT JOIN clients c ON ca.client_id = c.id
+        WHERE ca.admin_id = ${adminId}
+        ORDER BY ca.assigned_date DESC
+      `;
+      return data as DatabaseClientAssignment[];
+    } catch (error) {
+      console.error('Error fetching client assignments by admin ID:', error);
+      throw error;
+    }
+  },
+
+  async getByClientId(clientId: number): Promise<DatabaseClientAssignment[]> {
+    if (!isDatabaseAvailable()) {
+      return handleDatabaseUnavailable('getByClientId clientAssignments') as DatabaseClientAssignment[];
+    }
+
+    try {
+      const data = await sql!`
+        SELECT ca.*, 
+               u.name as admin_name, u.email as admin_email, u.role as admin_role
+        FROM client_assignments ca
+        LEFT JOIN users u ON ca.admin_id = u.id
+        WHERE ca.client_id = ${clientId}
+        ORDER BY ca.assigned_date DESC
+      `;
+      return data as DatabaseClientAssignment[];
+    } catch (error) {
+      console.error('Error fetching client assignments by client ID:', error);
+      throw error;
+    }
+  },
+
+  async create(assignment: Partial<DatabaseClientAssignment>): Promise<DatabaseClientAssignment> {
+    if (!isDatabaseAvailable()) {
+      console.error('Database not available for creating client assignment. Cannot proceed.');
+      throw new Error('Database connection not available. Please check your configuration.');
+    }
+
+    try {
+      const data = await sql!`
+        INSERT INTO client_assignments (
+          admin_id, client_id, assigned_by
+        ) VALUES (
+          ${assignment.admin_id}, ${assignment.client_id}, ${assignment.assigned_by}
+        )
+        RETURNING *
+      `;
+      return data[0] as DatabaseClientAssignment;
+    } catch (error) {
+      console.error('Error creating client assignment:', error);
+      throw error;
+    }
+  },
+
+  async delete(id: number): Promise<void> {
+    if (!isDatabaseAvailable()) {
+      console.error('Database not available for deleting client assignment. Cannot proceed.');
+      throw new Error('Database connection not available. Please check your configuration.');
+    }
+
+    try {
+      await sql!`
+        DELETE FROM client_assignments
+        WHERE id = ${id}
+      `;
+    } catch (error) {
+      console.error('Error deleting client assignment:', error);
+      throw error;
+    }
+  },
+
+  async deleteByAdminAndClient(adminId: string, clientId: number): Promise<void> {
+    if (!isDatabaseAvailable()) {
+      console.error('Database not available for deleting client assignment. Cannot proceed.');
+      throw new Error('Database connection not available. Please check your configuration.');
+    }
+
+    try {
+      await sql!`
+        DELETE FROM client_assignments
+        WHERE admin_id = ${adminId} AND client_id = ${clientId}
+      `;
+    } catch (error) {
+      console.error('Error deleting client assignment by admin and client:', error);
+      throw error;
+    }
+  },
+
+  async getAssignedClientIds(adminId: string): Promise<number[]> {
+    if (!isDatabaseAvailable()) {
+      return handleDatabaseUnavailable('getAssignedClientIds') as number[];
+    }
+
+    try {
+      const data = await sql!`
+        SELECT client_id
+        FROM client_assignments
+        WHERE admin_id = ${adminId}
+      `;
+      return data.map(row => row.client_id);
+    } catch (error) {
+      console.error('Error fetching assigned client IDs:', error);
+      throw error;
+    }
+  },
+
+  async isClientAssignedToAdmin(clientId: number, adminId: string): Promise<boolean> {
+    if (!isDatabaseAvailable()) {
+      return false;
+    }
+
+    try {
+      const data = await sql!`
+        SELECT COUNT(*) as count
+        FROM client_assignments
+        WHERE client_id = ${clientId} AND admin_id = ${adminId}
+      `;
+      return data[0].count > 0;
+    } catch (error) {
+      console.error('Error checking client assignment:', error);
+      return false;
     }
   }
 }; 

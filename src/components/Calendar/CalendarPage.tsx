@@ -1,9 +1,8 @@
 import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
-import { ChevronLeft, ChevronRight, Edit, Trash2, Calendar as CalendarIcon, Clock, Users, FileText, X } from 'lucide-react';
+import { ChevronLeft, ChevronRight, X } from 'lucide-react';
 import { useAppStore } from '../../store/AppStore';
 import EventPopup from '../common/EventPopup';
 import { CalendarEvent } from '../../store/AppStore';
-import { useToast } from '../../hooks/useToast';
 import ConfirmationModal from '../common/ConfirmationModal';
 import { useConfirmation } from '../../hooks/useConfirmation';
 
@@ -11,13 +10,29 @@ interface CalendarPageProps {
   onToggleSidebar?: () => void;
 }
 
+interface EventFormData {
+  title: string;
+  startDate: string;
+  endDate: string;
+  startTime: string;
+  endTime: string;
+  description: string;
+  client: string;
+  type: string;
+}
+
+interface ClientData {
+  id: number;
+  businessName: string;
+}
+
 interface EventFormProps {
   isEdit: boolean;
-  eventFormData: any;
+  eventFormData: EventFormData;
   handleFormChange: (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => void;
   handleSubmitEvent: (e: React.FormEvent, isEdit: boolean) => void;
   resetFormAndModals: () => void;
-  clients: any[];
+  clients: ClientData[];
 }
 
 const EventForm: React.FC<EventFormProps> = React.memo(({ isEdit, eventFormData, handleFormChange, handleSubmitEvent, resetFormAndModals, clients }) => (
@@ -62,7 +77,7 @@ const EventForm: React.FC<EventFormProps> = React.memo(({ isEdit, eventFormData,
   </form>
 ));
 
-const CalendarPage: React.FC<CalendarPageProps> = ({ onToggleSidebar }) => {
+const CalendarPage: React.FC<CalendarPageProps> = () => {
   const [currentDate, setCurrentDate] = useState(new Date());
   const [view, setView] = useState<'month' | 'week' | 'day'>('month');
   const [showEventDetailsModal, setShowEventDetailsModal] = useState(false);
@@ -88,16 +103,7 @@ const CalendarPage: React.FC<CalendarPageProps> = ({ onToggleSidebar }) => {
   });
 
   // Memoize eventFormData to prevent unnecessary re-renders
-  const memoizedEventFormData = useMemo(() => eventFormData, [
-    eventFormData.title,
-    eventFormData.startDate,
-    eventFormData.endDate,
-    eventFormData.startTime,
-    eventFormData.endTime,
-    eventFormData.description,
-    eventFormData.client,
-    eventFormData.type
-  ]);
+  const memoizedEventFormData = useMemo(() => eventFormData, [eventFormData]);
 
   const {
     calendarEvents,
@@ -228,13 +234,13 @@ const CalendarPage: React.FC<CalendarPageProps> = ({ onToggleSidebar }) => {
         return eventDate.getFullYear() === targetDate.getFullYear() &&
                eventDate.getMonth() === targetDate.getMonth() &&
                eventDate.getDate() === targetDate.getDate();
-      } catch (e) {
+      } catch {
         return false;
       }
     });
   }, [currentDate, events]);
 
-  const handleEventClick = useCallback((event: any) => {
+  const handleEventClick = useCallback((event: { id: string }) => {
     const fullEvent = calendarEvents.find(e => e.id === event.id);
     if (fullEvent) {
       setSelectedEvent(fullEvent);
@@ -270,7 +276,7 @@ const CalendarPage: React.FC<CalendarPageProps> = ({ onToggleSidebar }) => {
   const handleEditEvent = useCallback(() => {
     if (!selectedEvent) return;
     
-    const formatToYYYYMMDD = (date: any) => {
+    const formatToYYYYMMDD = (date: unknown) => {
       if (!date) return '';
       // Handle date string properly to avoid timezone issues
       if (typeof date === 'string') {
@@ -431,7 +437,7 @@ const CalendarPage: React.FC<CalendarPageProps> = ({ onToggleSidebar }) => {
           return eventDate.getFullYear() === targetDate.getFullYear() &&
                  eventDate.getMonth() === targetDate.getMonth() &&
                  eventDate.getDate() === targetDate.getDate();
-        } catch (e) {
+        } catch {
           return false;
         }
       });

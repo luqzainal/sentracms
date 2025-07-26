@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Routes, Route, useNavigate, useLocation } from 'react-router-dom';
-import { ArrowLeft, Home, BarChart3, MessageSquare, FileText, Package, Clock, LogOut, DollarSign, Eye, Plus } from 'lucide-react';
+import { ArrowLeft, Home, BarChart3, MessageSquare, Package, LogOut, DollarSign, Eye, Plus } from 'lucide-react';
 import { useAppStore } from '../../store/AppStore';
 import Logo from '../common/Logo';
 
@@ -14,7 +14,7 @@ const ClientPortalAppointments = React.lazy(() => import('./ClientPortalAppointm
 const ClientPortalAddOnServices = React.lazy(() => import('./ClientPortalAddOnServices'));
 
 interface ClientPortalLayoutProps {
-  user: any;
+  user: { email: string };
   onLogout: () => void;
 }
 
@@ -34,8 +34,7 @@ const ClientPortalLayout: React.FC<ClientPortalLayoutProps> = ({ user, onLogout 
     fetchAddOnServices,
     fetchClientServiceRequests,
     chats,
-    fetchChats,
-    getClientRole
+    fetchChats
   } = useAppStore();
 
   const client = clients.length > 0 ? clients[0] : null;

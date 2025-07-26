@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { X, FileText, DollarSign, Calendar } from 'lucide-react';
+import { X, DollarSign, Calendar } from 'lucide-react';
 
 interface EditInvoiceModalProps {
   invoice: any;

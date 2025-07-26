@@ -2,9 +2,17 @@ import React, { useState } from 'react';
 import { X, DollarSign, CreditCard, Calendar, Upload, Eye, FileText, Download } from 'lucide-react';
 import { Invoice } from '../../store/AppStore';
 
+interface PaymentData {
+  amount: number;
+  paymentSource: string;
+  receiptDate: string;
+  receiptUrl?: string;
+  description?: string;
+}
+
 interface AddPaymentModalProps {
   onClose: () => void;
-  onSave: (paymentData: any) => Promise<void>; // Make onSave return a promise
+  onSave: (paymentData: PaymentData) => Promise<void>; // Make onSave return a promise
   selectedInvoice?: Invoice;
 }
 
@@ -18,7 +26,7 @@ const AddPaymentModal: React.FC<AddPaymentModalProps> = ({ onClose, onSave, sele
   });
   const [receiptFile, setReceiptFile] = useState<File | null>(null);
   const [isUploading, setIsUploading] = useState(false);
-  const [uploadedReceiptUrl, setUploadedReceiptUrl] = useState<string | null>(null);
+  const [uploadedReceiptUrl, _setUploadedReceiptUrl] = useState<string | null>(null);
   const [showReceiptViewer, setShowReceiptViewer] = useState(false);
 
   const handleSubmit = async (e: React.FormEvent) => {
