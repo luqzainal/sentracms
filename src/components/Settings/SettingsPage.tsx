@@ -26,13 +26,10 @@ const SettingsPage: React.FC = () => {
   const loadUsers = async () => {
     try {
       setIsLoading(true);
-      const result = await usersService.getAll();
-      if (result.success) {
-        setUsers(result.data || []);
-      } else {
-        error('Failed to load users');
-      }
+      const users = await usersService.getAll();
+      setUsers(users || []);
     } catch (err) {
+      console.error('Error loading users:', err);
       error('Error loading users');
     } finally {
       setIsLoading(false);
@@ -99,7 +96,16 @@ const SettingsPage: React.FC = () => {
 
   const handleDeleteUser = (userId: string) => {
     showConfirmation(
-      () => usersService.delete(userId),
+      async () => {
+        try {
+          await usersService.delete(userId);
+          success('User deleted successfully!');
+          loadUsers();
+        } catch (err) {
+          console.error('Error deleting user:', err);
+          error('Error deleting user');
+        }
+      },
       {
         title: 'Delete User',
         message: 'Are you sure you want to delete this user?',
@@ -114,29 +120,18 @@ const SettingsPage: React.FC = () => {
       if (selectedUser) {
         // Update existing user
         const result = await usersService.update(selectedUser.id, userData);
-        if (result.success) {
-          if (result.passwordUpdated) {
-            success('User updated successfully! Password has been changed and saved to database.');
-          } else {
-            success('User updated successfully!');
-          }
-          setShowUserModal(false);
-          loadUsers();
-        } else {
-          error(result.error || 'Failed to update user');
-        }
+        success('User updated successfully!');
+        setShowUserModal(false);
+        loadUsers();
       } else {
         // Add new user
         const result = await usersService.create(userData);
-        if (result.success) {
-          success('User added successfully!');
-          setShowUserModal(false);
-          loadUsers();
-        } else {
-          error(result.error || 'Failed to add user');
-        }
+        success('User added successfully!');
+        setShowUserModal(false);
+        loadUsers();
       }
     } catch (err) {
+      console.error('Error saving user:', err);
       error('Error saving user');
     }
   };
