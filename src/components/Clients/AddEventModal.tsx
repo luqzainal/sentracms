@@ -23,7 +23,7 @@ const AddEventModal: React.FC<AddEventModalProps> = ({ onClose, onSave }) => {
     startTime: '',
     endTime: '',
     description: '',
-    type: 'meeting'
+    type: 'onboarding'
   });
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -91,10 +91,8 @@ const AddEventModal: React.FC<AddEventModalProps> = ({ onClose, onSave }) => {
               required
               className="w-full px-4 py-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none"
             >
-              <option value="meeting">Meeting</option>
-              <option value="call">Call</option>
-              <option value="deadline">Deadline</option>
-              <option value="payment">Payment</option>
+              <option value="onboarding">Onboarding</option>
+              <option value="handover">Handover</option>
             </select>
           </div>
 

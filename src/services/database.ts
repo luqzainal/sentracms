@@ -904,11 +904,66 @@ export const calendarService = {
         ) VALUES (
           ${event.client_id}, ${event.title}, ${event.start_date}, 
           ${event.end_date}, ${event.start_time}, ${event.end_time}, 
-          ${event.description}, ${event.type || 'meeting'}
+          ${event.description}, ${event.type || 'onboarding'}
         )
         RETURNING *
       `;
-      return data[0] as CalendarEvent;
+      
+      const createdEvent = data[0] as CalendarEvent;
+      
+      // Trigger GHL webhook if event type is onboarding or handover
+      if (createdEvent.type === 'onboarding' || createdEvent.type === 'handover') {
+        try {
+          // Import webhook service dynamically to avoid circular dependency
+          const { ghlWebhookService } = await import('./ghlWebhook');
+          
+          // Get client info for webhook payload
+          const client = await clientsService.getById(createdEvent.client_id);
+          if (client) {
+            console.log(`🔄 Triggering GHL webhook for ${createdEvent.type} event:`, createdEvent.title);
+            
+            // Create mapping reference first
+            await ghlWebhookService.createMappingReference(createdEvent.id.toString());
+            
+            const webhookResult = await ghlWebhookService.triggerEventCreated({
+              id: createdEvent.id.toString(),
+              client_id: createdEvent.client_id,
+              client_email: client.email,
+              client_phone: client.phone,
+              client_name: client.business_name || client.name,
+              title: createdEvent.title,
+              type: createdEvent.type as 'onboarding' | 'handover',
+              start_date: createdEvent.start_date,
+              end_date: createdEvent.end_date,
+              start_time: createdEvent.start_time,
+              end_time: createdEvent.end_time,
+              description: createdEvent.description || '',
+              created_at: createdEvent.created_at || new Date().toISOString()
+            });
+            
+            if (webhookResult.success) {
+              console.log('✅ GHL webhook triggered successfully:', webhookResult.ghl_appointment_id);
+              
+              // Update event with GHL appointment ID if returned
+              if (webhookResult.ghl_appointment_id) {
+                await sql!`
+                  UPDATE calendar_events 
+                  SET ghl_appointment_id = ${webhookResult.ghl_appointment_id}
+                  WHERE id = ${createdEvent.id}
+                `;
+              }
+            } else {
+              console.warn('⚠️ GHL webhook failed:', webhookResult.error);
+              // Don't throw error, just log warning - event still created locally
+            }
+          }
+        } catch (webhookError) {
+          console.error('❌ GHL webhook error:', webhookError);
+          // Don't throw error, just log - event still created locally
+        }
+      }
+      
+      return createdEvent;
     } catch (error) {
       console.error('Error creating calendar event:', error);
       throw error;
@@ -931,7 +986,49 @@ export const calendarService = {
         WHERE id = ${id}
         RETURNING *
       `;
-      return data[0] as CalendarEvent;
+      
+      const updatedEvent = data[0] as CalendarEvent;
+      
+      // Trigger GHL webhook if event type is onboarding or handover
+      if (updatedEvent.type === 'onboarding' || updatedEvent.type === 'handover') {
+        try {
+          // Import webhook service dynamically to avoid circular dependency
+          const { ghlWebhookService } = await import('./ghlWebhook');
+          
+          // Get client info for webhook payload
+          const client = await clientsService.getById(updatedEvent.client_id);
+          if (client) {
+            console.log(`🔄 Triggering GHL webhook for ${updatedEvent.type} event update:`, updatedEvent.title);
+            
+            const webhookResult = await ghlWebhookService.triggerEventUpdated({
+              id: updatedEvent.id.toString(),
+              client_id: updatedEvent.client_id,
+              client_email: client.email,
+              client_phone: client.phone,
+              client_name: client.business_name || client.name,
+              title: updatedEvent.title,
+              type: updatedEvent.type as 'onboarding' | 'handover',
+              start_date: updatedEvent.start_date,
+              end_date: updatedEvent.end_date,
+              start_time: updatedEvent.start_time,
+              end_time: updatedEvent.end_time,
+              description: updatedEvent.description || '',
+              updated_at: updatedEvent.updated_at || new Date().toISOString()
+            });
+            
+            if (webhookResult.success) {
+              console.log('✅ GHL webhook update triggered successfully');
+            } else {
+              console.warn('⚠️ GHL webhook update failed:', webhookResult.error);
+            }
+          }
+        } catch (webhookError) {
+          console.error('❌ GHL webhook update error:', webhookError);
+          // Don't throw error, just log - event still updated locally
+        }
+      }
+      
+      return updatedEvent;
     } catch (error) {
       console.error('Error updating calendar event:', error);
       throw error;
@@ -940,13 +1037,41 @@ export const calendarService = {
 
   async delete(id: string): Promise<void> {
     try {
+      // Get event info before deleting for webhook trigger
+      const eventToDelete = await sql!`
+        SELECT * FROM calendar_events WHERE id = ${id}
+      `;
+
       const result = await sql!`
         DELETE FROM calendar_events
         WHERE id = ${id}
         RETURNING *
       `;
+      
       if (!result[0]) {
         throw new Error('Calendar event not found');
+      }
+
+      // Trigger GHL webhook for deletion if event was onboarding/handover
+      const deletedEvent = eventToDelete[0];
+      if (deletedEvent && (deletedEvent.type === 'onboarding' || deletedEvent.type === 'handover')) {
+        try {
+          // Import webhook service dynamically to avoid circular dependency
+          const { ghlWebhookService } = await import('./ghlWebhook');
+          
+          console.log(`🔄 Triggering GHL webhook for ${deletedEvent.type} event deletion:`, deletedEvent.title);
+          
+          const webhookResult = await ghlWebhookService.triggerEventDeleted(id);
+          
+          if (webhookResult.success) {
+            console.log('✅ GHL webhook deletion triggered successfully');
+          } else {
+            console.warn('⚠️ GHL webhook deletion failed:', webhookResult.error);
+          }
+        } catch (webhookError) {
+          console.error('❌ GHL webhook deletion error:', webhookError);
+          // Don't throw error, just log - event still deleted locally
+        }
       }
     } catch (error) {
       console.error('Error deleting calendar event:', error);

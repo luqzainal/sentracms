@@ -58,10 +58,8 @@ const EventForm: React.FC<EventFormProps> = React.memo(({ isEdit, eventFormData,
         <input type="time" name="endTime" value={eventFormData.endTime} onChange={handleFormChange} required className="w-full p-2 border rounded" />
     </div>
     <select name="type" value={eventFormData.type} onChange={handleFormChange} required className="w-full p-2 border rounded">
-      <option value="meeting">Meeting</option>
-      <option value="call">Call</option>
-      <option value="deadline">Deadline</option>
-      <option value="payment">Payment</option>
+      <option value="onboarding">Onboarding</option>
+      <option value="handover">Handover</option>
     </select>
     <textarea 
       name="description" 
@@ -98,7 +96,7 @@ const CalendarPage: React.FC<CalendarPageProps> = () => {
       endTime: '10:00',
       description: '',
       client: '',
-      type: 'meeting',
+      type: 'onboarding',
     };
   });
 
