@@ -897,6 +897,47 @@ export const calendarService = {
       throw new Error('Database not available');
     }
     try {
+      console.log('🔍 calendarService.create received event:', JSON.stringify(event, null, 2));
+      console.log('🔍 Event type value:', event.type, 'Type of:', typeof event.type);
+      
+      // First, let's check what constraint values are actually allowed
+      try {
+        const constraintCheck = await sql!`
+          SELECT 
+            conname as constraint_name,
+            pg_get_constraintdef(c.oid) as constraint_definition
+          FROM pg_constraint c
+          JOIN pg_class t ON c.conrelid = t.oid
+          WHERE t.relname = 'calendar_events' 
+          AND conname = 'calendar_events_type_check'
+        `;
+        console.log('🔍 Database constraint definition:', constraintCheck);
+        
+        // Try to update the constraint to allow onboarding and handover
+        try {
+          console.log('🔄 Attempting to update database constraint...');
+          await sql!`
+            ALTER TABLE calendar_events 
+            DROP CONSTRAINT IF EXISTS calendar_events_type_check
+          `;
+          
+          await sql!`
+            ALTER TABLE calendar_events 
+            ADD CONSTRAINT calendar_events_type_check 
+            CHECK (type IN ('onboarding', 'handover'))
+          `;
+          
+          console.log('✅ Database constraint updated successfully to allow onboarding/handover');
+        } catch (constraintUpdateError) {
+          console.log('❌ Could not update constraint:', constraintUpdateError);
+        }
+      } catch (constraintError) {
+        console.log('Could not fetch constraint info:', constraintError);
+      }
+      
+      const finalType = event.type || 'onboarding';
+      console.log('🔍 Final type value being inserted:', finalType);
+      
       const data = await sql!`
         INSERT INTO calendar_events (
           client_id, title, start_date, end_date, start_time, 
@@ -904,15 +945,16 @@ export const calendarService = {
         ) VALUES (
           ${event.client_id}, ${event.title}, ${event.start_date}, 
           ${event.end_date}, ${event.start_time}, ${event.end_time}, 
-          ${event.description}, ${event.type || 'onboarding'}
+          ${event.description}, ${finalType}
         )
         RETURNING *
       `;
       
       const createdEvent = data[0] as CalendarEvent;
       
-      // Trigger GHL webhook if event type is onboarding or handover
-      if (createdEvent.type === 'onboarding' || createdEvent.type === 'handover') {
+      // Trigger GHL webhook for onboarding and handover events
+      const isGHLWebhookEnabled = import.meta.env.VITE_GHL_WEBHOOK_ENABLED === 'true';
+      if (isGHLWebhookEnabled && (createdEvent.type === 'onboarding' || createdEvent.type === 'handover')) {
         try {
           // Import webhook service dynamically to avoid circular dependency
           const { ghlWebhookService } = await import('./ghlWebhook');

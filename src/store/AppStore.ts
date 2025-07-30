@@ -1829,7 +1829,8 @@ export const useAppStore = create<AppState>((set, get) => ({
           console.log(`Client ${client.id} totals updated in database after invoice deletion`);
         }
         
-        // Then update local state
+        // Update local state first
+        console.log('🔄 Updating local state after invoice deletion...');
         set((state) => ({
           invoices: state.invoices.filter((inv) => inv.id !== invoiceId),
           // Keep components - only delete components tied to this specific invoice
@@ -1849,12 +1850,15 @@ export const useAppStore = create<AppState>((set, get) => ({
           // Keep progress steps - don't delete them when invoice is deleted
         }));
         
-        // Refresh clients data to ensure dashboard and reports are updated
-        await get().fetchClients();
+        console.log('✅ Local state updated successfully');
         
-        // Auto-recalculate totals to fix any inconsistencies
-        console.log('🔄 Auto-recalculating totals after invoice deletion...');
-        await get().recalculateAllClientTotals();
+        // Don't fetch clients again immediately as it might overwrite our changes
+        // The UI will update automatically due to state change
+        // Only do background recalculation without affecting UI
+        setTimeout(async () => {
+          console.log('🔄 Background recalculation after invoice deletion...');
+          await get().recalculateAllClientTotals();
+        }, 100);
       } catch (error) {
         console.error('Error deleting invoice:', error);
         throw error;
@@ -2495,6 +2499,8 @@ export const useAppStore = create<AppState>((set, get) => ({
 
   addCalendarEvent: async (event) => {
     try {
+      console.log('🔍 addCalendarEvent received event data:', JSON.stringify(event, null, 2));
+      
       // Map store format to database format
       const dbEventData = {
         client_id: event.clientId,
@@ -2504,8 +2510,11 @@ export const useAppStore = create<AppState>((set, get) => ({
         start_time: event.startTime,
         end_time: event.endTime,
         description: event.description,
-        type: event.type as 'meeting' | 'payment' | 'deadline' | 'call'
+        type: event.type as 'onboarding' | 'handover'
       };
+      
+      console.log('🔍 Sending to database:', JSON.stringify(dbEventData, null, 2));
+      console.log('🔍 Event type value:', event.type, 'Type of:', typeof event.type);
       
       const newDbEvent = await calendarService.create(dbEventData);
       

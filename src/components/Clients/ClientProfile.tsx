@@ -22,7 +22,8 @@ interface ClientProfileProps {
 const ClientProfile: React.FC<ClientProfileProps> = ({ clientId, onBack }) => {
   const { 
     invoices, 
-    payments, 
+    payments,
+    components,
     calendarEvents, 
     users,
     user,
@@ -87,7 +88,7 @@ const ClientProfile: React.FC<ClientProfileProps> = ({ clientId, onBack }) => {
       result[invoice.id] = getComponentsByInvoiceId(invoice.id);
     });
     return result;
-  }, [client, invoices, getComponentsByInvoiceId]);
+  }, [client, invoices, components, getComponentsByInvoiceId]);
 
   // Fetch data on component mount
   useEffect(() => {

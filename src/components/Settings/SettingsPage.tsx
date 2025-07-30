@@ -117,21 +117,47 @@ const SettingsPage: React.FC = () => {
 
   const handleSaveUser = async (userData: any) => {
     try {
+      console.log('🔍 handleSaveUser received userData:', JSON.stringify(userData, null, 2));
+      
+      // Extract password from portalAccess or dashboardAccess based on role
+      let password = null;
+      
+      if (['Client Admin', 'Client Team'].includes(userData.role) && userData.portalAccess?.password) {
+        password = userData.portalAccess.password;
+        console.log('🔑 Using portal password for client user');
+      } else if ((userData.role === 'Team' || userData.role === 'Super Admin') && userData.dashboardAccess?.password) {
+        password = userData.dashboardAccess.password;
+        console.log('🔑 Using dashboard password for team/admin user');
+      }
+      
+      // Prepare user data for database
+      const dbUserData = {
+        name: userData.name,
+        email: userData.email,
+        role: userData.role,
+        status: userData.status,
+        permissions: userData.permissions,
+        client_id: userData.clientId || null,
+        password: password // Add password to the data
+      };
+      
+      console.log('🔍 Processed dbUserData:', JSON.stringify(dbUserData, null, 2));
+      
       if (selectedUser) {
         // Update existing user
-        const result = await usersService.update(selectedUser.id, userData);
+        const result = await usersService.update(selectedUser.id, dbUserData);
         success('User updated successfully!');
         setShowUserModal(false);
         loadUsers();
       } else {
         // Add new user
-        const result = await usersService.create(userData);
+        const result = await usersService.create(dbUserData);
         success('User added successfully!');
         setShowUserModal(false);
         loadUsers();
       }
     } catch (err) {
-      console.error('Error saving user:', err);
+      console.error('❌ Error saving user:', err);
       error('Error saving user');
     }
   };

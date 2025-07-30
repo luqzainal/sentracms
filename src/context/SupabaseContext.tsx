@@ -117,8 +117,8 @@ export const DatabaseProvider: React.FC<DatabaseProviderProps> = ({ children }) 
     
     try {
       // Mock authentication for Super Admin using environment variables
-      const demoAdminEmail = import.meta.env.VITE_DEMO_ADMIN_EMAIL || 'superadmin@sentra.com';
-      const demoAdminPassword = import.meta.env.VITE_DEMO_ADMIN_PASSWORD || 'password123';
+      const demoAdminEmail = import.meta.env.VITE_DEMO_ADMIN_EMAIL || 'superadminEVO123@sentra.com';
+      const demoAdminPassword = import.meta.env.VITE_DEMO_ADMIN_PASSWORD || 'EVOadmin@123';
       const demoAdminName = import.meta.env.VITE_DEMO_ADMIN_NAME || 'Super Admin';
       
       if (email === demoAdminEmail && password === demoAdminPassword) {
@@ -140,8 +140,8 @@ export const DatabaseProvider: React.FC<DatabaseProviderProps> = ({ children }) 
       }
 
       // Mock authentication for Demo Client using environment variables
-      const demoClientEmail = import.meta.env.VITE_DEMO_CLIENT_EMAIL || 'client@demo.com';
-      const demoClientPassword = import.meta.env.VITE_DEMO_CLIENT_PASSWORD || 'client123';
+      const demoClientEmail = import.meta.env.VITE_DEMO_CLIENT_EMAIL || 'clientEVO123@demo.com';
+      const demoClientPassword = import.meta.env.VITE_DEMO_CLIENT_PASSWORD || 'EVOclient@123';
       const demoClientName = import.meta.env.VITE_DEMO_CLIENT_NAME || 'Demo Client';
       
       if (email === demoClientEmail && password === demoClientPassword) {
@@ -199,6 +199,7 @@ export const DatabaseProvider: React.FC<DatabaseProviderProps> = ({ children }) 
           }
           
           // Try password authentication with crypt
+          console.log('🔑 Attempting password authentication for:', email);
           const authResult = await sql`
             SELECT id, email, name, role, client_id, permissions, status 
             FROM users 
@@ -209,7 +210,7 @@ export const DatabaseProvider: React.FC<DatabaseProviderProps> = ({ children }) 
           
           if (authResult.length > 0) {
             const dbUser = authResult[0];
-            console.log('Authentication successful for user:', dbUser.id);
+            console.log('✅ Authentication successful for user:', dbUser.id, 'Role:', dbUser.role);
             
             const authUser: AuthUser = {
               id: dbUser.id,
@@ -228,13 +229,43 @@ export const DatabaseProvider: React.FC<DatabaseProviderProps> = ({ children }) 
             setLoading(false);
             return { data: { user: authUser }, error: null };
           } else {
-            console.log('Password authentication failed');
+            console.log('❌ Password authentication failed for:', email);
+            console.log('🔍 Debug: Checking if password column exists and crypt function works');
+            
+            // Debug: Check if user exists with any password
+            const debugCheck = await sql`
+              SELECT id, email, name, role, password IS NOT NULL as has_password
+              FROM users 
+              WHERE email = ${email}
+              LIMIT 1
+            `;
+            
+            if (debugCheck.length > 0) {
+              console.log('🔍 Debug: User exists, has_password:', debugCheck[0].has_password);
+              if (!debugCheck[0].has_password) {
+                console.log('❌ User found but no password set in database');
+                setLoading(false);
+                return { data: null, error: { message: 'Account setup incomplete. Please edit this user in Settings > User Management to set up their password.' } };
+              }
+            }
+            
             setLoading(false);
             return { data: null, error: { message: 'Incorrect password. Please check your password and try again.' } };
           }
           
         } catch (dbError) {
-          console.error('Database authentication error:', dbError);
+          console.error('❌ Database authentication error:', dbError);
+          
+          // Check if it's a crypt function error
+          if (dbError && typeof dbError === 'object' && 'message' in dbError) {
+            const errorMessage = (dbError as any).message;
+            if (errorMessage.includes('crypt') || errorMessage.includes('gen_salt')) {
+              console.error('❌ Crypt function not available. Please ensure pgcrypto extension is installed.');
+              setLoading(false);
+              return { data: null, error: { message: 'Authentication system not properly configured. Please contact your administrator.' } };
+            }
+          }
+          
           setLoading(false);
           return { data: null, error: { message: 'Unable to connect to authentication service. Please check your internet connection and try again.' } };
         }
