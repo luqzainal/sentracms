@@ -15,7 +15,8 @@ import {
   MessageCircle,
   User,
   Trash,
-  UploadCloud
+  UploadCloud,
+  ArrowLeft
 } from 'lucide-react';
 import { useToast } from '../../hooks/useToast';
 import ConfirmationModal from '../common/ConfirmationModal';
@@ -1453,9 +1454,18 @@ const ClientProgressTracker: React.FC<ClientProgressTrackerProps> = ({ clientId,
       <div className="max-w-6xl mx-auto p-8 space-y-8">
         {/* Header */}
         <div className="flex items-center justify-between">
-          <div>
-            <h1 className="text-xl sm:text-2xl lg:text-3xl font-bold text-slate-900">Customer Progress</h1>
-            <p className="text-slate-600 mt-1 text-sm sm:text-base">Track and manage client project milestones</p>
+          <div className="flex items-center space-x-4">
+            <button
+              onClick={onBack}
+              className="p-2 bg-white border border-slate-200 rounded-lg hover:bg-slate-50 transition-colors shadow-sm"
+              title="Go back to clients list"
+            >
+              <ArrowLeft className="w-5 h-5 text-slate-600" />
+            </button>
+            <div>
+              <h1 className="text-xl sm:text-2xl lg:text-3xl font-bold text-slate-900">Customer Progress</h1>
+              <p className="text-slate-600 mt-1 text-sm sm:text-base">Track and manage client project milestones</p>
+            </div>
           </div>
         </div>
 

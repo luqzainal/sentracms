@@ -924,10 +924,10 @@ export const calendarService = {
           await sql!`
             ALTER TABLE calendar_events 
             ADD CONSTRAINT calendar_events_type_check 
-            CHECK (type IN ('onboarding', 'handover'))
+            CHECK (type IN ('onboarding', 'firstdraft', 'seconddraft', 'handover'))
           `;
           
-          console.log('✅ Database constraint updated successfully to allow onboarding/handover');
+          console.log('✅ Database constraint updated successfully to allow onboarding/firstdraft/seconddraft/handover');
         } catch (constraintUpdateError) {
           console.log('❌ Could not update constraint:', constraintUpdateError);
         }

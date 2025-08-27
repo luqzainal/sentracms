@@ -59,6 +59,8 @@ const EventForm: React.FC<EventFormProps> = React.memo(({ isEdit, eventFormData,
     </div>
     <select name="type" value={eventFormData.type} onChange={handleFormChange} required className="w-full p-2 border rounded">
       <option value="onboarding">Onboarding</option>
+      <option value="firstdraft">1st Draft</option>
+      <option value="seconddraft">2nd Draft</option>
       <option value="handover">Handover</option>
     </select>
     <textarea 
@@ -209,6 +211,8 @@ const CalendarPage: React.FC<CalendarPageProps> = () => {
   const getEventTypeColor = (type: string) => {
     switch (type) {
       case 'onboarding': return 'bg-blue-100 text-blue-800 border-blue-200';
+      case 'firstdraft': return 'bg-orange-100 text-orange-800 border-orange-200';
+      case 'seconddraft': return 'bg-purple-100 text-purple-800 border-purple-200';
       case 'handover': return 'bg-green-100 text-green-800 border-green-200';
       default: return 'bg-gray-100 text-gray-800 border-gray-200';
     }

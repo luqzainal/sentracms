@@ -13,6 +13,14 @@ interface EventPopupProps {
 const EventPopup: React.FC<EventPopupProps> = ({ event, clients, onClose, onEdit, onDelete }) => {
   const getEventTypeColor = (type: string) => {
     switch (type) {
+      case 'onboarding':
+        return 'bg-blue-100 text-blue-800 border-blue-200';
+      case 'firstdraft':
+        return 'bg-orange-100 text-orange-800 border-orange-200';
+      case 'seconddraft':
+        return 'bg-purple-100 text-purple-800 border-purple-200';
+      case 'handover':
+        return 'bg-green-100 text-green-800 border-green-200';
       case 'meeting':
         return 'bg-blue-100 text-blue-800 border-blue-200';
       case 'payment':
@@ -28,6 +36,14 @@ const EventPopup: React.FC<EventPopupProps> = ({ event, clients, onClose, onEdit
 
   const getEventTypeIcon = (type: string) => {
     switch (type) {
+      case 'onboarding':
+        return <Users className="w-4 h-4" />;
+      case 'firstdraft':
+        return <FileText className="w-4 h-4" />;
+      case 'seconddraft':
+        return <FileText className="w-4 h-4" />;
+      case 'handover':
+        return <CalendarIcon className="w-4 h-4" />;
       case 'meeting':
         return <Users className="w-4 h-4" />;
       case 'payment':
@@ -84,7 +100,15 @@ const EventPopup: React.FC<EventPopupProps> = ({ event, clients, onClose, onEdit
               <h2 className="text-xl font-semibold text-slate-900">Event Details</h2>
               <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium border mt-1 ${getEventTypeColor(event.type)}`}>
                 <Tag className="w-3 h-3 mr-1" />
-                {event.type.charAt(0).toUpperCase() + event.type.slice(1)}
+                {(() => {
+                  switch (event.type) {
+                    case 'firstdraft': return '1st Draft';
+                    case 'seconddraft': return '2nd Draft';
+                    case 'onboarding': return 'Onboarding';
+                    case 'handover': return 'Handover';
+                    default: return event.type.charAt(0).toUpperCase() + event.type.slice(1);
+                  }
+                })()}
               </span>
             </div>
           </div>

@@ -12,7 +12,17 @@ const EventPopupClient = ({ event, clients, onClose }) => {
         <div className="flex items-center mb-4">
           <User className="w-6 h-6 text-blue-600 mr-2" />
           <h2 className="text-lg font-bold text-slate-900">Event Details</h2>
-          <span className="ml-3 px-2 py-0.5 rounded bg-blue-100 text-blue-700 text-xs font-medium">{event.type?.charAt(0).toUpperCase() + event.type?.slice(1)}</span>
+          <span className="ml-3 px-2 py-0.5 rounded bg-blue-100 text-blue-700 text-xs font-medium">
+            {(() => {
+              switch (event.type) {
+                case 'firstdraft': return '1st Draft';
+                case 'seconddraft': return '2nd Draft';
+                case 'onboarding': return 'Onboarding';
+                case 'handover': return 'Handover';
+                default: return event.type?.charAt(0).toUpperCase() + event.type?.slice(1);
+              }
+            })()}
+          </span>
         </div>
         <div className="mb-4">
           <label className="block text-xs text-slate-500 mb-1">Event Title</label>

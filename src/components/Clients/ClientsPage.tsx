@@ -24,6 +24,7 @@ const ClientsPage: React.FC<ClientsPageProps> = ({ onToggleSidebar }) => {
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
   const [tagFilter, setTagFilter] = useState('all');
+  const [picFilter, setPicFilter] = useState('all');
   const [showModal, setShowModal] = useState(false);
   const [selectedClient, setSelectedClient] = useState<any>(null);
   const [showProfile, setShowProfile] = useState(false);
@@ -152,7 +153,8 @@ const ClientsPage: React.FC<ClientsPageProps> = ({ onToggleSidebar }) => {
 
   const filteredClients = clients.filter(client => {
     const matchesSearch = client.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         client.email.toLowerCase().includes(searchTerm.toLowerCase());
+                         client.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                         (client.businessName && client.businessName.toLowerCase().includes(searchTerm.toLowerCase()));
     const matchesStatus = statusFilter === 'all' || client.status.toLowerCase() === statusFilter.toLowerCase();
     
     // Tag filtering
@@ -161,10 +163,64 @@ const ClientsPage: React.FC<ClientsPageProps> = ({ onToggleSidebar }) => {
       matchesTag = Boolean(client.tags && client.tags.includes(tagFilter));
     }
     
-    return matchesSearch && matchesStatus && matchesTag;
+    // PIC filtering
+    let matchesPic = true;
+    if (picFilter !== 'all') {
+      const clientPics = getClientPicsByClientId(client.id);
+      const allPicNames = [];
+      
+      // Add main PIC
+      if (client.pic) {
+        const pic1 = client.pic.split(' - ')[0];
+        allPicNames.push(pic1);
+        if (client.pic.includes(' - ')) {
+          const pic2 = client.pic.split(' - ')[1];
+          allPicNames.push(pic2);
+        }
+      }
+      
+      // Add additional PICs
+      clientPics.forEach(pic => {
+        const user = users.find(u => u.id === pic.picId);
+        if (user) {
+          allPicNames.push(user.name);
+        }
+      });
+      
+      matchesPic = allPicNames.some(picName => 
+        picName.toLowerCase().includes(picFilter.toLowerCase())
+      );
+    }
+    
+    return matchesSearch && matchesStatus && matchesTag && matchesPic;
   });
 
   const uniqueTags = tags.map(tag => tag.name);
+  
+  // Get unique PICs for filter dropdown
+  const uniquePics = [...new Set(
+    clients.flatMap(client => {
+      const picNames = [];
+      if (client.pic) {
+        const pic1 = client.pic.split(' - ')[0];
+        picNames.push(pic1);
+        if (client.pic.includes(' - ')) {
+          const pic2 = client.pic.split(' - ')[1];
+          picNames.push(pic2);
+        }
+      }
+      
+      const clientPics = getClientPicsByClientId(client.id);
+      clientPics.forEach(pic => {
+        const user = users.find(u => u.id === pic.picId);
+        if (user) {
+          picNames.push(user.name);
+        }
+      });
+      
+      return picNames;
+    }).filter(Boolean)
+  )].sort();
 
   const handleAddClient = () => {
     setSelectedClient(null);
@@ -210,6 +266,11 @@ const ClientsPage: React.FC<ClientsPageProps> = ({ onToggleSidebar }) => {
     if (selectedClient) {
       // Update existing client
       try {
+        // Auto change status from Complete to Pending when updating details
+        if (selectedClient.status === 'Complete') {
+          clientData.status = 'Pending';
+        }
+        
         await updateClient(selectedClient.id, clientData);
         
         // Handle additional PICs for existing client
@@ -414,7 +475,7 @@ const ClientsPage: React.FC<ClientsPageProps> = ({ onToggleSidebar }) => {
             <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-slate-400 w-5 h-5" />
             <input
               type="text"
-              placeholder="Search clients..."
+              placeholder="Search by client name, company name, or email..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
               className="w-full pl-10 pr-4 py-2 lg:py-3 border border-slate-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition-all duration-200 text-sm lg:text-base"
@@ -443,6 +504,19 @@ const ClientsPage: React.FC<ClientsPageProps> = ({ onToggleSidebar }) => {
               <option value="all">All Tags</option>
               {uniqueTags.map(tag => (
                 <option key={tag} value={tag}>{tag}</option>
+              ))}
+            </select>
+          </div>
+          <div className="flex items-center space-x-2 lg:space-x-3">
+            <Filter className="w-5 h-5 text-slate-400" />
+            <select
+              value={picFilter}
+              onChange={(e) => setPicFilter(e.target.value)}
+              className="px-3 lg:px-4 py-2 lg:py-3 border border-slate-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none min-w-[120px] lg:min-w-[140px] transition-all duration-200 text-sm lg:text-base"
+            >
+              <option value="all">All PICs</option>
+              {uniquePics.map(pic => (
+                <option key={pic} value={pic}>{pic}</option>
               ))}
             </select>
           </div>
