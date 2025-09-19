@@ -343,7 +343,7 @@ const ClientProfile: React.FC<ClientProfileProps> = ({ clientId, onBack, onEdit 
               className="flex items-center space-x-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
             >
               <Edit className="w-4 h-4" />
-              <span>Edit Profile</span>
+              <span>Edit</span>
             </button>
           </div>
         </div>
