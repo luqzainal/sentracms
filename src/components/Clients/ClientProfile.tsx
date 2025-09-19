@@ -350,7 +350,7 @@ const ClientProfile: React.FC<ClientProfileProps> = ({ clientId, onBack, onEdit 
 
         {/* Basic Info Card */}
         <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-6">
-          <h2 className="text-lg font-semibold text-gray-900 mb-4">Basic Info test</h2>
+          <h2 className="text-lg font-semibold text-gray-900 mb-4">Basic Info</h2>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <div className="space-y-4">
               <div>
