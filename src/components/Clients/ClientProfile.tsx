@@ -20,18 +20,18 @@ interface ClientProfileProps {
 }
 
 const ClientProfile: React.FC<ClientProfileProps> = ({ clientId, onBack }) => {
-  const { 
-    invoices, 
+  const {
+    invoices,
     payments,
     components,
-    calendarEvents, 
+    calendarEvents,
     users,
     user,
-    addInvoice, 
-    addPayment, 
-    addComponent, 
+    addInvoice,
+    addPayment,
+    addComponent,
     addComponents,
-    updateClient, 
+    updateClient,
     addCalendarEvent,
     updateCalendarEvent,
     deleteCalendarEvent,
@@ -76,14 +76,17 @@ const ClientProfile: React.FC<ClientProfileProps> = ({ clientId, onBack }) => {
   const [isLoading, setIsLoading] = useState(true);
   const [client, setClient] = useState<Client | null>(null);
 
+  const [showAddPackageModal, setShowAddPackageModal] = useState(false);
+  const [newPackageName, setNewPackageName] = useState('');
+
 
   // Memoize components by invoice to avoid repeated calls - must be before any conditional returns
   const componentsByInvoice = useMemo(() => {
     if (!client) return {};
-    
+
     const result: { [invoiceId: string]: Component[] } = {};
     const clientInvoices = invoices.filter(invoice => invoice.clientId === client.id);
-    
+
     clientInvoices.forEach(invoice => {
       result[invoice.id] = getComponentsByInvoiceId(invoice.id);
     });
@@ -96,19 +99,19 @@ const ClientProfile: React.FC<ClientProfileProps> = ({ clientId, onBack }) => {
       setIsLoading(true);
       try {
         console.log("Fetching clients...");
-      await fetchClients();
+        await fetchClients();
         console.log("Fetching invoices...");
-      await fetchInvoices();
+        await fetchInvoices();
         console.log("Fetching payments...");
-      await fetchPayments();
+        await fetchPayments();
         console.log("Fetching components...");
-      await fetchComponents();
+        await fetchComponents();
         console.log("Fetching calendar events...");
-      await fetchCalendarEvents();
+        await fetchCalendarEvents();
         console.log("Fetching progress steps...");
-      await fetchProgressSteps();
+        await fetchProgressSteps();
         console.log("Fetching users...");
-      await fetchUsers();
+        await fetchUsers();
         console.log("All data fetched.");
 
         // After all data is fetched, find the client
@@ -122,7 +125,7 @@ const ClientProfile: React.FC<ClientProfileProps> = ({ clientId, onBack }) => {
       }
     };
     if (clientId) {
-    loadData();
+      loadData();
     }
   }, [clientId, fetchClients, fetchInvoices, fetchPayments, fetchComponents, fetchCalendarEvents, fetchProgressSteps, fetchUsers]);
 
@@ -159,7 +162,7 @@ const ClientProfile: React.FC<ClientProfileProps> = ({ clientId, onBack }) => {
   const clientInvoices = invoices.filter(invoice => invoice.clientId === client.id);
   const clientPayments = payments.filter(payment => payment.clientId === client.id);
   const clientEvents = calendarEvents.filter(event => event.clientId === client.id);
-  
+
   // Get all package names from invoices
   const packageNames = clientInvoices.map(invoice => invoice.packageName).filter(Boolean);
   const displayPackageName = packageNames.length > 0 ? packageNames.join(', ') : 'No package assigned yet';
@@ -220,19 +223,19 @@ const ClientProfile: React.FC<ClientProfileProps> = ({ clientId, onBack }) => {
   const handleSaveProfile = async (clientData: Partial<Client>) => {
     try {
       await updateClient(client.id, clientData);
-      
+
       // Refresh client data and tags from database
       await Promise.all([
         fetchClients(),
         fetchTags()
       ]);
-      
+
       // Update local client state with fresh data from database
       const updatedClient = useAppStore.getState().clients.find(c => c.id === parseInt(clientId));
       if (updatedClient) {
         setClient(updatedClient);
       }
-      
+
       setShowEditModal(false);
     } catch (error) {
       console.error('Error updating client:', error);
@@ -322,20 +325,20 @@ const ClientProfile: React.FC<ClientProfileProps> = ({ clientId, onBack }) => {
     );
   };
 
- const handleEditPayment = (payment: Payment) => {
-   setEditingPayment(payment);
-   setShowEditPaymentModal(true);
- };
+  const handleEditPayment = (payment: Payment) => {
+    setEditingPayment(payment);
+    setShowEditPaymentModal(true);
+  };
 
- const handleSaveEditedPayment = (paymentData: Partial<Payment>) => {
-   if (editingPayment) {
-     updatePayment(editingPayment.id, paymentData);
-       setShowEditPaymentModal(false);
-       setEditingPayment(null);
-   }
- };
+  const handleSaveEditedPayment = (paymentData: Partial<Payment>) => {
+    if (editingPayment) {
+      updatePayment(editingPayment.id, paymentData);
+      setShowEditPaymentModal(false);
+      setEditingPayment(null);
+    }
+  };
 
-   const handleDeletePayment = (paymentId: string) => {
+  const handleDeletePayment = (paymentId: string) => {
     showConfirmation(
       () => deletePayment(paymentId),
       {
@@ -359,6 +362,25 @@ const ClientProfile: React.FC<ClientProfileProps> = ({ clientId, onBack }) => {
     link.click();
   };
 
+  //handle new package
+  const handleCreatePackage = async () => {
+    const packageName = prompt("Enter package name:");
+    if (!packageName) return; // user cancelled or empty
+
+    try {
+      const newInvoice: Partial<Invoice> = {
+        clientId: client.id,
+        packageName,
+        amount: 0, // default 0
+        invoiceDate: new Date().toISOString(),
+      };
+
+      await addInvoice(newInvoice);
+      await fetchInvoices(); // refresh
+    } catch (error) {
+      console.error("Error creating package:", error);
+    }
+  };
 
 
   return (
@@ -374,17 +396,17 @@ const ClientProfile: React.FC<ClientProfileProps> = ({ clientId, onBack }) => {
               <ArrowLeft className="w-5 h-5" />
               <span className="font-medium">Back</span>
             </button>
-          <div className="flex items-center space-x-4">
-            <div className="w-16 h-16 bg-blue-100 rounded-full flex items-center justify-center">
-              <span className="text-2xl font-bold text-blue-600">
-                {client.name.charAt(0).toUpperCase()}
-              </span>
+            <div className="flex items-center space-x-4">
+              <div className="w-16 h-16 bg-blue-100 rounded-full flex items-center justify-center">
+                <span className="text-2xl font-bold text-blue-600">
+                  {client.name.charAt(0).toUpperCase()}
+                </span>
+              </div>
+              <div>
+                <h1 className="text-2xl font-bold text-gray-900">{client.name}</h1>
+                <p className="text-gray-600">{client.businessName}</p>
+              </div>
             </div>
-            <div>
-            <h1 className="text-2xl font-bold text-gray-900">{client.name}</h1>
-              <p className="text-gray-600">{client.businessName}</p>
-            </div>
-          </div>
           </div>
           <div className="flex items-center space-x-2">
             <button
@@ -422,11 +444,10 @@ const ClientProfile: React.FC<ClientProfileProps> = ({ clientId, onBack }) => {
             <div className="space-y-4">
               <div>
                 <label className="text-sm font-medium text-gray-500">Status:</label>
-                <span className={`inline-flex px-2 py-1 text-xs font-medium rounded-full ${
-                  client.status === 'Complete' ? 'bg-green-100 text-green-800' :
+                <span className={`inline-flex px-2 py-1 text-xs font-medium rounded-full ${client.status === 'Complete' ? 'bg-green-100 text-green-800' :
                   client.status === 'Pending' ? 'bg-yellow-100 text-yellow-800' :
-                  'bg-gray-100 text-gray-800'
-                }`}>
+                    'bg-gray-100 text-gray-800'
+                  }`}>
                   {client.status}
                 </span>
               </div>
@@ -470,28 +491,38 @@ const ClientProfile: React.FC<ClientProfileProps> = ({ clientId, onBack }) => {
             <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-6">
               <div className="flex items-center justify-between mb-6">
                 <h2 className="text-lg font-semibold text-gray-900">Component Package</h2>
+                {clientInvoices.length !== 0 && (
+                  <button
+                    onClick={() => setShowAddPackageModal(true)}
+                    className="flex items-center space-x-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+                  >
+                    <Plus className="w-4 h-4" />
+                    <span>Create Package</span>
+                  </button>
+                )}
               </div>
+
 
               <div className="space-y-6">
                 {clientInvoices.map((invoice) => (
                   <div key={invoice.id} className="border border-gray-200 rounded-lg p-4">
                     {/* Package Header */}
                     <div className="flex items-center justify-between mb-4">
-                        <div className="w-10 h-10 bg-blue-100 rounded-lg flex items-center justify-center">
-                          <Package className="w-5 h-5 text-blue-600" />
-                        </div>
-                        <div>
-                          <h3 className="font-medium text-gray-900">{invoice.packageName}</h3>
-                          <p className="text-sm text-gray-500">Main Package</p>
-                        </div>
+                      <div className="w-10 h-10 bg-blue-100 rounded-lg flex items-center justify-center">
+                        <Package className="w-5 h-5 text-blue-600" />
                       </div>
-                      <button
-                        onClick={() => setShowComponentModal(invoice.id)}
-                        className="flex items-center space-x-2 px-3 py-1.5 bg-blue-600 text-white text-sm rounded-lg hover:bg-blue-700 transition-colors"
-                      >
-                        <Plus className="w-4 h-4" />
-                        <span>Add Component</span>
-                      </button>
+                      <div>
+                        <h3 className="font-medium text-gray-900">{invoice.packageName}</h3>
+                        <p className="text-sm text-gray-500">Main Package</p>
+                      </div>
+                    </div>
+                    <button
+                      onClick={() => setShowComponentModal(invoice.id)}
+                      className="flex items-center space-x-2 px-3 py-1.5 bg-blue-600 text-white text-sm rounded-lg hover:bg-blue-700 transition-colors"
+                    >
+                      <Plus className="w-4 h-4" />
+                      <span>Add Component</span>
+                    </button>
 
                     {/* Components List */}
                     <div className="space-y-2">
@@ -521,10 +552,71 @@ const ClientProfile: React.FC<ClientProfileProps> = ({ clientId, onBack }) => {
                   </div>
                 ))}
 
+                {/* modal package */}
+                {showAddPackageModal && (
+                  <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+                    <div className="bg-white rounded-xl shadow-xl p-6 w-full max-w-md">
+                      <div className="flex justify-between items-center mb-4">
+                        <h2 className="text-lg font-semibold text-gray-900">Create Package</h2>
+                        <button onClick={() => setShowAddPackageModal(false)}>
+                          <X className="w-5 h-5 text-gray-500" />
+                        </button>
+                      </div>
+                      <div className="mb-4">
+                        <label className="block text-sm font-medium text-gray-700 mb-1">Package Name</label>
+                        <input
+                          type="text"
+                          value={newPackageName}
+                          onChange={(e) => setNewPackageName(e.target.value)}
+                          className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-1 focus:ring-blue-600"
+                          placeholder="Enter package name"
+                        />
+                      </div>
+                      <div className="flex justify-end space-x-2">
+                        <button
+                          onClick={() => setShowAddPackageModal(false)}
+                          className="px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300"
+                        >
+                          Cancel
+                        </button>
+                        <button
+                          onClick={async () => {
+                            if (!newPackageName.trim()) return;
+                            try {
+                              await addInvoice({
+                                clientId: client.id,
+                                packageName: newPackageName.trim(),
+                                amount: 0,
+                                invoiceDate: new Date().toISOString(),
+                              });
+                              await fetchInvoices();
+                              setNewPackageName('');
+                              setShowAddPackageModal(false);
+                            } catch (error) {
+                              console.error("Error creating package:", error);
+                            }
+                          }}
+                          className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+                        >
+                          Create
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+
                 {clientInvoices.length === 0 && (
-                  <div className="text-center py-8 text-gray-500">
+                  <div className="text-center py-8">
                     <Package className="w-12 h-12 mx-auto mb-4 text-gray-300" />
-                    <p>No packages available. Create an invoice to add packages.</p>
+                    <p className="text-gray-500 mb-4">No packages available.</p>
+                    <button
+                      onClick={() => setShowAddPackageModal(true)}
+                      className="flex items-center space-x-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors mx-auto"
+                    >
+                      <Plus className="w-4 h-4" />
+                      <span>Create Package</span>
+                    </button>
                   </div>
                 )}
               </div>
@@ -548,16 +640,16 @@ const ClientProfile: React.FC<ClientProfileProps> = ({ clientId, onBack }) => {
                   <span>Add Event</span>
                 </button>
               </div>
-              
+
               {clientEvents.length > 0 ? (
                 <div className="space-y-3 max-h-96 overflow-y-auto">
                   {clientEvents.map((event) => (
                     <div key={event.id} className="p-3 bg-blue-50 rounded-lg flex items-center justify-between">
                       <div>
-                      <h4 className="font-medium text-gray-900">{event.title}</h4>
-                      <p className="text-sm text-gray-600">
-                        {new Date(event.startDate).toLocaleDateString()}
-                      </p>
+                        <h4 className="font-medium text-gray-900">{event.title}</h4>
+                        <p className="text-sm text-gray-600">
+                          {new Date(event.startDate).toLocaleDateString()}
+                        </p>
                       </div>
                       <div className="flex items-center space-x-2">
                         <button
@@ -596,118 +688,118 @@ const ClientProfile: React.FC<ClientProfileProps> = ({ clientId, onBack }) => {
                   <span>Add Invoice</span>
                 </button>
               </div>
-              
+
               {clientInvoices.length > 0 ? (
                 <div className="space-y-3 max-h-96 overflow-y-auto">
                   {clientInvoices.map((invoice) => (
                     <div key={invoice.id} className="p-3 border border-gray-200 rounded-lg">
-                          <div className="flex justify-between items-start mb-2">
-                            <h4 className="font-medium text-gray-900">{invoice.packageName}</h4>
-                            <div className="flex items-center space-x-2">
-                              <button
-                                onClick={() => handleEditInvoice(invoice)}
-                                className="text-blue-500 hover:text-blue-700"
-                              >
-                                <Edit className="w-4 h-4" />
-                              </button>
-                              <button
-                                onClick={() => handleDeleteInvoice(invoice.id)}
-                                className="text-red-500 hover:text-red-700"
-                              >
-                              <Trash2 className="w-4 h-4" />
-                              </button>
-                            </div>
-                          </div>
-                          <div className="space-y-1 text-sm">
-                            <div className="flex justify-between">
-                              <span className="text-gray-600">Total:</span>
+                      <div className="flex justify-between items-start mb-2">
+                        <h4 className="font-medium text-gray-900">{invoice.packageName}</h4>
+                        <div className="flex items-center space-x-2">
+                          <button
+                            onClick={() => handleEditInvoice(invoice)}
+                            className="text-blue-500 hover:text-blue-700"
+                          >
+                            <Edit className="w-4 h-4" />
+                          </button>
+                          <button
+                            onClick={() => handleDeleteInvoice(invoice.id)}
+                            className="text-red-500 hover:text-red-700"
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </button>
+                        </div>
+                      </div>
+                      <div className="space-y-1 text-sm">
+                        <div className="flex justify-between">
+                          <span className="text-gray-600">Total:</span>
                           <span className="font-medium">RM {Number(invoice.amount).toLocaleString()}</span>
-                            </div>
-                            <div className="flex justify-between">
-                              <span className="text-gray-600">Paid:</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span className="text-gray-600">Paid:</span>
                           <span className="text-green-600">RM {Number(invoice.paid).toLocaleString()}</span>
-                            </div>
-                            <div className="flex justify-between">
-                              <span className="text-gray-600">Due:</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span className="text-gray-600">Due:</span>
                           <span className="text-red-600">RM {Number(invoice.due).toLocaleString()}</span>
-                            </div>
-                          </div>
-                          <div className="mt-2 pt-2 border-t border-gray-100">
-                            <div className="flex items-center justify-between mb-2">
-                              <p className="text-xs text-gray-500">Payment Details</p>
-                              <button
-                                onClick={() => {
-                                  setSelectedInvoiceForPayment(invoice);
-                                  setShowPaymentModal(true);
-                                }}
-                                className="text-blue-600 hover:text-blue-800 text-xs"
-                              >
-                                + Add Payment
-                              </button>
-                            </div>
-                            
-                            {/* Payment Transactions */}
-                            <div className="space-y-1">
-                              {clientPayments
-                                .filter(payment => payment.invoiceId === invoice.id)
+                        </div>
+                      </div>
+                      <div className="mt-2 pt-2 border-t border-gray-100">
+                        <div className="flex items-center justify-between mb-2">
+                          <p className="text-xs text-gray-500">Payment Details</p>
+                          <button
+                            onClick={() => {
+                              setSelectedInvoiceForPayment(invoice);
+                              setShowPaymentModal(true);
+                            }}
+                            className="text-blue-600 hover:text-blue-800 text-xs"
+                          >
+                            + Add Payment
+                          </button>
+                        </div>
+
+                        {/* Payment Transactions */}
+                        <div className="space-y-1">
+                          {clientPayments
+                            .filter(payment => payment.invoiceId === invoice.id)
                             .map((payment) => (
                               <div key={payment.id} className="flex items-center justify-between p-2 bg-green-50 rounded border border-green-200">
-                                    <div className="flex-1">
-                                      <div className="flex justify-between items-center">
+                                <div className="flex-1">
+                                  <div className="flex justify-between items-center">
                                     <span className="text-xs font-medium text-green-800">
-                                          RM {payment.amount.toLocaleString()}
-                                        </span>
+                                      RM {payment.amount.toLocaleString()}
+                                    </span>
                                     <span className="text-xs text-green-600">
-                                          {new Date(payment.paidAt).toLocaleDateString()}
-                                        </span>
-                                      </div>
-                                  <div className="text-xs text-green-600">
-                                        {payment.paymentSource} • {payment.status}
-                                      </div>
-                                    </div>
-                                    <div className="flex items-center space-x-1 ml-2">
-                                      {/* Receipt buttons */}
-                                      {(payment.receiptFileUrl || payment.receiptUrl) && (
-                                        <>
-                                          <button
-                                            onClick={() => handleViewReceipt(payment.receiptFileUrl || payment.receiptUrl || '')}
-                                            className="px-2 py-1 text-xs bg-green-100 text-green-700 rounded border border-green-200 hover:bg-green-200 transition-colors"
-                                            title="View Receipt"
-                                          >
-                                            View Attachment
-                                          </button>
-                                          <button
-                                            onClick={() => handleDownloadReceipt(payment.receiptFileUrl || payment.receiptUrl || '', payment.id)}
-                                            className="text-blue-600 hover:text-blue-800"
-                                            title="Download Receipt"
-                                          >
-                                            <Download className="w-3 h-3" />
-                                          </button>
-                                        </>
-                                      )}
-                                      <button
-                                        onClick={() => handleEditPayment(payment)}
-                                        className="text-blue-500 hover:text-blue-700"
-                                        title="Edit Payment"
-                                      >
-                                        <Edit className="w-3 h-3" />
-                                      </button>
-                                      <button
-                                        onClick={() => handleDeletePayment(payment.id)}
-                                        className="text-red-500 hover:text-red-700"
-                                        title="Delete Payment"
-                                      >
-                                        <Trash2 className="w-3 h-3" />
-                                      </button>
-                                    </div>
+                                      {new Date(payment.paidAt).toLocaleDateString()}
+                                    </span>
                                   </div>
+                                  <div className="text-xs text-green-600">
+                                    {payment.paymentSource} • {payment.status}
+                                  </div>
+                                </div>
+                                <div className="flex items-center space-x-1 ml-2">
+                                  {/* Receipt buttons */}
+                                  {(payment.receiptFileUrl || payment.receiptUrl) && (
+                                    <>
+                                      <button
+                                        onClick={() => handleViewReceipt(payment.receiptFileUrl || payment.receiptUrl || '')}
+                                        className="px-2 py-1 text-xs bg-green-100 text-green-700 rounded border border-green-200 hover:bg-green-200 transition-colors"
+                                        title="View Receipt"
+                                      >
+                                        View Attachment
+                                      </button>
+                                      <button
+                                        onClick={() => handleDownloadReceipt(payment.receiptFileUrl || payment.receiptUrl || '', payment.id)}
+                                        className="text-blue-600 hover:text-blue-800"
+                                        title="Download Receipt"
+                                      >
+                                        <Download className="w-3 h-3" />
+                                      </button>
+                                    </>
+                                  )}
+                                  <button
+                                    onClick={() => handleEditPayment(payment)}
+                                    className="text-blue-500 hover:text-blue-700"
+                                    title="Edit Payment"
+                                  >
+                                    <Edit className="w-3 h-3" />
+                                  </button>
+                                  <button
+                                    onClick={() => handleDeletePayment(payment.id)}
+                                    className="text-red-500 hover:text-red-700"
+                                    title="Delete Payment"
+                                  >
+                                    <Trash2 className="w-3 h-3" />
+                                  </button>
+                                </div>
+                              </div>
                             ))}
-                            </div>
-                            
-                            {clientPayments.filter(payment => payment.invoiceId === invoice.id).length === 0 && (
-                              <p className="text-xs text-gray-400 italic">No payments recorded</p>
-                            )}
-                          </div>
+                        </div>
+
+                        {clientPayments.filter(payment => payment.invoiceId === invoice.id).length === 0 && (
+                          <p className="text-xs text-gray-400 italic">No payments recorded</p>
+                        )}
+                      </div>
                     </div>
                   ))}
                 </div>
@@ -740,7 +832,7 @@ const ClientProfile: React.FC<ClientProfileProps> = ({ clientId, onBack }) => {
           onClose={() => setShowComponentModal(null)}
           onSave={(componentData: ComponentData) => handleSaveComponent(componentData)}
           clientId={client.id}
-          invoiceId={showComponentModal} 
+          invoiceId={showComponentModal}
         />
       )}
 
